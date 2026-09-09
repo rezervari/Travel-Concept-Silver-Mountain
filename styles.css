@@ -199,6 +199,7 @@
   }
   .price-line .amount{font-size:1.9rem;font-weight:800;color:var(--blue-dark);}
   .price-line .amount span{font-size:.9rem;font-weight:500;color:var(--gray);}
+  .price-teaser-hint{font-size:.72rem;color:var(--green);font-weight:600;margin-top:2px;max-width:170px;}
   .rating-pill{
     background:var(--blue-dark);color:var(--white);font-weight:800;
     padding:5px 9px;border-radius:6px;font-size:.85rem;display:inline-block;margin-bottom:8px;
@@ -318,6 +319,12 @@
   .summary-row{display:flex;justify-content:space-between;font-size:.88rem;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.15);}
   .summary-row.total{border-bottom:none;font-weight:800;font-size:1.1rem;padding-top:14px;color:var(--yellow);}
   .summary-empty{font-size:.85rem;color:#cfe0f5;}
+  .discount-badge{
+    display:inline-block;background:var(--yellow);color:var(--blue-dark);
+    font-weight:800;font-size:.78rem;padding:6px 12px;border-radius:999px;
+    margin:6px 0 10px;
+  }
+  .price-strike{text-decoration:line-through;color:#9fb6d6;font-weight:500;}
 
   /* MAP */
   .map-embed{

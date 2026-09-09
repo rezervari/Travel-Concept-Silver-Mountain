@@ -6,91 +6,24 @@
   /* ---------- CONFIG ---------- */
   var CONTACT_EMAIL = "mircea.george.vulcanescu@gmail.com";
   var BOOKED_JSON = "booked-dates.json"; // generat periodic de update-calendar.js
-  var PRICING_JSON = "pricing.json"; // editezi doar acest fisier pentru schimbari de pret/sezon
+  var PRICING_JSON = "pricing.json";     // tarife pe sezon + trepte de reducere
+
+  // Fallback defensiv daca pricing.json nu poate fi incarcat
+  var FALLBACK_PRICING = {
+    currency: "RON",
+    defaultPrice: 700,
+    globalMinNights: 2,
+    defaultDiscountTiers: [
+      { minNights:2, discount:10 }, { minNights:3, discount:15 },
+      { minNights:4, discount:20 }, { minNights:5, discount:25 },
+      { minNights:6, discount:30 }, { minNights:7, discount:33 }
+    ],
+    seasons: []
+  };
+  var pricingData = null;
 
   var bookedRanges = []; // [{start:Date, end:Date}] end este exclusiv (ca in ICS)
   var calStatusEl = document.getElementById("calStatus");
-
-  /* fallback folosit doar daca pricing.json lipseste sau esueaza la incarcare */
-  var pricingData = {
-    currency: "RON",
-    defaultPrice: 800,
-    globalMinNights: 2,
-    defaultDiscountTiers: [{ minNights: 2, discount: 0 }],
-    seasons: []
-  };
-
-  function loadPricing(){
-    return fetch(PRICING_JSON, {cache:"no-store"})
-      .then(function(res){
-        if(!res.ok) throw new Error("missing");
-        return res.json();
-      })
-      .then(function(data){
-        pricingData = data;
-      })
-      .catch(function(){
-        console.warn("Nu am putut incarca pricing.json, folosesc tariful implicit.");
-      });
-  }
-
-  function toISO(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
-
-  function findSeasonForDate(date){
-    var iso = toISO(date);
-    for(var i=0;i<(pricingData.seasons||[]).length;i++){
-      var s = pricingData.seasons[i];
-      if(iso >= s.start && iso <= s.end) return s;
-    }
-    return null;
-  }
-
-  function getPricingContext(checkInDate){
-    var season = findSeasonForDate(checkInDate);
-    return {
-      basePrice: season ? season.price : pricingData.defaultPrice,
-      tiers: (season && season.discountTiers) ? season.discountTiers : pricingData.defaultDiscountTiers,
-      minNights: (season && season.minNights) ? season.minNights : (pricingData.globalMinNights || 1),
-      label: season ? season.label : null
-    };
-  }
-
-  function getDiscountForNights(nights, tiers){
-    var sorted = tiers.slice().sort(function(a,b){ return a.minNights - b.minNights; });
-    var applicable = 0;
-    for(var i=0;i<sorted.length;i++){
-      if(nights >= sorted[i].minNights) applicable = sorted[i].discount;
-    }
-    return applicable;
-  }
-
-  function calculateStayPrice(checkInDate, checkOutDate){
-    var nights = Math.round((checkOutDate - checkInDate) / 86400000);
-    if(nights <= 0) return { error: "Interval invalid", nights: nights };
-
-    var ctx = getPricingContext(checkInDate);
-
-    if(nights < ctx.minNights){
-      return {
-        error: "Sejur minim " + ctx.minNights + " nopti" + (ctx.label ? " in " + ctx.label : "") + ".",
-        nights: nights,
-        minNights: ctx.minNights
-      };
-    }
-
-    var discountPercent = getDiscountForNights(nights, ctx.tiers);
-    var pricePerNight = Math.round(ctx.basePrice * (1 - discountPercent/100));
-    var total = pricePerNight * nights;
-
-    return {
-      nights: nights,
-      basePrice: ctx.basePrice,
-      discountPercent: discountPercent,
-      pricePerNight: pricePerNight,
-      total: total,
-      label: ctx.label
-    };
-  }
 
   function setStatus(msg, isError){
     calStatusEl.innerHTML = '<span class="dot"></span> ' + msg;
@@ -126,6 +59,100 @@
   }
 
   function stripTime(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+  /* ---------- PRICING ENGINE (tarife pe sezon + reduceri progresive) ---------- */
+  var headerPriceEl = document.getElementById("headerPriceValue");
+  var infoPriceEl = document.getElementById("infoPriceValue");
+  var infoPriceHintEl = document.getElementById("infoPriceHint");
+
+  function loadPricing(){
+    fetch(PRICING_JSON, {cache:"no-store"})
+      .then(function(res){ if(!res.ok) throw new Error("missing"); return res.json(); })
+      .then(function(data){
+        pricingData = data;
+        renderTeaserPrice();
+        updateSummary();
+      })
+      .catch(function(){
+        pricingData = FALLBACK_PRICING;
+        renderTeaserPrice();
+        updateSummary();
+      });
+  }
+
+  function getSeasonForDate(date){
+    if(!pricingData || !pricingData.seasons) return null;
+    var t = stripTime(date).getTime();
+    for(var i=0;i<pricingData.seasons.length;i++){
+      var s = pricingData.seasons[i];
+      var start = stripTime(new Date(s.start)).getTime();
+      var end = stripTime(new Date(s.end)).getTime();
+      if(t >= start && t <= end) return s;
+    }
+    return null;
+  }
+
+  function getNightPrice(date){
+    var season = getSeasonForDate(date);
+    if(season && typeof season.price === "number") return season.price;
+    return (pricingData && pricingData.defaultPrice) || FALLBACK_PRICING.defaultPrice;
+  }
+
+  function getDiscountTiers(checkinDate){
+    var season = getSeasonForDate(checkinDate);
+    if(season && season.discountTiers && season.discountTiers.length) return season.discountTiers;
+    return (pricingData && pricingData.defaultDiscountTiers) || FALLBACK_PRICING.defaultDiscountTiers;
+  }
+
+  function getDiscountPct(nights, tiers){
+    var pct = 0;
+    (tiers || []).forEach(function(t){
+      if(nights >= t.minNights && t.discount > pct) pct = t.discount;
+    });
+    return pct;
+  }
+
+  function getGlobalMinNights(){
+    return (pricingData && pricingData.globalMinNights) || FALLBACK_PRICING.globalMinNights || 1;
+  }
+
+  function getMinBasePrice(){
+    var data = pricingData || FALLBACK_PRICING;
+    var prices = [data.defaultPrice];
+    (data.seasons || []).forEach(function(s){ prices.push(s.price); });
+    return Math.min.apply(null, prices.filter(function(p){ return typeof p === "number"; }));
+  }
+
+  function computeStay(ciDate, coDate){
+    var nights = Math.round((coDate - ciDate) / 86400000);
+    var rawTotal = 0;
+    var d = new Date(ciDate);
+    while(d < coDate){
+      rawTotal += getNightPrice(d);
+      d.setDate(d.getDate()+1);
+    }
+    var tiers = getDiscountTiers(ciDate);
+    var pct = getDiscountPct(nights, tiers);
+    var total = Math.round(rawTotal * (100 - pct) / 100);
+    return {
+      nights: nights,
+      rawTotal: rawTotal,
+      discountPct: pct,
+      total: total,
+      avgPerNight: Math.round(rawTotal / nights),
+      avgPerNightDiscounted: Math.round(total / nights)
+    };
+  }
+
+  function renderTeaserPrice(){
+    var minPrice = getMinBasePrice();
+    if(headerPriceEl) headerPriceEl.textContent = minPrice + " RON";
+    if(infoPriceEl) infoPriceEl.textContent = minPrice + " RON";
+    if(infoPriceHintEl){
+      var maxDiscount = getDiscountPct(99, (pricingData && pricingData.defaultDiscountTiers) || FALLBACK_PRICING.defaultDiscountTiers);
+      infoPriceHintEl.textContent = "Reduceri automate de la " + getGlobalMinNights() + " nopți — până la -" + maxDiscount + "% pentru șederi lungi.";
+    }
+  }
 
   /* ---------- CALENDAR RENDER ---------- */
   var today = stripTime(new Date());
@@ -310,49 +337,56 @@
     var ci = selection.checkin, co = selection.checkout;
 
     if(!ci || !co || co <= ci){
-      summaryBody.innerHTML = '<p class="summary-empty">Alege datele de check-in și check-out pentru a vedea prețul total.</p>';
+      var minPrice = getMinBasePrice();
+      summaryBody.innerHTML =
+        '<p class="summary-empty">Prețul pornește de la <b>' + minPrice + ' RON/noapte</b>. ' +
+        'Alege datele de check-in și check-out pentru a vedea prețul exact al sejurului, cu reducerea aplicată automat.</p>';
       rangeHint.innerHTML = 'Alege datele direct din <a href="#disponibilitate" class="hint-link">calendarul de disponibilitate</a> de mai sus — zilele ocupate sunt blocate automat.';
       rangeHint.style.color = "";
       return;
     }
 
-    var nights = Math.round((co - ci) / 86400000);
     var conflict = hasBookedBetween(ci, co);
-    var pricing = calculateStayPrice(ci, co);
+    var stay = computeStay(ci, co);
+    var minNights = getGlobalMinNights();
 
-    if(conflict){
+    if(stay.nights < minNights){
       summaryBody.innerHTML =
         '<div class="summary-row"><span>Check-in</span><span>' + fmtDate(ci) + '</span></div>' +
-        '<div class="summary-row"><span>Check-out</span><span>' + fmtDate(co) + '</span></div>';
-      rangeHint.textContent = "Atenție: intervalul selectat include zile deja ocupate. Alege alte date.";
+        '<div class="summary-row"><span>Check-out</span><span>' + fmtDate(co) + '</span></div>' +
+        '<p class="summary-empty" style="color:var(--red);margin-top:10px;">Sejur minim ' + minNights + ' nopți.</p>';
+      rangeHint.textContent = "Sejurul minim acceptat este de " + minNights + " nopți. Alege un interval mai lung.";
       rangeHint.style.color = "var(--red)";
       return;
     }
 
-    if(pricing.error){
-      summaryBody.innerHTML =
-        '<div class="summary-row"><span>Check-in</span><span>' + fmtDate(ci) + '</span></div>' +
-        '<div class="summary-row"><span>Check-out</span><span>' + fmtDate(co) + '</span></div>';
-      rangeHint.textContent = pricing.error;
-      rangeHint.style.color = "var(--red)";
-      return;
-    }
-
-    var grossTotal = pricing.basePrice * pricing.nights;
     var rows =
       '<div class="summary-row"><span>Check-in</span><span>' + fmtDate(ci) + '</span></div>' +
-      '<div class="summary-row"><span>Check-out</span><span>' + fmtDate(co) + '</span></div>' +
-      '<div class="summary-row"><span>' + pricing.nights + ' nopți × ' + pricing.basePrice + ' RON</span><span>' + grossTotal + ' RON</span></div>';
+      '<div class="summary-row"><span>Check-out</span><span>' + fmtDate(co) + '</span></div>';
 
-    if(pricing.discountPercent > 0){
-      rows += '<div class="summary-row"><span>Discount sejur (' + pricing.discountPercent + '%)</span><span>−' + (grossTotal - pricing.total) + ' RON</span></div>';
+    if(stay.discountPct > 0){
+      rows +=
+        '<div class="discount-badge">🎉 Reducere -' + stay.discountPct + '% pentru ' + stay.nights + ' nopți</div>' +
+        '<div class="summary-row"><span>' + stay.nights + ' nopți × ' + stay.avgPerNight + ' RON</span><span class="price-strike">' + stay.rawTotal + ' RON</span></div>' +
+        '<div class="summary-row"><span>Preț cu reducere</span><span>' + stay.total + ' RON</span></div>';
+    } else {
+      rows +=
+        '<div class="summary-row"><span>' + stay.nights + ' nopți × ' + stay.avgPerNight + ' RON</span><span>' + stay.total + ' RON</span></div>';
     }
+    rows += '<div class="summary-row total"><span>Total</span><span>' + stay.total + ' RON</span></div>';
 
-    rows += '<div class="summary-row total"><span>Total</span><span>' + pricing.total + ' RON</span></div>';
     summaryBody.innerHTML = rows;
 
-    rangeHint.textContent = nights + " nopți selectate — total " + pricing.total + " RON.";
-    rangeHint.style.color = "var(--green)";
+    if(conflict){
+      rangeHint.textContent = "Atenție: intervalul selectat include zile deja ocupate. Alege alte date.";
+      rangeHint.style.color = "var(--red)";
+    } else if(stay.discountPct > 0){
+      rangeHint.textContent = stay.nights + " nopți selectate — ai economisit " + (stay.rawTotal - stay.total) + " RON cu reducerea de -" + stay.discountPct + "%.";
+      rangeHint.style.color = "var(--green)";
+    } else {
+      rangeHint.textContent = stay.nights + " nopți selectate — total " + stay.total + " RON.";
+      rangeHint.style.color = "var(--green)";
+    }
   }
 
   syncFormFromSelection();
@@ -381,16 +415,16 @@
       msgEl.className = "form-msg show warn";
       return;
     }
-
-    var pricing = calculateStayPrice(ciDate, coDate);
-    if(pricing.error){
-      msgEl.textContent = pricing.error;
+    var minNights = getGlobalMinNights();
+    var checkNights = Math.round((coDate - ciDate) / 86400000);
+    if(checkNights < minNights){
+      msgEl.textContent = "Sejurul minim acceptat este de " + minNights + " nopți.";
       msgEl.className = "form-msg show warn";
       return;
     }
 
     var ci = toInputValue(ciDate), co = toInputValue(coDate);
-    var nights = pricing.nights;
+    var stay = computeStay(ciDate, coDate);
 
     var subject = "Solicitare rezervare A13 Travel Concept — " + ci + " → " + co;
     var body =
@@ -400,11 +434,10 @@
       "Email: " + email + "\n\n" +
       "Check-in: " + ci + "\n" +
       "Check-out: " + co + "\n" +
-      "Nopți: " + nights + "\n" +
-      "Tarif de bază/noapte: " + pricing.basePrice + " RON\n" +
-      (pricing.discountPercent > 0 ? "Discount sejur: " + pricing.discountPercent + "%\n" : "") +
-      "Preț/noapte după discount: " + pricing.pricePerNight + " RON\n" +
-      "Total: " + pricing.total + " RON\n";
+      "Nopți: " + stay.nights + "\n" +
+      "Preț de bază: " + stay.rawTotal + " RON\n" +
+      (stay.discountPct > 0 ? "Reducere aplicată: -" + stay.discountPct + "%\n" : "") +
+      "Total: " + stay.total + " RON\n";
 
     var mailto = "mailto:" + CONTACT_EMAIL +
       "?subject=" + encodeURIComponent(subject) +
@@ -567,6 +600,6 @@
   });
 
   /* ---------- INIT ---------- */
+  loadPricing();
   loadCalendar();
-  loadPricing().then(function(){ updateSummary(); });
 })();

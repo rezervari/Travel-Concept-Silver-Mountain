@@ -40,7 +40,7 @@
   "url": "https://rezervari.github.io/Travel-Concept-Silver-Mountain/",
   "hasMap": "https://maps.app.goo.gl/cZQhVEtjvEc3Wof48",
   "telephone": "+40744332234",
-  "priceRange": "800 RON",
+  "priceRange": "700 - 1500 RON",
   "address": {
     "@type": "PostalAddress",
     "streetAddress": "Complex Silver Mountain",
@@ -59,9 +59,10 @@
     "ratingValue": "5"
   },
   "makesOffer": {
-    "@type": "Offer",
+    "@type": "AggregateOffer",
     "name": "Rezervare Directă Fără Comisioane",
-    "price": "800",
+    "lowPrice": "700",
+    "highPrice": "1500",
     "priceCurrency": "RON",
     "availability": "https://schema.org/InStock"
   }
@@ -89,7 +90,7 @@
     </nav>
 
     <div class="header-right">
-      <div class="header-price"><span class="hp-label">de la</span> <b>800 RON</b><span class="hp-unit">/noapte</span></div>
+      <div class="header-price"><span class="hp-label">de la</span> <b id="headerPriceValue">700 RON</b><span class="hp-unit">/noapte</span></div>
       <a href="#rezervare" class="header-cta">Rezervă Direct</a>
       <button type="button" class="menu-toggle" id="menuToggle" aria-label="Deschide meniul" aria-expanded="false" aria-controls="mobileNav">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
@@ -151,9 +152,10 @@
         <span class="rating-pill">Silver Mountain</span>
         <div class="price-line">
           <div>
-            <div style="font-size:.85rem;color:var(--gray);">Preț direct</div>
+            <div style="font-size:.85rem;color:var(--gray);">Preț direct, de la</div>
+            <div class="price-teaser-hint" id="infoPriceHint">Reduceri automate pentru șederi lungi.</div>
           </div>
-          <div class="amount">800 RON <span>/ noapte</span></div>
+          <div class="amount"><span id="infoPriceValue">700</span> RON <span>/ noapte</span></div>
         </div>
         <p class="desc">
           Travel Concept A13 combină funcționalitatea cu un stil rafinat: mobilier de calitate superioară, finisaje atent alese și un ambient primitor, gândit pentru sejururi memorabile la munte.
@@ -459,7 +461,7 @@
       <div class="summary-card">
         <h3>Rezumatul rezervării</h3>
         <div id="summaryBody">
-          <p class="summary-empty">Alege datele de check-in și check-out pentru a vedea prețul total.</p>
+          <p class="summary-empty">Prețul pornește de la <b>700 RON/noapte</b>. Alege datele de check-in și check-out pentru a vedea prețul exact al sejurului, cu reducerea aplicată automat.</p>
         </div>
       </div>
     </div>
