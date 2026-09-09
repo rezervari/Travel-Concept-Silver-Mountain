@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://rezervari.github.io/Travel-Concept-Silver-Mountain/sitemap.xml
