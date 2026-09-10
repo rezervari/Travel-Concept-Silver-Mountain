@@ -84,6 +84,7 @@
       <a href="#apartament">Apartament</a>
       <a href="#zona">Zonă</a>
       <a href="#facilitati">Facilități</a>
+      <a href="#recenzii">Recenzii</a>
       <a href="#disponibilitate">Disponibilitate</a>
       <a href="#harta">Locație</a>
       <a href="#rezervare">Rezervare</a>
@@ -102,6 +103,7 @@
     <a href="#apartament">🏠 Apartament</a>
     <a href="#zona">📍 Zonă</a>
     <a href="#facilitati">✔️ Facilități</a>
+    <a href="#recenzii">⭐ Recenzii</a>
     <a href="#disponibilitate">📅 Disponibilitate</a>
     <a href="#harta">🗺️ Locație</a>
     <a href="#rezervare" class="mobile-nav-cta">Solicită rezervarea</a>
@@ -359,6 +361,25 @@
       </details>
 
     </div>
+  </div>
+</section>
+
+<section id="recenzii" style="background:var(--bg);border-top:1px solid var(--line);">
+  <div class="wrap">
+    <h2 class="section-title">Ce spun oaspeții noștri</h2>
+    <p class="section-sub">Recenzii reale de pe Google, Booking.com și Airbnb — actualizate periodic.</p>
+
+    <div class="reviews-summary" id="reviewsSummary" aria-live="polite"></div>
+
+    <div class="reviews-tabs" id="reviewsTabs" role="tablist" aria-label="Filtrează recenziile după platformă"></div>
+
+    <div class="reviews-slider-wrap">
+      <button type="button" class="reviews-nav prev" id="reviewsPrev" aria-label="Recenzia anterioară">‹</button>
+      <div class="reviews-track" id="reviewsTrack" aria-live="polite"></div>
+      <button type="button" class="reviews-nav next" id="reviewsNext" aria-label="Recenzia următoare">›</button>
+    </div>
+
+    <div class="reviews-dots" id="reviewsDots"></div>
   </div>
 </section>
 

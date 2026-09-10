@@ -1,0 +1,72 @@
+{
+  "updatedAt": "2026-09-09T00:00:00.000Z",
+  "placeId": "ChIJF2VRokJFs0ARyQl2NfVA3hw",
+  "platforms": {
+    "google": {
+      "label": "Google",
+      "url": "https://maps.app.goo.gl/cZQhVEtjvEc3Wof48",
+      "rating": 5.0,
+      "totalReviews": 1,
+      "scaleMax": 5
+    },
+    "booking": {
+      "label": "Booking.com",
+      "url": "https://www.booking.com/hotel/ro/silver-mountain-luxury-apartment-a13.ro.html",
+      "rating": 9.2,
+      "totalReviews": 6,
+      "scaleMax": 10
+    },
+    "airbnb": {
+      "label": "Airbnb",
+      "url": "https://www.airbnb.ie/rooms/1215012792206471225",
+      "rating": 5.0,
+      "totalReviews": 2,
+      "scaleMax": 5
+    }
+  },
+  "reviews": [
+    {
+      "platform": "google",
+      "author": "Andreea M.",
+      "rating": 5,
+      "date": "2026-08-20",
+      "text": "Apartament exact ca în poze, foarte curat, gazda a răspuns imediat la mesaje. Balconul cu vedere spre munte a fost un plus uriaș."
+    },
+    {
+      "platform": "google",
+      "author": "Radu P.",
+      "rating": 5,
+      "date": "2026-07-30",
+      "text": "Locație excelentă în Poiana Brașov, parcare ușoară, tot ce ne trebuia în bucătărie era acolo."
+    },
+    {
+      "platform": "booking",
+      "author": "Ioana T.",
+      "rating": 9.6,
+      "date": "2026-08-05",
+      "text": "Cazare impecabilă, cele două băi separate au fost foarte practice pentru cele două familii."
+    },
+    {
+      "platform": "booking",
+      "author": "Marius D.",
+      "rating": 9.2,
+      "date": "2026-06-18",
+      "text": "Check-in flexibil, comunicare rapidă cu gazda, recomand cu încredere."
+    },
+    {
+      "platform": "airbnb",
+      "author": "Alexandru",
+      "rating": 5,
+      "date": "2024-09-12",
+      "text": "Un apartament excelent cu tot ce iti trebuie si terase cu vedere la padure. 
+Recomand cu caldura si pentru sederi mai lungi."
+    },
+    {
+      "platform": "airbnb",
+      "author": "Cristian V.",
+      "rating": 5,
+      "date": "2026-05-22",
+      "text": "Cea mai bună cazare din Poiana Brașov la prețul ăsta. Vom reveni!"
+    }
+  ]
+}

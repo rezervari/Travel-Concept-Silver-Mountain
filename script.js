@@ -478,6 +478,144 @@
     }, true);
   });
 
+  /* ---------- RECENZII (Google / Booking / Airbnb) ---------- */
+  var REVIEWS_JSON = "reviews.json";
+  var reviewsData = null;
+  var reviewsFiltered = [];
+  var reviewsIndex = 0;
+  var reviewsAutoplayTimer = null;
+
+  var reviewsSummaryEl = document.getElementById("reviewsSummary");
+  var reviewsTabsEl = document.getElementById("reviewsTabs");
+  var reviewsTrackEl = document.getElementById("reviewsTrack");
+  var reviewsDotsEl = document.getElementById("reviewsDots");
+  var reviewsPrevBtn = document.getElementById("reviewsPrev");
+  var reviewsNextBtn = document.getElementById("reviewsNext");
+
+  var PLATFORM_ICON = { google:"G", booking:"B.com", airbnb:"🅰️" };
+
+  function escapeHtml(str){
+    return String(str == null ? "" : str)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+  }
+
+  function loadReviews(){
+    if(!reviewsTrackEl) return; // sectiunea nu exista in pagina
+    fetch(REVIEWS_JSON, {cache:"no-store"})
+      .then(function(res){ if(!res.ok) throw new Error("missing"); return res.json(); })
+      .then(function(data){
+        reviewsData = data;
+        renderReviewsSummary();
+        renderReviewsTabs("all");
+      })
+      .catch(function(){
+        reviewsTrackEl.innerHTML = '<p class="summary-empty">Recenziile nu au putut fi încărcate momentan.</p>';
+      });
+  }
+
+  function starString(rating, scaleMax){
+    var r5 = scaleMax === 10 ? rating / 2 : rating;
+    var full = Math.round(r5);
+    var s = "";
+    for(var i=0;i<5;i++){ s += (i < full ? "★" : "☆"); }
+    return s;
+  }
+
+  function renderReviewsSummary(){
+    if(!reviewsData || !reviewsSummaryEl) return;
+    var html = "";
+    Object.keys(reviewsData.platforms).forEach(function(key){
+      var p = reviewsData.platforms[key];
+      html += '<a class="review-platform-pill" href="' + (p.url || "#") + '" target="_blank" rel="noopener">' +
+        '<span class="rp-badge rp-' + key + '">' + PLATFORM_ICON[key] + '</span>' +
+        '<span class="rp-score">' + p.rating + (p.scaleMax === 10 ? "/10" : "/5") + '</span>' +
+        '<span class="rp-count">' + p.totalReviews + ' recenzii</span>' +
+        '</a>';
+    });
+    reviewsSummaryEl.innerHTML = html;
+  }
+
+  function renderReviewsTabs(activeKey){
+    if(!reviewsData || !reviewsTabsEl) return;
+    var keys = ["all"].concat(Object.keys(reviewsData.platforms));
+    reviewsTabsEl.innerHTML = "";
+    keys.forEach(function(key){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "reviews-tab" + (key === activeKey ? " active" : "");
+      btn.textContent = key === "all" ? "Toate" : reviewsData.platforms[key].label;
+      btn.setAttribute("role","tab");
+      btn.addEventListener("click", function(){
+        renderReviewsTabs(key);
+        setReviewsFilter(key);
+      });
+      reviewsTabsEl.appendChild(btn);
+    });
+    if(!reviewsFiltered.length || activeKey !== undefined) setReviewsFilter(activeKey);
+  }
+
+  function setReviewsFilter(key){
+    if(!reviewsData) return;
+    reviewsFiltered = key === "all" ? reviewsData.reviews.slice() :
+      reviewsData.reviews.filter(function(r){ return r.platform === key; });
+    reviewsFiltered.sort(function(a,b){ return new Date(b.date) - new Date(a.date); });
+    reviewsIndex = 0;
+    renderReviewsTrack();
+  }
+
+  function fmtReviewDate(iso){
+    var d = new Date(iso);
+    return d.toLocaleDateString("ro-RO", { day:"2-digit", month:"short", year:"numeric" });
+  }
+
+  function renderReviewsTrack(){
+    if(!reviewsTrackEl) return;
+    if(!reviewsFiltered.length){
+      reviewsTrackEl.innerHTML = '<p class="summary-empty">Nu există recenzii pentru această platformă încă.</p>';
+      reviewsDotsEl.innerHTML = "";
+      return;
+    }
+    reviewsTrackEl.innerHTML = reviewsFiltered.map(function(r){
+      var p = reviewsData.platforms[r.platform];
+      return '<div class="review-card">' +
+        '<div class="review-card-top">' +
+          '<span class="rp-badge rp-' + r.platform + '">' + PLATFORM_ICON[r.platform] + '</span>' +
+          '<span class="review-stars">' + starString(r.rating, p.scaleMax) + '</span>' +
+        '</div>' +
+        '<p class="review-text">' + escapeHtml(r.text) + '</p>' +
+        '<div class="review-card-bottom">' +
+          '<span class="review-author">' + escapeHtml(r.author) + '</span>' +
+          '<span class="review-date">' + fmtReviewDate(r.date) + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+
+    reviewsDotsEl.innerHTML = reviewsFiltered.map(function(_, i){
+      return '<button type="button" class="review-dot' + (i===0 ? " active" : "") + '" aria-label="Recenzia ' + (i+1) + '"></button>';
+    }).join("");
+    Array.prototype.forEach.call(reviewsDotsEl.querySelectorAll(".review-dot"), function(dot, i){
+      dot.addEventListener("click", function(){ goToReview(i); });
+    });
+
+    goToReview(0);
+  }
+
+  function goToReview(i){
+    if(!reviewsFiltered.length) return;
+    reviewsIndex = (i + reviewsFiltered.length) % reviewsFiltered.length;
+    var card = reviewsTrackEl.children[reviewsIndex];
+    if(card){
+      reviewsTrackEl.scrollTo({ left: card.offsetLeft - reviewsTrackEl.offsetLeft, behavior:"smooth" });
+    }
+    Array.prototype.forEach.call(reviewsDotsEl.querySelectorAll(".review-dot"), function(dot, idx){
+      dot.classList.toggle("active", idx === reviewsIndex);
+    });
+  }
+
+  if(reviewsPrevBtn) reviewsPrevBtn.addEventListener("click", function(){ goToReview(reviewsIndex - 1); });
+  if(reviewsNextBtn) reviewsNextBtn.addEventListener("click", function(){ goToReview(reviewsIndex + 1); });
+
   /* ---------- GALERIE FOTO ---------- */
   var GALLERY = [
     { key:"living",             label:"Living, luat masa & bucătărie", max:8 },
@@ -599,7 +737,191 @@
     renderLightbox();
   });
 
+  /* ---------- RECENZII (Google / Booking.com / Airbnb) ---------- */
+  var REVIEWS_JSON = "reviews.json"; // regenerat periodic (Google auto, Booking/Airbnb manual)
+  var reviewsData = null;
+  var reviewsFilter = "all";
+  var reviewsActiveDot = 0;
+
+  var PLATFORM_META = {
+    google:  { label:"Google",       badge:"G", cls:"rp-google",  scale:5  },
+    booking: { label:"Booking.com",  badge:"B", cls:"rp-booking", scale:10 },
+    airbnb:  { label:"Airbnb",       badge:"A", cls:"rp-airbnb",  scale:5  }
+  };
+
+  var reviewsSummaryEl = document.getElementById("reviewsSummary");
+  var reviewsTabsEl = document.getElementById("reviewsTabs");
+  var reviewsTrackEl = document.getElementById("reviewsTrack");
+  var reviewsDotsEl = document.getElementById("reviewsDots");
+  var reviewsPrevBtn = document.getElementById("reviewsPrev");
+  var reviewsNextBtn = document.getElementById("reviewsNext");
+
+  function loadReviews(){
+    if(!reviewsSummaryEl || !reviewsTrackEl) return; // sectiunea nu exista in aceasta pagina
+    fetch(REVIEWS_JSON, {cache:"no-store"})
+      .then(function(res){ if(!res.ok) throw new Error("missing"); return res.json(); })
+      .then(function(data){ reviewsData = data; initReviewsUI(); })
+      .catch(function(){
+        reviewsSummaryEl.innerHTML = '<span style="color:var(--gray);font-size:.85rem;">Recenziile nu au putut fi încărcate momentan.</span>';
+      });
+  }
+
+  function starString(rating, scale){
+    var pct = Math.max(0, Math.min(1, rating / scale));
+    var filled = Math.round(pct * 5);
+    var out = "";
+    for(var i=0;i<5;i++) out += (i < filled) ? "★" : "☆";
+    return out;
+  }
+
+  function fmtReviewDate(iso){
+    try{
+      return new Date(iso).toLocaleDateString("ro-RO", { day:"2-digit", month:"short", year:"numeric" });
+    } catch(e){ return iso || ""; }
+  }
+
+  function renderReviewsSummary(){
+    var platforms = (reviewsData && reviewsData.platforms) || {};
+    var html = "";
+    Object.keys(PLATFORM_META).forEach(function(key){
+      var p = platforms[key];
+      if(!p || !p.totalReviews) return;
+      var meta = PLATFORM_META[key];
+      var scale = p.scaleMax || meta.scale;
+      var inner =
+        '<span class="rp-badge ' + meta.cls + '">' + meta.badge + '</span>' +
+        '<span class="rp-score">' + p.rating + '/' + scale + '</span>' +
+        '<span class="rp-count">(' + p.totalReviews + ' recenzii)</span>';
+      html += p.url
+        ? '<a class="review-platform-pill" href="' + p.url + '" target="_blank" rel="noopener">' + inner + '</a>'
+        : '<span class="review-platform-pill">' + inner + '</span>';
+    });
+    reviewsSummaryEl.innerHTML = html || '<span style="color:var(--gray);font-size:.85rem;">Recenziile apar aici după prima sincronizare.</span>';
+  }
+
+  function renderReviewsTabs(){
+    var reviews = (reviewsData && reviewsData.reviews) || [];
+    var present = {};
+    reviews.forEach(function(r){ present[r.platform] = true; });
+
+    var tabs = [{ key:"all", label:"Toate" }];
+    Object.keys(PLATFORM_META).forEach(function(key){
+      if(present[key]) tabs.push({ key:key, label:PLATFORM_META[key].label });
+    });
+
+    reviewsTabsEl.innerHTML = "";
+    tabs.forEach(function(tab){
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "reviews-tab" + (tab.key === reviewsFilter ? " active" : "");
+      btn.setAttribute("role", "tab");
+      btn.textContent = tab.label;
+      btn.addEventListener("click", function(){
+        reviewsFilter = tab.key;
+        reviewsTabsEl.querySelectorAll(".reviews-tab").forEach(function(b){ b.classList.remove("active"); });
+        btn.classList.add("active");
+        renderReviewsTrack();
+      });
+      reviewsTabsEl.appendChild(btn);
+    });
+  }
+
+  function getFilteredReviews(){
+    var reviews = (reviewsData && reviewsData.reviews) || [];
+    return reviewsFilter === "all" ? reviews : reviews.filter(function(r){ return r.platform === reviewsFilter; });
+  }
+
+  function renderReviewsTrack(){
+    var list = getFilteredReviews();
+    reviewsActiveDot = 0;
+
+    if(!list.length){
+      reviewsTrackEl.innerHTML = '<p class="summary-empty" style="padding:10px 4px;">Nicio recenzie de pe această platformă momentan.</p>';
+      reviewsDotsEl.innerHTML = "";
+      return;
+    }
+
+    reviewsTrackEl.innerHTML = list.map(function(r){
+      var meta = PLATFORM_META[r.platform] || { badge:"?", cls:"" };
+      var platformInfo = (reviewsData && reviewsData.platforms && reviewsData.platforms[r.platform]) || {};
+      var scale = platformInfo.scaleMax || meta.scale || 5;
+      var scoreLabel = scale === 10 ? (r.rating + "/10") : starString(r.rating, scale);
+      return (
+        '<article class="review-card">' +
+          '<div class="review-card-top">' +
+            '<span class="rp-badge ' + meta.cls + '">' + meta.badge + '</span>' +
+            '<span class="review-stars">' + scoreLabel + '</span>' +
+          '</div>' +
+          '<p class="review-text">' + escapeHtml(r.text || "") + '</p>' +
+          '<div class="review-card-bottom">' +
+            '<span class="review-author">' + escapeHtml(r.author || "Oaspete") + '</span>' +
+            '<span>' + fmtReviewDate(r.date) + '</span>' +
+          '</div>' +
+        '</article>'
+      );
+    }).join("");
+
+    reviewsDotsEl.innerHTML = list.map(function(_, i){
+      return '<button type="button" class="review-dot' + (i === 0 ? " active" : "") + '" aria-label="Recenzia ' + (i+1) + '"></button>';
+    }).join("");
+
+    reviewsDotsEl.querySelectorAll(".review-dot").forEach(function(dot, i){
+      dot.addEventListener("click", function(){ scrollToReviewCard(i); });
+    });
+  }
+
+  function escapeHtml(str){
+    var div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function reviewCardStep(){
+    var card = reviewsTrackEl.querySelector(".review-card");
+    if(!card) return 300;
+    var style = window.getComputedStyle(reviewsTrackEl);
+    var gap = parseFloat(style.gap) || 16;
+    return card.getBoundingClientRect().width + gap;
+  }
+
+  function scrollToReviewCard(index){
+    var list = getFilteredReviews();
+    if(!list.length) return;
+    reviewsActiveDot = Math.max(0, Math.min(list.length - 1, index));
+    reviewsTrackEl.scrollTo({ left: reviewsActiveDot * reviewCardStep(), behavior:"smooth" });
+    updateActiveDot();
+  }
+
+  function updateActiveDot(){
+    reviewsDotsEl.querySelectorAll(".review-dot").forEach(function(dot, i){
+      dot.classList.toggle("active", i === reviewsActiveDot);
+    });
+  }
+
+  if(reviewsPrevBtn) reviewsPrevBtn.addEventListener("click", function(){ scrollToReviewCard(reviewsActiveDot - 1); });
+  if(reviewsNextBtn) reviewsNextBtn.addEventListener("click", function(){ scrollToReviewCard(reviewsActiveDot + 1); });
+
+  if(reviewsTrackEl){
+    var reviewsScrollTimer = null;
+    reviewsTrackEl.addEventListener("scroll", function(){
+      clearTimeout(reviewsScrollTimer);
+      reviewsScrollTimer = setTimeout(function(){
+        var step = reviewCardStep();
+        reviewsActiveDot = Math.round(reviewsTrackEl.scrollLeft / step);
+        updateActiveDot();
+      }, 120);
+    });
+  }
+
+  function initReviewsUI(){
+    renderReviewsSummary();
+    renderReviewsTabs();
+    renderReviewsTrack();
+  }
+
   /* ---------- INIT ---------- */
   loadPricing();
   loadCalendar();
+  loadReviews();
+  loadReviews();
 })();
