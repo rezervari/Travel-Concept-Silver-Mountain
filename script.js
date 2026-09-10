@@ -24,10 +24,14 @@
 
   var bookedRanges = []; // [{start:Date, end:Date}] end este exclusiv (ca in ICS)
   var calStatusEl = document.getElementById("calStatus");
+  var calStatusInlineEl = document.getElementById("calStatusInline");
 
   function setStatus(msg, isError){
-    calStatusEl.innerHTML = '<span class="dot"></span> ' + msg;
-    calStatusEl.className = "cal-status" + (isError ? " error" : "");
+    [calStatusEl, calStatusInlineEl].forEach(function(el){
+      if(!el) return;
+      el.innerHTML = '<span class="dot"></span> ' + msg;
+      el.className = "cal-status" + (isError ? " error" : "");
+    });
   }
 
   function loadCalendar(){
@@ -224,14 +228,31 @@
 
   function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
 
-  function renderCalendar(){
-    var host = document.getElementById("calMonths");
+  function isDesktopOrTablet(){
+    return window.matchMedia("(min-width: 720px)").matches;
+  }
+
+  function fillMonthsHost(host, showTwoMonths){
+    if(!host) return;
     host.innerHTML = "";
     host.appendChild(buildMonthEl(viewYear, viewMonth));
-    var nextM = viewMonth+1, nextY = viewYear;
-    if(nextM > 11){ nextM = 0; nextY++; }
-    host.appendChild(buildMonthEl(nextY, nextM));
+    if(showTwoMonths){
+      var nextM = viewMonth+1, nextY = viewYear;
+      if(nextM > 11){ nextM = 0; nextY++; }
+      host.appendChild(buildMonthEl(nextY, nextM));
+    }
   }
+
+  function renderCalendar(){
+    fillMonthsHost(document.getElementById("calMonths"), true);
+    fillMonthsHost(document.getElementById("calMonthsInline"), isDesktopOrTablet());
+  }
+
+  var calResizeTimer;
+  window.addEventListener("resize", function(){
+    clearTimeout(calResizeTimer);
+    calResizeTimer = setTimeout(renderCalendar, 150);
+  });
 
   function hasBookedBetween(a,b){
     var d = new Date(a);
@@ -265,13 +286,21 @@
     }
   }
 
-  document.getElementById("calPrev").addEventListener("click", function(){
+  function goPrevMonth(){
     viewMonth--; if(viewMonth<0){ viewMonth=11; viewYear--; }
     renderCalendar();
-  });
-  document.getElementById("calNext").addEventListener("click", function(){
+  }
+  function goNextMonth(){
     viewMonth++; if(viewMonth>11){ viewMonth=0; viewYear++; }
     renderCalendar();
+  }
+  ["calPrev","calPrevInline"].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.addEventListener("click", goPrevMonth);
+  });
+  ["calNext","calNextInline"].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.addEventListener("click", goNextMonth);
   });
 
   /* ---------- FORM SYNC + PRICE (calendarul este singura sursă de adevăr) ---------- */
@@ -284,7 +313,7 @@
   var calendarWrap = document.querySelector(".calendar-wrap");
   var popupOverlay = document.getElementById("popupOverlay");
   var popupClose = document.getElementById("popupClose");
-  var openCalBtn = document.getElementById("openCalBtn");
+  var openCalBtn = document.getElementById("openCalBtn"); // buton eliminat din HTML (calendar inline vizibil); handler ramane defensiv
 
   function fmtDate(d){
     return d.toLocaleDateString("ro-RO", { day:"2-digit", month:"short", year:"numeric" });
@@ -310,7 +339,7 @@
     el.addEventListener("focus", openPopup);
   });
   document.getElementById("quickCheckBtn").addEventListener("click", openPopup);
-  openCalBtn.addEventListener("click", openPopup);
+  if(openCalBtn) openCalBtn.addEventListener("click", openPopup);
   popupClose.addEventListener("click", closePopup);
   popupOverlay.addEventListener("click", function(e){
     if(e.target === popupOverlay) closePopup();
@@ -469,10 +498,6 @@
         if(e.stopImmediatePropagation) e.stopImmediatePropagation();
         mobileNav.classList.remove("open");
         menuToggle.setAttribute("aria-expanded", "false");
-        if(id === "disponibilitate"){
-          openPopup();
-          return;
-        }
         target.scrollIntoView({behavior:"smooth", block:"start"});
       }
     }, true);

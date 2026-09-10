@@ -387,7 +387,24 @@
   <div class="wrap">
     <h2 class="section-title">Disponibilitate</h2>
     <p class="section-sub">Calendarul este sincronizat automat cu rezervările existente. Zilele ocupate sunt blocate automat — alege datele direct din calendar.</p>
-    <button type="button" class="btn-primary" id="openCalBtn">📅 Alege datele sejurului</button>
+
+    <div class="calendar-wrap calendar-wrap-inline">
+      <div class="cal-status" id="calStatusInline"><span class="dot"></span> Se încarcă disponibilitatea din calendar…</div>
+
+      <div class="cal-nav">
+        <button type="button" id="calPrevInline" aria-label="Luna anterioară">‹</button>
+        <div style="font-size:.85rem;color:var(--gray);">Navighează prin luni pentru a vedea disponibilitatea</div>
+        <button type="button" id="calNextInline" aria-label="Luna următoare">›</button>
+      </div>
+
+      <div class="cal-months" id="calMonthsInline"></div>
+
+      <div class="cal-legend">
+        <span><span class="swatch av"></span> Disponibil</span>
+        <span><span class="swatch bk"></span> Ocupat</span>
+        <span><span class="swatch sel"></span> Selecția ta</span>
+      </div>
+    </div>
   </div>
 </section>
 

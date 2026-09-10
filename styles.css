@@ -282,6 +282,7 @@
   .swatch.av{background:var(--white);border:1px solid var(--line);}
   .swatch.bk{background:#fbeaea;border:1px solid #f0c6c6;}
   .swatch.sel{background:var(--blue-mid);}
+  .calendar-wrap-inline{margin-top:4px;}
 
   /* BOOKING FORM */
   .booking-grid{display:grid;grid-template-columns:1fr 340px;gap:28px;align-items:start;}
