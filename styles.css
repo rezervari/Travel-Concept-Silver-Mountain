@@ -207,16 +207,66 @@
   .desc{color:var(--ink);font-size:.95rem;margin:14px 0 0;}
 
   .facil-subtitle{font-size:1.05rem;margin:34px 0 14px;color:var(--ink);}
+
+  /* AMENITY CARDS (apartament / zonă / facilități de top) */
   .amenities{
-    display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
-    gap:14px;
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+    gap:16px;
   }
+  /* Variantă cu număr fix de coloane: 6 pe desktop, 3x2 pe ecrane mai mici (folosită la "Spațiu și compartimentare") */
+  .amenities-fixed6{
+    grid-template-columns:repeat(6,1fr);
+  }
+  @media(max-width:880px){
+    .amenities-fixed6{grid-template-columns:repeat(3,1fr);}
+  }
+  @media(max-width:360px){
+    .amenities-fixed6{gap:10px;}
+  }
+
   .amenity{
-    display:flex;align-items:center;gap:10px;
-    background:var(--white);border:1px solid var(--line);border-radius:8px;
-    padding:12px;font-size:.86rem;font-weight:600;
+    position:relative;overflow:hidden;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;
+    background:var(--white);border:1px solid var(--line);border-radius:12px;
+    padding:22px 14px;font-size:.85rem;font-weight:600;color:var(--ink);
+    transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
   }
-  .amenity svg{flex:none;color:var(--blue-mid);}
+  .amenity::before{
+    content:"";position:absolute;top:0;left:0;right:0;height:3px;
+    background:linear-gradient(90deg,var(--blue-mid),var(--yellow));
+    transform:scaleX(0);transform-origin:left;
+    transition:transform .25s ease;
+  }
+  .amenity:hover{
+    transform:translateY(-4px);
+    border-color:var(--blue-mid);
+    box-shadow:0 10px 22px rgba(0,53,128,.12);
+  }
+  .amenity:hover::before{transform:scaleX(1);}
+  .amenity-badge{
+    width:48px;height:48px;border-radius:50%;flex:none;
+    background:linear-gradient(135deg,#eaf3fc,#dbe7f5);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--blue-mid);
+    transition:background .18s ease, transform .18s ease;
+  }
+  .amenity:hover .amenity-badge{
+    background:linear-gradient(135deg,var(--blue-mid),var(--blue-dark));
+    color:var(--white);
+    transform:scale(1.06);
+  }
+  .amenity-icon{
+    width:22px;height:22px;
+    fill:none;stroke:currentColor;stroke-width:1.8;
+    stroke-linecap:round;stroke-linejoin:round;
+  }
+  .amenity-label{line-height:1.4;}
+
+  @media(max-width:360px){
+    .amenity{padding:16px 8px;gap:9px;font-size:.78rem;}
+    .amenity-badge{width:40px;height:40px;}
+    .amenity-icon{width:19px;height:19px;}
+  }
 
   .facil-grid{
     display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
