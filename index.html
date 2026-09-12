@@ -67,6 +67,8 @@
   "hasMap": "https://maps.app.goo.gl/cZQhVEtjvEc3Wof48",
   "telephone": "+40744332234",
   "priceRange": "700 - 1500 RON",
+  "checkinTime": "16:00",
+  "checkoutTime": "11:00",
   "address": {
     "@type": "PostalAddress",
     "streetAddress": "Complex Silver Mountain",
@@ -105,6 +107,8 @@
     {"@type":"Question","name":"Cum se stabilește tariful pentru cazare la A13 Travel Concept?","acceptedAnswer":{"@type":"Answer","text":"Tariful se stabilește în funcție de sezon, perioada aleasă, durata sejurului și disponibilitate. Prețurile actualizate pentru fiecare perioadă vor fi afișate în pagina de rezervare sau comunicate la confirmarea solicitării."}},
     {"@type":"Question","name":"Pot rezerva direct, fără comisioane de platformă?","acceptedAnswer":{"@type":"Answer","text":"Da. Rezervarea se poate face direct prin formularul de pe site, fără comisioane suplimentare de platformă. Solicitarea ajunge direct la proprietar și este confirmată după verificarea disponibilității."}},
     {"@type":"Question","name":"Calendarul de disponibilitate este actualizat?","acceptedAnswer":{"@type":"Answer","text":"Da. Calendarul este sincronizat cu rezervările existente, iar zilele ocupate sunt blocate automat pentru a te ajuta să alegi rapid o perioadă disponibilă."}},
+    {"@type":"Question","name":"Care este ora de check-in și check-out la A13 Travel Concept?","acceptedAnswer":{"@type":"Answer","text":"Check-in-ul se face după ora 16:00, iar check-out-ul cel târziu până la ora 11:00. Orele pot fi ajustate punctual, în funcție de disponibilitate, prin comunicare directă la confirmarea rezervării."}},
+    {"@type":"Question","name":"Care este politica de plată și anulare pentru rezervările A13 Travel Concept?","acceptedAnswer":{"@type":"Answer","text":"După confirmarea rezervării, oaspetele achită contravaloarea integrală a sejurului pentru a păstra rezervarea. Suma achitată nu se returnează în cazul anulării sau al oricărei alte situații. Recomandăm confirmarea fermă a datelor sejurului înainte de trimiterea solicitării de rezervare."}},
     {"@type":"Question","name":"Apartamentul are parcare și WiFi?","acceptedAnswer":{"@type":"Answer","text":"Da. Oaspeții au acces la parcare gratuită și WiFi gratuit inclus, facilități utile atât pentru sejururi scurte, cât și pentru șederi mai lungi."}},
     {"@type":"Question","name":"Facilitățile Silver Mountain sunt incluse în prețul cazării?","acceptedAnswer":{"@type":"Answer","text":"Accesul la unele facilități ale complexului Silver Mountain, precum spa, centru wellness, piscine interioare și exterioare, se face contra cost, separat de tariful de cazare."}},
     {"@type":"Question","name":"Este apartamentul potrivit pentru sejururi la schi sau drumeții?","acceptedAnswer":{"@type":"Answer","text":"Da. Poziționarea în Poiana Brașov oferă acces facil către pârtii de schi, trasee de drumeție și activități outdoor. În sezonul de iarnă există autobuz direct din complex către Gondola Postăvaru, cu plecări la aproximativ 30 de minute."}}
@@ -640,6 +644,14 @@
           <p>Da. Calendarul este sincronizat cu rezervările existente, iar zilele ocupate sunt blocate automat pentru a te ajuta să alegi rapid o perioadă disponibilă.</p>
         </details>
         <details class="faq-item">
+          <summary>Care este ora de check-in și check-out la A13 Travel Concept?</summary>
+          <p>Check-in-ul se face după ora 16:00, iar check-out-ul cel târziu până la ora 11:00. Orele pot fi ajustate punctual, în funcție de disponibilitate, prin comunicare directă la confirmarea rezervării.</p>
+        </details>
+        <details class="faq-item">
+          <summary>Care este politica de plată și anulare pentru rezervările A13 Travel Concept?</summary>
+          <p>După confirmarea rezervării, oaspetele achită contravaloarea integrală a sejurului pentru a păstra rezervarea. Suma achitată nu se returnează în cazul anulării sau al oricărei alte situații. Recomandăm confirmarea fermă a datelor sejurului înainte de trimiterea solicitării de rezervare.</p>
+        </details>
+        <details class="faq-item">
           <summary>Apartamentul are parcare și WiFi?</summary>
           <p>Da. Oaspeții au acces la parcare gratuită și WiFi gratuit inclus, facilități utile atât pentru sejururi scurte, cât și pentru șederi mai lungi.</p>
         </details>
@@ -666,7 +678,7 @@
         <span class="step-num">1</span>
         <div>
           <h4>Alegi datele</h4>
-          <p>Selectezi check-in și check-out direct din calendarul de disponibilitate.</p>
+          <p>Selectezi check-in și check-out direct din calendarul de disponibilitate. Check-in după ora 16:00, check-out până la ora 11:00.</p>
         </div>
       </div>
       <div class="step-item">
@@ -714,6 +726,7 @@
           </div>
         </div>
         <p class="hint" id="rangeHint">Alege datele direct din <a href="#disponibilitate" class="hint-link">calendarul de disponibilitate</a> de mai sus — zilele ocupate sunt blocate automat.</p>
+        <p class="hint" style="margin-top:-8px;">Check-in după ora 16:00 · Check-out până la ora 11:00.</p>
 
         <div class="submit-row">
           <button type="submit" class="btn-primary">Trimite solicitarea de rezervare</button>
@@ -721,10 +734,21 @@
         <div class="form-msg" id="formMsg"></div>
       </form>
 
-      <div class="summary-card">
-        <h3>Rezumatul rezervării</h3>
-        <div id="summaryBody">
-          <p class="summary-empty">Prețul pornește de la <b>700 RON/noapte</b>. Alege datele de check-in și check-out pentru a vedea prețul exact al sejurului, cu reducerea aplicată automat.</p>
+      <div class="right-col">
+        <div class="summary-card">
+          <h3>Rezumatul rezervării</h3>
+          <div id="summaryBody">
+            <p class="summary-empty">Prețul pornește de la <b>700 RON/noapte</b>. Alege datele de check-in și check-out pentru a vedea prețul exact al sejurului, cu reducerea aplicată automat.</p>
+          </div>
+        </div>
+
+        <div class="policy-card">
+          <h4>🛡️ Politica de plată &amp; anulare</h4>
+          <p>După confirmarea rezervării, achiți contravaloarea integrală a sejurului pentru a păstra rezervarea. Suma achitată nu se returnează în caz de anulare sau în orice altă situație.</p>
+          <div class="policy-tags">
+            <span class="policy-tag">Plată integrală la confirmare</span>
+            <span class="policy-tag">Fără rambursare</span>
+          </div>
         </div>
       </div>
     </div>
