@@ -993,7 +993,7 @@
   .trust-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;padding:36px 0;}
   .trust-item{text-align:center;padding:0 10px;}
   .trust-item svg{color:var(--blue-mid);margin-bottom:10px;}
-  .trust-item h5{margin:0 0 4px;font-size:.92rem;}
+  .trust-item h3{margin:0 0 4px;font-size:.92rem;}
   .trust-item p{margin:0;font-size:.8rem;color:var(--gray);}
 
   /* FOOTER */
