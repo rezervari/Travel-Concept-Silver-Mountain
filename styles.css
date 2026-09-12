@@ -66,17 +66,21 @@
   }
 
   .header-right{display:flex;align-items:center;gap:10px;flex:none;}
-  .header-price{
+  .header-trust{
     display:none;
-    align-items:center;gap:6px;
+    align-items:center;gap:8px;
     background:rgba(255,255,255,.08);
     border:1px solid rgba(255,255,255,.25);
-    padding:7px 13px;border-radius:999px;
-    font-size:.8rem;white-space:nowrap;color:#dbe8fb;
+    padding:7px 14px;border-radius:999px;
+    font-size:.78rem;font-weight:600;white-space:nowrap;color:#dbe8fb;
   }
-  .header-price .hp-label{color:#a9c4e6;}
-  .header-price b{color:var(--yellow);font-size:.95rem;}
-  @media(min-width:560px){.header-price{display:flex;}}
+  .header-trust-dot{
+    width:7px;height:7px;border-radius:50%;flex:none;
+    background:var(--green);
+    box-shadow:0 0 0 3px rgba(0,128,9,.28);
+  }
+  @media(min-width:560px){.header-trust{display:flex;}}
+  @media(min-width:1040px){.header-trust{font-size:.8rem;padding:8px 16px;}}
 
   .header-cta{display:none;}
   @media(min-width:640px){
@@ -209,15 +213,8 @@
   }
   .info-card-head{
     display:flex;align-items:center;justify-content:space-between;
-    gap:10px;flex-wrap:wrap;margin-bottom:14px;
+    gap:10px;flex-wrap:wrap;margin-bottom:16px;
   }
-  .price-line{
-    display:flex;align-items:flex-end;justify-content:space-between;gap:18px;
-    border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:16px;
-  }
-  .price-line .amount{font-size:1.9rem;font-weight:800;color:var(--blue-dark);}
-  .price-line .amount span{font-size:.9rem;font-weight:500;color:var(--gray);}
-  .price-teaser-hint{font-size:.72rem;color:var(--green);font-weight:600;margin-top:2px;max-width:170px;}
   .rating-pill{
     background:var(--blue-dark);color:var(--white);font-weight:800;
     padding:7px 11px;border-radius:6px;font-size:.85rem;display:inline-block;
@@ -226,16 +223,53 @@
     color:var(--blue-dark);background:#eaf3fc;border:1px solid #d7e7f7;
     border-radius:999px;padding:6px 11px;font-size:.78rem;font-weight:800;
   }
-  .info-highlights{
-    display:grid;grid-template-columns:repeat(3,1fr);
-    gap:8px;margin:2px 0 4px;
+
+  /* Grid de avantaje-cheie (înlocuiește vechea linie de preț static) */
+  .info-highlights-grid{
+    display:grid;grid-template-columns:repeat(2,1fr);
+    gap:10px;margin:4px 0 18px;
   }
-  .info-highlights span{
-    border:1px solid #dbe7f5;background:#f4f9ff;border-radius:6px;
-    padding:9px 8px;color:var(--blue-dark);font-size:.78rem;
-    font-weight:800;text-align:center;line-height:1.25;
+  .info-highlight{
+    display:flex;align-items:center;gap:10px;
+    border:1px solid #dbe7f5;background:#f4f9ff;border-radius:8px;
+    padding:10px 12px;color:var(--blue-dark);font-size:.82rem;font-weight:700;
   }
+  .info-highlight-icon{
+    width:32px;height:32px;border-radius:8px;flex:none;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--white);color:var(--blue-mid);
+    box-shadow:0 1px 3px rgba(0,53,128,.12);
+  }
+  .info-highlight-icon .amenity-icon{width:17px;height:17px;}
+
   .desc{color:var(--ink);font-size:.98rem;margin:16px 0 0;line-height:1.65;}
+
+  /* Bloc CTA de conversie: preț dinamic, fără sumă fixă afișată */
+  .info-card-cta{
+    margin-top:20px;padding-top:18px;border-top:1px solid var(--line);
+    display:flex;flex-direction:column;gap:14px;
+  }
+  .info-cta-copy{display:flex;flex-direction:column;gap:4px;}
+  .info-cta-copy strong{color:var(--blue-dark);font-size:.98rem;}
+  .info-cta-copy span{color:var(--green);font-size:.82rem;font-weight:600;line-height:1.4;}
+  .info-cta-btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    background:var(--yellow);color:var(--blue-dark);
+    font-weight:800;font-size:.92rem;padding:13px 18px;border-radius:6px;
+    transition:background .15s ease, transform .15s ease;
+  }
+  .info-cta-btn:hover{background:var(--yellow-dark);transform:translateY(-1px);}
+  .info-cta-btn::after{content:"→";font-weight:900;}
+
+  .info-trust-row{
+    display:flex;flex-wrap:wrap;gap:10px 16px;margin-top:16px;
+    font-size:.76rem;color:var(--gray);font-weight:600;
+  }
+  .info-trust-row span{display:flex;align-items:center;gap:5px;}
+
+  @media(max-width:420px){
+    .info-highlights-grid{grid-template-columns:1fr;}
+  }
 
   .facil-subtitle{font-size:1.05rem;margin:34px 0 14px;color:var(--ink);}
 
@@ -404,45 +438,61 @@
     align-items:stretch;
   }
   .area-feature{
+    position:relative;
+    overflow:hidden;
     min-height:172px;
     display:flex;
     flex-direction:column;
-    justify-content:space-between;
-    gap:18px;
-    padding:22px;
+    justify-content:flex-end;
+    gap:10px;
+    padding:20px;
     border:1px solid rgba(255,255,255,.20);
     border-radius:8px;
-    background:rgba(255,255,255,.94);
-    color:var(--ink);
+    color:var(--white);
+    background-size:cover;
+    background-position:center;
+    background-color:#12386b;
     box-shadow:0 18px 36px rgba(0,20,50,.18);
     transition:transform .18s ease, box-shadow .18s ease;
   }
+  .area-feature::before{
+    content:"";
+    position:absolute;inset:0;
+    background:linear-gradient(180deg, rgba(4,20,46,.12) 0%, rgba(3,16,38,.90) 82%);
+    transition:background .18s ease;
+  }
   .area-feature:hover{
     transform:translateY(-4px);
-    box-shadow:0 24px 44px rgba(0,20,50,.22);
+    box-shadow:0 24px 44px rgba(0,20,50,.24);
   }
+  .area-feature:hover::before{background:linear-gradient(180deg, rgba(4,20,46,.05) 0%, rgba(3,16,38,.94) 82%);}
   .area-feature.featured{
     grid-column:span 2;
     min-height:204px;
-    background:linear-gradient(135deg,var(--yellow) 0%,#ffe177 52%,#fff1bd 100%);
-    color:var(--blue-dark);
   }
-  .area-feature h3{margin:0 0 5px;font-size:.98rem;line-height:1.25;}
-  .area-feature p{margin:0;color:#52606f;font-size:.84rem;line-height:1.5;}
-  .area-feature.featured p{color:#37506f;}
+  .area-feature.featured::before{
+    background:linear-gradient(180deg, rgba(60,42,0,.10) 0%, rgba(43,30,0,.86) 80%);
+  }
+  .area-feature.featured:hover::before{background:linear-gradient(180deg, rgba(60,42,0,.04) 0%, rgba(43,30,0,.92) 80%);}
+  .area-feature-body{position:relative;z-index:1;display:flex;flex-direction:column;gap:4px;}
+  .area-feature-kicker{color:var(--yellow);font-size:.7rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;}
+  .area-feature h3{margin:0 0 5px;font-size:.98rem;line-height:1.25;color:var(--white);}
+  .area-feature p{margin:0;color:rgba(255,255,255,.84);font-size:.84rem;line-height:1.5;}
   .area-icon{
-    width:44px;
-    height:44px;
-    border-radius:12px;
+    position:relative;z-index:1;
+    width:40px;
+    height:40px;
+    border-radius:10px;
     display:flex;
     align-items:center;
     justify-content:center;
-    background:#eaf3fc;
-    color:var(--blue-mid);
+    background:rgba(255,255,255,.16);
+    border:1px solid rgba(255,255,255,.32);
+    color:var(--white);
   }
   .area-feature.featured .area-icon{
-    background:rgba(0,53,128,.13);
-    color:var(--blue-dark);
+    background:rgba(255,255,255,.22);
+    border-color:rgba(255,255,255,.42);
   }
 
   .top-facilities-section{
@@ -554,7 +604,6 @@
     .area-section .section-title{font-size:1.5rem;}
     .area-feature-grid,.facility-mosaic{grid-template-columns:1fr;}
     .area-feature.featured{grid-column:auto;}
-    .area-feature{min-height:0;}
     .facility-spotlight{min-height:250px;padding:22px;}
     .facility-chip{min-height:74px;}
   }
@@ -601,6 +650,47 @@
   .swatch.bk{background:#fbeaea;border:1px solid #f0c6c6;}
   .swatch.sel{background:var(--blue-mid);}
   .calendar-wrap-inline{margin-top:4px;}
+
+  /* PAȘII DE REZERVARE */
+  .steps-row{
+    display:grid;grid-template-columns:repeat(3,1fr);
+    gap:18px;margin:26px 0 34px;
+  }
+  .step-item{
+    display:flex;gap:14px;align-items:flex-start;
+    background:var(--white);border:1px solid var(--line);border-radius:8px;
+    padding:18px;box-shadow:var(--shadow);
+  }
+  .step-num{
+    flex:none;width:34px;height:34px;border-radius:50%;
+    background:var(--blue-dark);color:var(--white);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:.95rem;
+  }
+  .step-item h4{margin:0 0 4px;font-size:.92rem;color:var(--blue-dark);}
+  .step-item p{margin:0;font-size:.82rem;color:var(--gray);line-height:1.5;}
+  @media(max-width:780px){
+    .steps-row{grid-template-columns:1fr;}
+  }
+
+  /* CTA STICKY MOBIL */
+  .mobile-sticky-cta{
+    display:none;
+    position:fixed;left:0;right:0;bottom:0;z-index:150;
+    background:var(--white);border-top:1px solid var(--line);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+    box-shadow:0 -4px 16px rgba(0,0,0,.14);
+  }
+  .mobile-sticky-btn{
+    display:flex;align-items:center;justify-content:center;
+    background:var(--yellow);color:var(--blue-dark);
+    font-weight:800;font-size:.92rem;padding:13px;border-radius:6px;
+  }
+  .mobile-sticky-btn:hover{background:var(--yellow-dark);}
+  @media(max-width:640px){
+    .mobile-sticky-cta{display:block;}
+    body{padding-bottom:66px;}
+  }
 
   /* BOOKING FORM */
   .booking-grid{display:grid;grid-template-columns:1fr 340px;gap:28px;align-items:start;}
@@ -819,9 +909,7 @@
     .apartment-heading{margin-bottom:22px;}
     .apartment-heading .section-title{font-size:1.42rem;}
     .apartment-heading .section-sub{font-size:.94rem;margin-bottom:0;}
-    .price-line{display:grid;grid-template-columns:1fr;gap:10px;align-items:start;}
-    .price-line .amount{font-size:1.7rem;}
-    .info-highlights{grid-template-columns:1fr;}
+    .info-highlights-grid{grid-template-columns:1fr;}
     .gallery-hero{aspect-ratio:4/3;}
     .gallery-hero-btn{right:10px;bottom:10px;padding:8px 11px;font-size:.78rem;}
   }

@@ -157,7 +157,7 @@
     </nav>
 
     <div class="header-right">
-      <div class="header-price"><span class="hp-label">de la</span> <b id="headerPriceValue">700 RON</b><span class="hp-unit">/noapte</span></div>
+      <div class="header-trust"><span class="header-trust-dot"></span>Rezervi direct, fără comisioane</div>
       <a href="#rezervare" class="header-cta">Rezervă Direct</a>
       <button type="button" class="menu-toggle" id="menuToggle" aria-label="Deschide meniul" aria-expanded="false" aria-controls="mobileNav">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
@@ -224,24 +224,46 @@
           <span class="rating-pill">Silver Mountain</span>
           <span class="stay-pill">Poiana Brașov</span>
         </div>
-        <div class="price-line">
-          <div>
-            <div style="font-size:.85rem;color:var(--gray);">Preț direct, de la</div>
-            <div class="price-teaser-hint" id="infoPriceHint">Reduceri automate pentru șederi lungi.</div>
+
+        <div class="info-highlights-grid" aria-label="Avantaje apartament">
+          <div class="info-highlight">
+            <span class="info-highlight-icon"><svg class="amenity-icon" viewBox="0 0 24 24"><use href="#icon-bed"></use></svg></span>
+            <span>2 dormitoare</span>
           </div>
-          <div class="amount"><span id="infoPriceValue">700</span> RON <span>/ noapte</span></div>
+          <div class="info-highlight">
+            <span class="info-highlight-icon"><svg class="amenity-icon" viewBox="0 0 24 24"><use href="#icon-drop"></use></svg></span>
+            <span>2 băi private</span>
+          </div>
+          <div class="info-highlight">
+            <span class="info-highlight-icon"><svg class="amenity-icon" viewBox="0 0 24 24"><use href="#icon-umbrella"></use></svg></span>
+            <span>Balcon și terasă</span>
+          </div>
+          <div class="info-highlight">
+            <span class="info-highlight-icon"><svg class="amenity-icon" viewBox="0 0 24 24"><use href="#icon-family"></use></svg></span>
+            <span>Max. 4 persoane</span>
+          </div>
         </div>
-        <div class="info-highlights" aria-label="Avantaje apartament">
-          <span>2 dormitoare</span>
-          <span>2 băi private</span>
-          <span>Balcon și terasă</span>
-        </div>
+
         <p class="desc">
           Travel Concept A13 îmbină confortul de acasă cu atmosfera unui sejur premium la munte: mobilier de calitate, finisaje atent alese și zone generoase pentru relaxare.
         </p>
         <p class="desc">
           Amplasat în complexul Silver Mountain, apartamentul oferă acces facil către pârtii, trasee de drumeție și principalele puncte de interes din Poiana Brașov.
         </p>
+
+        <div class="info-card-cta">
+          <div class="info-cta-copy">
+            <strong>Prețul se calculează automat</strong>
+            <span id="infoPriceHint">Reduceri automate pentru șederi lungi.</span>
+          </div>
+          <a href="#disponibilitate" class="info-cta-btn">Verifică disponibilitatea</a>
+        </div>
+
+        <div class="info-trust-row">
+          <span>✔️ Fără comisioane</span>
+          <span>⚡ Confirmare rapidă</span>
+          <span>📅 Calendar live</span>
+        </div>
       </div>
     </div>
 
@@ -301,37 +323,38 @@
       </div>
 
       <div class="area-feature-grid" aria-label="Repere în zonă">
-        <div class="area-feature featured">
+        <div class="area-feature featured" style="background-image:url('images/zona/schi.jpg')">
           <span class="area-icon"><svg class="amenity-icon" viewBox="0 0 24 24"><use href="#icon-ski"></use></svg></span>
-          <div>
+          <div class="area-feature-body">
+            <span class="area-feature-kicker">Recomandat</span>
             <h3>Pârtii și aer de munte</h3>
             <p>Acces rapid către zona de schi, trasee și activități outdoor.</p>
           </div>
         </div>
-        <div class="area-feature">
+        <div class="area-feature" style="background-image:url('images/zona/drumetii.jpg')">
           <span class="area-icon"><svg class="amenity-icon" viewBox="0 0 24 24"><use href="#icon-boot"></use></svg></span>
-          <div>
+          <div class="area-feature-body">
             <h3>Drumeții &amp; ciclism</h3>
             <p>Trasee montane pentru plimbări, ture active și priveliști naturale.</p>
           </div>
         </div>
-        <div class="area-feature">
+        <div class="area-feature" style="background-image:url('images/zona/wellness.jpg')">
           <span class="area-icon"><svg class="amenity-icon" viewBox="0 0 24 24"><use href="#icon-leaf"></use></svg></span>
-          <div>
+          <div class="area-feature-body">
             <h3>Spa &amp; wellness</h3>
             <p>Facilități de relaxare disponibile în complex, contra cost.</p>
           </div>
         </div>
-        <div class="area-feature">
+        <div class="area-feature" style="background-image:url('images/zona/restaurante.jpg')">
           <span class="area-icon"><svg class="amenity-icon" viewBox="0 0 24 24"><use href="#icon-utensils"></use></svg></span>
-          <div>
+          <div class="area-feature-body">
             <h3>Restaurante aproape</h3>
             <p>Cafenele și restaurante în complex sau la mică distanță.</p>
           </div>
         </div>
-        <div class="area-feature">
+        <div class="area-feature" style="background-image:url('images/zona/brasov.jpg')">
           <span class="area-icon"><svg class="amenity-icon" viewBox="0 0 24 24"><use href="#icon-landmark"></use></svg></span>
-          <div>
+          <div class="area-feature-body">
             <h3>Brașov la îndemână</h3>
             <p>Piața Sfatului și Biserica Neagră sunt ușor de inclus în sejur.</p>
           </div>
@@ -638,6 +661,30 @@
     <h2 class="section-title">Solicită rezervarea directă</h2>
     <p class="section-sub">Completează formularul — vei primi confirmarea prin email după verificarea disponibilității.</p>
 
+    <div class="steps-row" aria-label="Cum funcționează rezervarea">
+      <div class="step-item">
+        <span class="step-num">1</span>
+        <div>
+          <h4>Alegi datele</h4>
+          <p>Selectezi check-in și check-out direct din calendarul de disponibilitate.</p>
+        </div>
+      </div>
+      <div class="step-item">
+        <span class="step-num">2</span>
+        <div>
+          <h4>Completezi formularul</h4>
+          <p>Adaugi datele tale de contact — solicitarea ajunge direct la proprietar.</p>
+        </div>
+      </div>
+      <div class="step-item">
+        <span class="step-num">3</span>
+        <div>
+          <h4>Primești confirmarea</h4>
+          <p>Confirmăm disponibilitatea și detaliile sejurului prin email, rapid.</p>
+        </div>
+      </div>
+    </div>
+
     <div class="booking-grid">
       <form class="booking-form" id="bookingForm">
         <div class="form-row">
@@ -725,6 +772,10 @@
     <div class="foot-bottom">© <span id="year"></span> A13 Travel Concept. Toate drepturile rezervate.</div>
   </div>
 </footer>
+
+<div class="mobile-sticky-cta" id="mobileStickyCta">
+  <a href="#disponibilitate" class="mobile-sticky-btn">Verifică disponibilitatea</a>
+</div>
 
 <script src="script.js"></script>
 
