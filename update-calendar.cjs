@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Regenereaza booked-dates.json din calendarul Google (rulat periodic via cron).
-// Utilizare: node update-calendar.js
+// Utilizare: node update-calendar.cjs
 
 const https = require("https");
 const fs = require("fs");

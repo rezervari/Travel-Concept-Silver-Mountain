@@ -22,7 +22,7 @@ jobs:
           node-version: 20
 
       - name: Update calendar
-        run: node update-calendar.js
+        run: node update-calendar.cjs
 
       - name: Save updated calendar
         run: |
