@@ -640,6 +640,11 @@
   .cal-day.booked{
     background:#fbeaea;color:#c94545;text-decoration:line-through;cursor:not-allowed;
   }
+  .cal-day.unpriced{
+    background:#f2f2f2;color:#a8a8a8;
+    border:1px dashed #d6d6d6;
+  }
+  .cal-day.unpriced:hover{border-color:#b8b8b8;background:#ececec;}
   .cal-day.available:hover{border-color:var(--blue-mid);background:#eaf3fc;}
   .cal-day.selected{background:var(--blue-mid);color:var(--white);font-weight:700;}
   .cal-day.in-range{background:#cfe6fb;color:var(--blue-dark);}
@@ -649,6 +654,7 @@
   .swatch.av{background:var(--white);border:1px solid var(--line);}
   .swatch.bk{background:#fbeaea;border:1px solid #f0c6c6;}
   .swatch.sel{background:var(--blue-mid);}
+  .swatch.np{background:#f2f2f2;border:1px dashed #d6d6d6;}
   .calendar-wrap-inline{margin-top:4px;}
 
   /* PAȘII DE REZERVARE */
@@ -998,63 +1004,11 @@
 
   /* FOOTER */
   footer{background:var(--blue-dark);color:#cfe0f5;padding:40px 0 26px;font-size:.85rem;}
-  .footer-grid{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:26px;margin-bottom:26px;}
-  @media(max-width:880px){.footer-grid{grid-template-columns:1fr 1fr;}}
-  @media(max-width:560px){.footer-grid{grid-template-columns:1fr;}}
+  .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:26px;margin-bottom:26px;}
+  @media(max-width:700px){.footer-grid{grid-template-columns:1fr;}}
   footer h4{color:var(--white);font-size:.9rem;margin:0 0 12px;}
   footer .foot-line{margin:0 0 8px;}
   .foot-bottom{border-top:1px solid rgba(255,255,255,.15);padding-top:18px;font-size:.75rem;color:#9fb8d9;}
-
-  /* Footer — brand (logo + descriere) */
-  .footer-logo{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
-  .footer-logo-mark{
-    width:32px;height:32px;border-radius:8px;flex:none;
-    background:var(--yellow);color:var(--blue-dark);
-    display:flex;align-items:center;justify-content:center;
-    font-weight:900;font-size:.85rem;
-  }
-  .footer-logo-name{color:var(--white);font-weight:800;font-size:1rem;letter-spacing:.2px;}
-
-  /* Footer — navigare (meniul principal) */
-  .footer-nav{display:flex;flex-direction:column;gap:2px;}
-  .footer-nav a{
-    padding:6px 0;color:#cfe0f5;font-size:.85rem;
-    transition:color .15s ease,padding-left .15s ease;
-  }
-  .footer-nav a:hover{color:var(--white);padding-left:3px;}
-
-  /* Footer — contact (email mascat, telefon, whatsapp) */
-  .footer-contact-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
-  .footer-contact-link{
-    display:flex;align-items:center;gap:10px;
-    padding:7px 0;color:#cfe0f5;font-size:.85rem;font-weight:600;
-    transition:color .15s ease;
-  }
-  .footer-contact-link:hover{color:var(--white);}
-  .footer-contact-link:hover .footer-contact-icon{
-    background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.35);
-  }
-  .footer-contact-icon{
-    flex:none;width:28px;height:28px;border-radius:7px;
-    display:flex;align-items:center;justify-content:center;
-    background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
-    color:var(--yellow);
-    transition:background .15s ease,border-color .15s ease;
-  }
-  .footer-contact-icon svg{
-    width:15px;height:15px;fill:none;stroke:currentColor;
-    stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;
-  }
-  .footer-contact-icon-wa{color:#25D366;}
-
-  /* Footer — locație */
-  .footer-location-line{display:flex;align-items:flex-start;gap:10px;}
-  .footer-location-line .footer-contact-icon{margin-top:1px;}
-  .footer-map-link{
-    display:inline-block;margin-top:8px;color:var(--yellow);
-    font-weight:700;font-size:.82rem;
-  }
-  .footer-map-link:hover{text-decoration:underline;}
 
   /* RECENZII */
   .reviews-summary{

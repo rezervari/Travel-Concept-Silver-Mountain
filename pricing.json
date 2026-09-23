@@ -30,12 +30,12 @@
   ],
   "seasons": [
     {
-      "id": "vara-2026",
-      "start": "2026-07-01",
-      "end": "2026-09-15",
-      "price": 800,
-      "minNights": 2,
+      "id": "vara-toamna-2026",
       "label": "Sezon vară",
+      "start": "2026-07-01",
+      "end": "2026-11-30",
+      "price": 900,
+      "minNights": 2,
       "discountTiers": [
         {
           "minNights": 2,
@@ -64,12 +64,140 @@
       ]
     },
     {
-      "id": "iarna-2026-2027",
-      "start": "2026-12-20",
-      "end": "2027-03-15",
-      "price": 1500,
-      "minNights": 2,
+      "id": "iarna-2026",
       "label": "Sezon iarnă",
+      "start": "2026-12-01",
+      "end": "2026-12-20",
+      "price": 1000,
+      "minNights": 2,
+      "discountTiers": [
+        {
+          "minNights": 2,
+          "discount": 10
+        },
+        {
+          "minNights": 3,
+          "discount": 15
+        },
+        {
+          "minNights": 4,
+          "discount": 20
+        },
+        {
+          "minNights": 5,
+          "discount": 25
+        },
+        {
+          "minNights": 6,
+          "discount": 30
+        },
+        {
+          "minNights": 7,
+          "discount": 33
+        }
+      ]
+    },
+    {
+      "id": "Craciun-2026",
+      "label": "Sezon iarnă",
+      "start": "2026-12-21",
+      "end": "2026-12-27",
+      "price": 1200,
+      "minNights": 3,
+      "discountTiers": [
+        {
+          "minNights": 3,
+          "discount": 0
+        },
+        {
+          "minNights": 4,
+          "discount": 10
+        },
+        {
+          "minNights": 5,
+          "discount": 15
+        },
+        {
+          "minNights": 6,
+          "discount": 20
+        },
+        {
+          "minNights": 7,
+          "discount": 25
+        }
+      ]
+    },
+    {
+      "id": "Revelion-2026-2027",
+      "label": "Sezon iarnă",
+      "start": "2026-12-28",
+      "end": "2027-01-04",
+      "price": 1500,
+      "minNights": 3,
+      "discountTiers": [
+        {
+          "minNights": 3,
+          "discount": 0
+        },
+        {
+          "minNights": 4,
+          "discount": 10
+        },
+        {
+          "minNights": 5,
+          "discount": 15
+        },
+        {
+          "minNights": 6,
+          "discount": 20
+        },
+        {
+          "minNights": 7,
+          "discount": 25
+        }
+      ]
+    },
+    {
+      "id": "iarna-2027",
+      "label": "Sezon iarnă",
+      "start": "2027-01-05",
+      "end": "2027-02-14",
+      "price": 1000,
+      "minNights": 2,
+      "discountTiers": [
+        {
+          "minNights": 2,
+          "discount": 10
+        },
+        {
+          "minNights": 3,
+          "discount": 15
+        },
+        {
+          "minNights": 4,
+          "discount": 20
+        },
+        {
+          "minNights": 5,
+          "discount": 25
+        },
+        {
+          "minNights": 6,
+          "discount": 30
+        },
+        {
+          "minNights": 7,
+          "discount": 33
+        }
+      ]
+    },
+    {
+      "id": "Vacanta-schi-2027",
+      "label": "Sezon iarnă",
+      "start": "2027-02-15",
+      "end": "2027-03-07",
+      "price": 1200,
+      "minNights": 2,
       "discountTiers": [
         {
           "minNights": 2,
@@ -97,5 +225,7 @@
         }
       ]
     }
-  ]
+  ],
+  "generatedAt": "2026-09-23T08:45:56.039Z",
+  "generatedFrom": "pricing/tarife.xlsx"
 }
