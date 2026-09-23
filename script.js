@@ -187,9 +187,9 @@
   function buildMonthEl(year, month){
     var wrap = document.createElement("div");
     wrap.className = "cal-month";
-    var h4 = document.createElement("h4");
-    h4.textContent = MONTH_NAMES[month] + " " + year;
-    wrap.appendChild(h4);
+    var h3 = document.createElement("h3");
+    h3.textContent = MONTH_NAMES[month] + " " + year;
+    wrap.appendChild(h3);
 
     var grid = document.createElement("div");
     grid.className = "cal-grid";

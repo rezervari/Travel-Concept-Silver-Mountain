@@ -630,7 +630,7 @@
   .cal-nav button:hover{border-color:var(--blue-mid);}
   .cal-months{display:grid;grid-template-columns:1fr 1fr;gap:26px;}
   @media(max-width:720px){.cal-months{grid-template-columns:1fr;}}
-  .cal-month h4{margin:0 0 10px;text-align:center;font-size:1rem;color:var(--blue-dark);text-transform:capitalize;}
+  .cal-month h3,.cal-month h4{margin:0 0 10px;text-align:center;font-size:1rem;color:var(--blue-dark);text-transform:capitalize;}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
   .cal-grid .dow{font-size:.68rem;color:var(--gray);text-align:center;font-weight:700;padding-bottom:4px;text-transform:uppercase;}
   .cal-day{
@@ -639,12 +639,12 @@
     background:var(--white);border:1px solid transparent;color:var(--ink);
   }
   .cal-day.empty{visibility:hidden;cursor:default;}
-  .cal-day.past{color:#c8c8c8;cursor:not-allowed;}
+  .cal-day.past{color:#707070;cursor:not-allowed;}
   .cal-day.booked{
     background:#fbeaea;color:#c94545;text-decoration:line-through;cursor:not-allowed;
   }
   .cal-day.unpriced{
-    background:#f2f2f2;color:#a8a8a8;
+    background:#f2f2f2;color:#666666;
     border:1px dashed #d6d6d6;
   }
   .cal-day.unpriced:hover{border-color:#b8b8b8;background:#ececec;}
@@ -1090,7 +1090,7 @@
   }
   @media(min-width:640px){.review-card{flex:0 0 300px;}}
   .review-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-  .review-stars{color:var(--yellow-dark);letter-spacing:2px;font-size:.95rem;}
+  .review-stars{color:#8a6000;font-weight:700;letter-spacing:2px;font-size:.95rem;}
   .review-text{
     font-size:.92rem;color:var(--ink);margin:0;flex:1;line-height:1.6;
     display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;
@@ -1106,6 +1106,17 @@
   .reviews-nav:hover{background:var(--blue-dark);color:var(--white);}
   @media(max-width:640px){.reviews-nav{width:34px;height:34px;font-size:1.1rem;}}
 
-  .reviews-dots{display:flex;justify-content:center;gap:6px;margin-top:16px;}
-  .review-dot{width:8px;height:8px;border-radius:50%;border:none;background:var(--line);cursor:pointer;padding:0;transition:background .15s,width .15s;}
-  .review-dot.active{background:var(--blue-dark);width:22px;border-radius:4px;}
+  .reviews-dots{display:flex;justify-content:center;align-items:center;gap:4px;margin-top:12px;}
+  /* țintă de atingere 24x24 (WCAG 2.5.8); punctul vizual e ::before */
+  .review-dot{
+    position:relative;width:24px;height:24px;min-width:24px;border:none;background:transparent;
+    cursor:pointer;padding:0;border-radius:12px;transition:width .15s;
+  }
+  .review-dot::before{
+    content:"";position:absolute;top:50%;left:50%;width:8px;height:8px;border-radius:4px;
+    background:#b9c3d1;transform:translate(-50%,-50%);transition:background .15s,width .15s;
+  }
+  .review-dot.active{width:32px;}
+  .review-dot.active::before{background:var(--blue-dark);width:22px;}
+  .review-dot:hover::before{background:var(--blue-mid);}
+  .review-dot:focus-visible{outline:2px solid var(--blue-mid);outline-offset:1px;}

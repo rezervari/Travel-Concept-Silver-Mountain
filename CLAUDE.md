@@ -59,6 +59,7 @@ Scripturi locale opționale: `update-google-reviews.js` (necesită `GOOGLE_PLACE
 - Site-ul live poate rămâne în urmă față de local → la bug-uri, verifică întâi live-ul.
 - Imagini: Mircea urcă DOAR JPG (`images/<categorie>/N.jpg`, numerotare 1,2,3…); WebP + `gallery.json` le face workflow-ul. Nu se editează manual. JPG-urile rămân pentru OG/JSON-LD și ca fallback (JS trece pe JPG dacă WebP lipsește).
 - Nu pune imagini de conținut ca `background-image` fără `image-set()` WebP; `.hero-photo` NU mai are background (se descărca hero-ul de 2 ori).
+- A11Y Lighthouse: text ≥ 4.5:1 contrast (zile trecute `#707070`, fără tarif `#666` pe `#f2f2f2`, scor recenzii `#8a6000`); ținte de atingere ≥ 24×24 (dot-urile recenziilor au buton 24px + punct vizual în `::before`); titluri fără salt de nivel (lunile calendarului sunt `h3`).
 - Cache-ul GitHub Pages e fix 10 min (nu se poate schimba) — ignoră auditul „cache TTL”.
 - Footer: ordinea vizuală pe mobil e controlată cu `order` în CSS (markup: brand, contact, locație, sejur) — păstrează clasele `.foot-brand/.foot-contact/.foot-loc/.foot-stay`.
 - Adresa de e-mail NU se afișează și NU apare în HTML: `#footMail` deschide `mailto:` doar la click, din `CONTACT_EMAIL` (compus din bucăți în `script.js`) — protecție anti-scraping.
@@ -73,6 +74,7 @@ Scripturi locale opționale: `update-google-reviews.js` (necesită `GOOGLE_PLACE
 - [x] Secțiunea politică plată/anulare + ore check-in/out — implementată.
 - [x] Imagini `images/zona/` — urcate.
 - [x] Pipeline tarife din Excel — implementat.
+- [x] Fix-uri accesibilitate PageSpeed (2026-09-23): contrast recenzii/calendar, ținte dot-uri recenzii, ordine titluri calendar.
 - [x] Optimizare imagini PageSpeed (2026-09-23): WebP responsive pentru hero, galerie, zona + manifest galerie; de verificat PSI după deploy (țintă LCP mobil < 2,0 s).
 - [x] Footer responsive (2026-09-23): 4 coloane desktop (brand, contact, locație, sejur), 2×2 la ≤900px; pe mobil (≤700px) brand full-width, Locație | Sejur pe 2 coloane, Contact full-width cu 3 butoane (Telefon `tel:+40744332234`, WhatsApp `wa.me/40744332234`, E-mail).
 
