@@ -7,6 +7,7 @@
   var CONTACT_EMAIL = "mircea.george.vulcanescu@gmail.com";
   var BOOKED_JSON = "booked-dates.json"; // generat periodic de update-calendar.js
   var PRICING_JSON = "pricing.json";     // tarife pe sezon + trepte de reducere
+  var WEB3FORMS_ACCESS_KEY = "5cf6230f-8f4a-46d2-9204-ff6cde8bf57e"; // vezi web3forms.com
 
   // Fallback defensiv daca pricing.json nu poate fi incarcat
   var FALLBACK_PRICING = {
@@ -420,14 +421,16 @@
 
   syncFormFromSelection();
 
-  /* ---------- SUBMIT (mailto) ---------- */
+  /* ---------- SUBMIT (trimitere automată prin Web3Forms — fără client de email) ---------- */
   document.getElementById("bookingForm").addEventListener("submit", function(e){
     e.preventDefault();
+    var form = e.target;
     var name = document.getElementById("fname").value.trim();
     var phone = document.getElementById("fphone").value.trim();
     var email = document.getElementById("femail").value.trim();
     var ciDate = selection.checkin, coDate = selection.checkout;
     var msgEl = document.getElementById("formMsg");
+    var submitBtn = form.querySelector('button[type="submit"]');
 
     if(!name || !phone || !email || !ciDate || !coDate){
       msgEl.textContent = "Completează toate câmpurile și alege datele din calendar pentru a trimite solicitarea.";
@@ -455,28 +458,51 @@
     var ci = toInputValue(ciDate), co = toInputValue(coDate);
     var stay = computeStay(ciDate, coDate);
 
-    var subject = "Solicitare rezervare A13 Travel Concept — " + ci + " → " + co;
-    var body =
-      "Solicitare nouă de rezervare — A13 Travel Concept (Silver Mountain, Poiana Brașov)\n\n" +
-      "Nume: " + name + "\n" +
-      "Telefon: " + phone + "\n" +
-      "Email: " + email + "\n\n" +
-      "Check-in: " + ci + "\n" +
-      "Check-out: " + co + "\n" +
-      "Nopți: " + stay.nights + "\n" +
-      "Preț de bază: " + stay.rawTotal + " RON\n" +
-      (stay.discountPct > 0 ? "Reducere aplicată: -" + stay.discountPct + "%\n" : "") +
-      "Total: " + stay.total + " RON\n";
+    var payload = {
+      access_key: WEB3FORMS_ACCESS_KEY,
+      subject: "Solicitare rezervare A13 Travel Concept — " + ci + " → " + co,
+      from_name: "Formular A13 Travel Concept",
+      "Nume": name,
+      "Telefon": phone,
+      "Email oaspete": email,
+      "Check-in": ci,
+      "Check-out": co,
+      "Nopți": String(stay.nights),
+      "Preț de bază": stay.rawTotal + " RON",
+      "Reducere aplicată": stay.discountPct > 0 ? ("-" + stay.discountPct + "%") : "-",
+      "Total": stay.total + " RON",
+      replyto: email
+    };
 
-    var mailto = "mailto:" + CONTACT_EMAIL +
-      "?subject=" + encodeURIComponent(subject) +
-      "&body=" + encodeURIComponent(body);
+    if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = "Se trimite…"; }
+    msgEl.textContent = "Se trimite solicitarea…";
+    msgEl.className = "form-msg show";
 
-    window.location.href = mailto;
-
-
-    msgEl.textContent = "Se deschide clientul tău de email cu solicitarea precompletată către " + CONTACT_EMAIL + ". Trimite mesajul pentru a finaliza cererea.";
-    msgEl.className = "form-msg show ok";
+    fetch("https://api.web3forms.com/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Accept": "application/json" },
+      body: JSON.stringify(payload)
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        if(!data || data.success !== true){
+          throw new Error((data && data.message) || "eroare trimitere");
+        }
+        msgEl.textContent = "Solicitarea ta de rezervare a fost transmisă. Revenim în cel mai scurt timp cu confirmarea.";
+        msgEl.className = "form-msg show ok";
+        form.reset();
+        selection.checkin = null;
+        selection.checkout = null;
+        syncFormFromSelection();
+        renderCalendar();
+      })
+      .catch(function(){
+        msgEl.textContent = "A apărut o eroare la trimiterea solicitării. Te rugăm încearcă din nou sau scrie-ne direct la " + CONTACT_EMAIL + ".";
+        msgEl.className = "form-msg show warn";
+      })
+      .finally(function(){
+        if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = "Trimite solicitarea de rezervare"; }
+      });
   });
 
   /* ---------- MOBILE MENU ---------- */
@@ -501,265 +527,6 @@
         target.scrollIntoView({behavior:"smooth", block:"start"});
       }
     }, true);
-  });
-
-  /* ---------- RECENZII (Google / Booking / Airbnb) ---------- */
-  var REVIEWS_JSON = "reviews.json";
-  var reviewsData = null;
-  var reviewsFiltered = [];
-  var reviewsIndex = 0;
-  var reviewsAutoplayTimer = null;
-
-  var reviewsSummaryEl = document.getElementById("reviewsSummary");
-  var reviewsTabsEl = document.getElementById("reviewsTabs");
-  var reviewsTrackEl = document.getElementById("reviewsTrack");
-  var reviewsDotsEl = document.getElementById("reviewsDots");
-  var reviewsPrevBtn = document.getElementById("reviewsPrev");
-  var reviewsNextBtn = document.getElementById("reviewsNext");
-
-  var PLATFORM_ICON = { google:"G", booking:"B.com", airbnb:"🅰️" };
-
-  function escapeHtml(str){
-    return String(str == null ? "" : str)
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
-      .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-  }
-
-  function loadReviews(){
-    if(!reviewsTrackEl) return; // sectiunea nu exista in pagina
-    fetch(REVIEWS_JSON, {cache:"no-store"})
-      .then(function(res){ if(!res.ok) throw new Error("missing"); return res.json(); })
-      .then(function(data){
-        reviewsData = data;
-        renderReviewsSummary();
-        renderReviewsTabs("all");
-      })
-      .catch(function(){
-        reviewsTrackEl.innerHTML = '<p class="summary-empty">Recenziile nu au putut fi încărcate momentan.</p>';
-      });
-  }
-
-  function starString(rating, scaleMax){
-    var r5 = scaleMax === 10 ? rating / 2 : rating;
-    var full = Math.round(r5);
-    var s = "";
-    for(var i=0;i<5;i++){ s += (i < full ? "★" : "☆"); }
-    return s;
-  }
-
-  function renderReviewsSummary(){
-    if(!reviewsData || !reviewsSummaryEl) return;
-    var html = "";
-    Object.keys(reviewsData.platforms).forEach(function(key){
-      var p = reviewsData.platforms[key];
-      html += '<a class="review-platform-pill" href="' + (p.url || "#") + '" target="_blank" rel="noopener">' +
-        '<span class="rp-badge rp-' + key + '">' + PLATFORM_ICON[key] + '</span>' +
-        '<span class="rp-score">' + p.rating + (p.scaleMax === 10 ? "/10" : "/5") + '</span>' +
-        '<span class="rp-count">' + p.totalReviews + ' recenzii</span>' +
-        '</a>';
-    });
-    reviewsSummaryEl.innerHTML = html;
-  }
-
-  function renderReviewsTabs(activeKey){
-    if(!reviewsData || !reviewsTabsEl) return;
-    var keys = ["all"].concat(Object.keys(reviewsData.platforms));
-    reviewsTabsEl.innerHTML = "";
-    keys.forEach(function(key){
-      var btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "reviews-tab" + (key === activeKey ? " active" : "");
-      btn.textContent = key === "all" ? "Toate" : reviewsData.platforms[key].label;
-      btn.setAttribute("role","tab");
-      btn.addEventListener("click", function(){
-        renderReviewsTabs(key);
-        setReviewsFilter(key);
-      });
-      reviewsTabsEl.appendChild(btn);
-    });
-    if(!reviewsFiltered.length || activeKey !== undefined) setReviewsFilter(activeKey);
-  }
-
-  function setReviewsFilter(key){
-    if(!reviewsData) return;
-    reviewsFiltered = key === "all" ? reviewsData.reviews.slice() :
-      reviewsData.reviews.filter(function(r){ return r.platform === key; });
-    reviewsFiltered.sort(function(a,b){ return new Date(b.date) - new Date(a.date); });
-    reviewsIndex = 0;
-    renderReviewsTrack();
-  }
-
-  function fmtReviewDate(iso){
-    var d = new Date(iso);
-    return d.toLocaleDateString("ro-RO", { day:"2-digit", month:"short", year:"numeric" });
-  }
-
-  function renderReviewsTrack(){
-    if(!reviewsTrackEl) return;
-    if(!reviewsFiltered.length){
-      reviewsTrackEl.innerHTML = '<p class="summary-empty">Nu există recenzii pentru această platformă încă.</p>';
-      reviewsDotsEl.innerHTML = "";
-      return;
-    }
-    reviewsTrackEl.innerHTML = reviewsFiltered.map(function(r){
-      var p = reviewsData.platforms[r.platform];
-      return '<div class="review-card">' +
-        '<div class="review-card-top">' +
-          '<span class="rp-badge rp-' + r.platform + '">' + PLATFORM_ICON[r.platform] + '</span>' +
-          '<span class="review-stars">' + starString(r.rating, p.scaleMax) + '</span>' +
-        '</div>' +
-        '<p class="review-text">' + escapeHtml(r.text) + '</p>' +
-        '<div class="review-card-bottom">' +
-          '<span class="review-author">' + escapeHtml(r.author) + '</span>' +
-          '<span class="review-date">' + fmtReviewDate(r.date) + '</span>' +
-        '</div>' +
-      '</div>';
-    }).join("");
-
-    reviewsDotsEl.innerHTML = reviewsFiltered.map(function(_, i){
-      return '<button type="button" class="review-dot' + (i===0 ? " active" : "") + '" aria-label="Recenzia ' + (i+1) + '"></button>';
-    }).join("");
-    Array.prototype.forEach.call(reviewsDotsEl.querySelectorAll(".review-dot"), function(dot, i){
-      dot.addEventListener("click", function(){ goToReview(i); });
-    });
-
-    goToReview(0);
-  }
-
-  function goToReview(i){
-    if(!reviewsFiltered.length) return;
-    reviewsIndex = (i + reviewsFiltered.length) % reviewsFiltered.length;
-    var card = reviewsTrackEl.children[reviewsIndex];
-    if(card){
-      reviewsTrackEl.scrollTo({ left: card.offsetLeft - reviewsTrackEl.offsetLeft, behavior:"smooth" });
-    }
-    Array.prototype.forEach.call(reviewsDotsEl.querySelectorAll(".review-dot"), function(dot, idx){
-      dot.classList.toggle("active", idx === reviewsIndex);
-    });
-  }
-
-  if(reviewsPrevBtn) reviewsPrevBtn.addEventListener("click", function(){ goToReview(reviewsIndex - 1); });
-  if(reviewsNextBtn) reviewsNextBtn.addEventListener("click", function(){ goToReview(reviewsIndex + 1); });
-
-  /* ---------- GALERIE FOTO ---------- */
-  var GALLERY = [
-    { key:"living",             label:"Living, luat masa & bucătărie", max:8 },
-    { key:"dormitor-mare",      label:"Dormitor mare",                 max:8 },
-    { key:"baie-mare",          label:"Baie – dormitor mare",          max:6 },
-    { key:"dormitor-mic",       label:"Dormitor mic",                  max:8 },
-    { key:"baie-mic",           label:"Baie – dormitor mic",           max:6 },
-    { key:"terasa-living",      label:"Terasă living",                 max:6 },
-    { key:"terasa-dormitoare",  label:"Terasă dormitoare",             max:6 }
-  ];
-  var galFound = {}; // key -> array de src incarcate cu succes
-  var galTabsEl = document.getElementById("galTabs");
-  var galGridEl = document.getElementById("galGrid");
-  var activeCat = GALLERY[0].key;
-
-  function imgSrc(key, i){ return "images/" + key + "/" + i + ".jpg"; }
-
-  GALLERY.forEach(function(cat){
-    galFound[cat.key] = [];
-
-    var tab = document.createElement("button");
-    tab.type = "button"; tab.className = "gal-tab" + (cat.key === activeCat ? " active" : "");
-    tab.textContent = cat.label;
-    tab.addEventListener("click", function(){ setActiveCat(cat.key); });
-    galTabsEl.appendChild(tab);
-
-    var panel = document.createElement("div");
-    panel.className = "gal-panel" + (cat.key === activeCat ? " active" : "");
-    panel.id = "gal-panel-" + cat.key;
-    galGridEl.appendChild(panel);
-
-    for(var i=1;i<=cat.max;i++){
-      (function(catKey, index){
-        var thumb = document.createElement("div");
-        thumb.className = "gal-thumb";
-        var img = document.createElement("img");
-        img.src = imgSrc(catKey, index);
-        img.alt = cat.label + " " + index;
-        img.loading = "lazy";
-        img.onload = function(){
-          galFound[catKey].push(img.src);
-          thumb.addEventListener("click", function(){
-            openLightbox(catKey, galFound[catKey].indexOf(img.src));
-          });
-        };
-        img.onerror = function(){ thumb.remove(); checkEmpty(catKey); };
-        thumb.appendChild(img);
-        document.getElementById("gal-panel-" + catKey).appendChild(thumb);
-      })(cat.key, i);
-    }
-  });
-
-  function checkEmpty(key){
-    var panel = document.getElementById("gal-panel-" + key);
-    if(panel.children.length === 0){
-      var empty = document.createElement("div");
-      empty.className = "gal-empty";
-      empty.innerHTML = "Adaugă poze în <code>images/" + key + "/1.jpg</code>, <code>2.jpg</code>… (până la " +
-        (GALLERY.find(function(c){return c.key===key;}).max) + ")";
-      panel.appendChild(empty);
-    }
-  }
-
-  function setActiveCat(key){
-    activeCat = key;
-    galTabsEl.querySelectorAll(".gal-tab").forEach(function(t,idx){
-      t.classList.toggle("active", GALLERY[idx].key === key);
-    });
-    galGridEl.querySelectorAll(".gal-panel").forEach(function(p){
-      p.classList.toggle("active", p.id === "gal-panel-" + key);
-    });
-  }
-
-  document.getElementById("openGalleryBtn").addEventListener("click", function(){
-    document.getElementById("galerie").scrollIntoView({behavior:"smooth", block:"start"});
-  });
-
-  /* Hero preview: prima poza gasita din prima categorie disponibila */
-  var heroImg = document.querySelector("#galleryHero img");
-  heroImg.addEventListener("load", function(){}, {once:true});
-
-  /* LIGHTBOX */
-  var lightbox = document.getElementById("lightbox");
-  var lightboxImg = document.getElementById("lightboxImg");
-  var lightboxTitle = document.getElementById("lightboxTitle");
-  var lightboxCounter = document.getElementById("lightboxCounter");
-  var lbCat = null, lbIndex = 0;
-
-  function openLightbox(key, index){
-    lbCat = key; lbIndex = index;
-    renderLightbox();
-    lightbox.classList.add("open");
-    document.body.style.overflow = "hidden";
-  }
-  function renderLightbox(){
-    var list = galFound[lbCat];
-    lightboxImg.src = list[lbIndex];
-    lightboxTitle.textContent = GALLERY.find(function(c){return c.key===lbCat;}).label;
-    lightboxCounter.textContent = (lbIndex+1) + " / " + list.length;
-  }
-  document.getElementById("lightboxClose").addEventListener("click", function(){
-    lightbox.classList.remove("open");
-    document.body.style.overflow = "";
-  });
-  lightbox.addEventListener("click", function(e){
-    if(e.target === lightbox){
-      lightbox.classList.remove("open");
-      document.body.style.overflow = "";
-    }
-  });
-  document.getElementById("lightboxPrev").addEventListener("click", function(){
-    var list = galFound[lbCat];
-    lbIndex = (lbIndex - 1 + list.length) % list.length;
-    renderLightbox();
-  });
-  document.getElementById("lightboxNext").addEventListener("click", function(){
-    var list = galFound[lbCat];
-    lbIndex = (lbIndex + 1) % list.length;
-    renderLightbox();
   });
 
   /* ---------- RECENZII (Google / Booking.com / Airbnb) ---------- */
@@ -944,9 +711,129 @@
     renderReviewsTrack();
   }
 
+  /* ---------- GALERIE FOTO ---------- */
+  var GALLERY = [
+    { key:"living",             label:"Living, luat masa & bucătărie", max:8 },
+    { key:"dormitor-mare",      label:"Dormitor mare",                 max:8 },
+    { key:"baie-mare",          label:"Baie – dormitor mare",          max:6 },
+    { key:"dormitor-mic",       label:"Dormitor mic",                  max:8 },
+    { key:"baie-mic",           label:"Baie – dormitor mic",           max:6 },
+    { key:"terasa-living",      label:"Terasă living",                 max:6 },
+    { key:"terasa-dormitoare",  label:"Terasă dormitoare",             max:6 }
+  ];
+  var galFound = {}; // key -> array de src incarcate cu succes
+  var galTabsEl = document.getElementById("galTabs");
+  var galGridEl = document.getElementById("galGrid");
+  var activeCat = GALLERY[0].key;
+
+  function imgSrc(key, i){ return "images/" + key + "/" + i + ".jpg"; }
+
+  GALLERY.forEach(function(cat){
+    galFound[cat.key] = [];
+
+    var tab = document.createElement("button");
+    tab.type = "button"; tab.className = "gal-tab" + (cat.key === activeCat ? " active" : "");
+    tab.textContent = cat.label;
+    tab.addEventListener("click", function(){ setActiveCat(cat.key); });
+    galTabsEl.appendChild(tab);
+
+    var panel = document.createElement("div");
+    panel.className = "gal-panel" + (cat.key === activeCat ? " active" : "");
+    panel.id = "gal-panel-" + cat.key;
+    galGridEl.appendChild(panel);
+
+    for(var i=1;i<=cat.max;i++){
+      (function(catKey, index){
+        var thumb = document.createElement("div");
+        thumb.className = "gal-thumb";
+        var img = document.createElement("img");
+        img.src = imgSrc(catKey, index);
+        img.alt = cat.label + " " + index;
+        img.loading = "lazy";
+        img.onload = function(){
+          galFound[catKey].push(img.src);
+          thumb.addEventListener("click", function(){
+            openLightbox(catKey, galFound[catKey].indexOf(img.src));
+          });
+        };
+        img.onerror = function(){ thumb.remove(); checkEmpty(catKey); };
+        thumb.appendChild(img);
+        document.getElementById("gal-panel-" + catKey).appendChild(thumb);
+      })(cat.key, i);
+    }
+  });
+
+  function checkEmpty(key){
+    var panel = document.getElementById("gal-panel-" + key);
+    if(panel.children.length === 0){
+      var empty = document.createElement("div");
+      empty.className = "gal-empty";
+      empty.innerHTML = "Adaugă poze în <code>images/" + key + "/1.jpg</code>, <code>2.jpg</code>… (până la " +
+        (GALLERY.find(function(c){return c.key===key;}).max) + ")";
+      panel.appendChild(empty);
+    }
+  }
+
+  function setActiveCat(key){
+    activeCat = key;
+    galTabsEl.querySelectorAll(".gal-tab").forEach(function(t,idx){
+      t.classList.toggle("active", GALLERY[idx].key === key);
+    });
+    galGridEl.querySelectorAll(".gal-panel").forEach(function(p){
+      p.classList.toggle("active", p.id === "gal-panel-" + key);
+    });
+  }
+
+  document.getElementById("openGalleryBtn").addEventListener("click", function(){
+    document.getElementById("galerie").scrollIntoView({behavior:"smooth", block:"start"});
+  });
+
+  /* Hero preview: prima poza gasita din prima categorie disponibila */
+  var heroImg = document.querySelector("#galleryHero img");
+  heroImg.addEventListener("load", function(){}, {once:true});
+
+  /* LIGHTBOX */
+  var lightbox = document.getElementById("lightbox");
+  var lightboxImg = document.getElementById("lightboxImg");
+  var lightboxTitle = document.getElementById("lightboxTitle");
+  var lightboxCounter = document.getElementById("lightboxCounter");
+  var lbCat = null, lbIndex = 0;
+
+  function openLightbox(key, index){
+    lbCat = key; lbIndex = index;
+    renderLightbox();
+    lightbox.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
+  function renderLightbox(){
+    var list = galFound[lbCat];
+    lightboxImg.src = list[lbIndex];
+    lightboxTitle.textContent = GALLERY.find(function(c){return c.key===lbCat;}).label;
+    lightboxCounter.textContent = (lbIndex+1) + " / " + list.length;
+  }
+  document.getElementById("lightboxClose").addEventListener("click", function(){
+    lightbox.classList.remove("open");
+    document.body.style.overflow = "";
+  });
+  lightbox.addEventListener("click", function(e){
+    if(e.target === lightbox){
+      lightbox.classList.remove("open");
+      document.body.style.overflow = "";
+    }
+  });
+  document.getElementById("lightboxPrev").addEventListener("click", function(){
+    var list = galFound[lbCat];
+    lbIndex = (lbIndex - 1 + list.length) % list.length;
+    renderLightbox();
+  });
+  document.getElementById("lightboxNext").addEventListener("click", function(){
+    var list = galFound[lbCat];
+    lbIndex = (lbIndex + 1) % list.length;
+    renderLightbox();
+  });
+
   /* ---------- INIT ---------- */
   loadPricing();
   loadCalendar();
-  loadReviews();
   loadReviews();
 })();
