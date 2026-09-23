@@ -68,7 +68,7 @@
       "label": "Sezon iarnă",
       "start": "2026-12-01",
       "end": "2026-12-20",
-      "price": 1000,
+      "price": 1300,
       "minNights": 2,
       "discountTiers": [
         {
@@ -102,28 +102,12 @@
       "label": "Sezon iarnă",
       "start": "2026-12-21",
       "end": "2026-12-27",
-      "price": 1200,
+      "price": 1500,
       "minNights": 3,
       "discountTiers": [
         {
           "minNights": 3,
           "discount": 0
-        },
-        {
-          "minNights": 4,
-          "discount": 10
-        },
-        {
-          "minNights": 5,
-          "discount": 15
-        },
-        {
-          "minNights": 6,
-          "discount": 20
-        },
-        {
-          "minNights": 7,
-          "discount": 25
         }
       ]
     },
@@ -132,28 +116,12 @@
       "label": "Sezon iarnă",
       "start": "2026-12-28",
       "end": "2027-01-04",
-      "price": 1500,
-      "minNights": 3,
+      "price": 1800,
+      "minNights": 4,
       "discountTiers": [
         {
-          "minNights": 3,
-          "discount": 0
-        },
-        {
           "minNights": 4,
-          "discount": 10
-        },
-        {
-          "minNights": 5,
-          "discount": 15
-        },
-        {
-          "minNights": 6,
-          "discount": 20
-        },
-        {
-          "minNights": 7,
-          "discount": 25
+          "discount": 0
         }
       ]
     },
@@ -162,7 +130,7 @@
       "label": "Sezon iarnă",
       "start": "2027-01-05",
       "end": "2027-02-14",
-      "price": 1000,
+      "price": 1350,
       "minNights": 2,
       "discountTiers": [
         {
@@ -196,7 +164,7 @@
       "label": "Sezon iarnă",
       "start": "2027-02-15",
       "end": "2027-03-07",
-      "price": 1200,
+      "price": 1450,
       "minNights": 2,
       "discountTiers": [
         {
@@ -226,6 +194,6 @@
       ]
     }
   ],
-  "generatedAt": "2026-09-23T09:37:51.410Z",
+  "generatedAt": "2026-09-23T18:06:54.811Z",
   "generatedFrom": "pricing/tarife.xlsx"
 }

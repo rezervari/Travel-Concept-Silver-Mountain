@@ -409,14 +409,96 @@
     updateSummary();
   }
 
+  /* ---------- OASPETI + TAXE LOCALE (incluse in pret, doar pentru adulti) ---------- */
+  var MAX_ADULTS = 4, MAX_CHILDREN = 2;
+  var TAX_TOURIST = 7;    // RON / adult / noapte
+  var TAX_SALVAMONT = 5;  // RON / adult / noapte
+  var selAdults = document.getElementById("fadults");
+  var selChildren = document.getElementById("fchildren");
+
+  function clampInt(v, min, max, def){
+    var n = parseInt(v, 10);
+    if(isNaN(n)) return def;
+    return Math.min(max, Math.max(min, n));
+  }
+  function getGuests(){
+    return {
+      adults: clampInt(selAdults ? selAdults.value : 2, 1, MAX_ADULTS, 2),
+      children: clampInt(selChildren ? selChildren.value : 0, 0, MAX_CHILDREN, 0)
+    };
+  }
+  function guestsLabel(g){
+    var s = g.adults + (g.adults === 1 ? " adult" : " adulți");
+    if(g.children > 0) s += ", " + g.children + (g.children === 1 ? " copil" : " copii");
+    return s;
+  }
+  function computeTaxes(adults, nights){
+    var tourist = TAX_TOURIST * adults * nights;
+    var salvamont = TAX_SALVAMONT * adults * nights;
+    return { tourist: tourist, salvamont: salvamont, total: tourist + salvamont };
+  }
+  function nightsWord(n){ return n === 1 ? "noapte" : "nopți"; }
+  function adultsWord(n){ return n === 1 ? "adult" : "adulți"; }
+
+  [selAdults, selChildren].forEach(function(el){
+    if(el) el.addEventListener("change", function(){ updateSummary(); });
+  });
+
+  /* ---------- REZUMAT: stare initiala (fara date alese) ----------
+   * In loc de "pret de pornire": scara reducerilor pe durata + perioadele
+   * speciale viitoare (sejur minim mai mare / tarif fix), citite din pricing.json. */
+  var RO_MONTHS_SHORT = ["ian","feb","mar","apr","mai","iun","iul","aug","sep","oct","noi","dec"];
+  function parseISODay(iso){
+    var p = String(iso).split("-");
+    return { y: +p[0], m: +p[1] - 1, d: +p[2] };
+  }
+  function fmtSeasonRange(s){
+    var a = parseISODay(s.start), b = parseISODay(s.end);
+    if(a.m === b.m && a.y === b.y) return a.d + "–" + b.d + " " + RO_MONTHS_SHORT[b.m];
+    return a.d + " " + RO_MONTHS_SHORT[a.m] + " – " + b.d + " " + RO_MONTHS_SHORT[b.m];
+  }
+  function buildSummaryIntro(){
+    var data = pricingData || FALLBACK_PRICING;
+    var html = '<p class="summary-empty">Alege datele în calendar și vezi instant prețul final al sejurului, cu reducerea aplicată automat.</p>';
+
+    var tiers = (data.defaultDiscountTiers || []).filter(function(t){ return t.discount > 0; })
+      .slice().sort(function(a,b){ return a.minNights - b.minNights; });
+    if(tiers.length){
+      var maxPct = tiers[tiers.length-1].discount || 1;
+      html += '<div class="summary-block"><h4>Cu cât stai mai mult, cu atât economisești</h4><ul class="discount-ladder">';
+      tiers.forEach(function(t, i){
+        var label = t.minNights + (i === tiers.length-1 ? "+" : "") + " nopți";
+        var w = Math.max(12, Math.round(t.discount / maxPct * 100));
+        html += '<li><span class="dl-nights">' + label + '</span>' +
+          '<span class="dl-bar" aria-hidden="true"><span style="width:' + w + '%"></span></span>' +
+          '<b class="dl-pct">−' + t.discount + '%</b></li>';
+      });
+      html += '</ul></div>';
+    }
+
+    var todayT = stripTime(new Date()).getTime();
+    var globalMin = getGlobalMinNights();
+    var special = (data.seasons || []).filter(function(s){
+      var e = parseISODay(s.end);
+      return new Date(e.y, e.m, e.d).getTime() >= todayT && typeof s.minNights === "number" && s.minNights > globalMin;
+    }).sort(function(a,b){ return a.start < b.start ? -1 : 1; }).slice(0, 3);
+    if(special.length){
+      html += '<div class="summary-block"><h4>Perioade de sărbători</h4><ul class="special-periods">';
+      special.forEach(function(s){
+        var noDiscount = !(s.discountTiers || []).some(function(t){ return t.discount > 0; });
+        html += '<li><span>' + fmtSeasonRange(s) + '</span><span>minim ' + s.minNights + ' nopți' +
+          (noDiscount ? ' · tarif fix' : '') + '</span></li>';
+      });
+      html += '</ul><p class="summary-note">Locurile de sărbători se ocupă primele — verifică acum disponibilitatea.</p></div>';
+    }
+    return html;
+  }
+
   function updateSummary(){
     var ci = selection.checkin, co = selection.checkout;
 
     if(!ci || !co || co <= ci){
-      var minPrice = getMinBasePrice();
-      summaryBody.innerHTML =
-        '<p class="summary-empty">Prețul pornește de la <b>' + minPrice + ' RON/noapte</b>. ' +
-        'Alege datele de check-in și check-out pentru a vedea prețul exact al sejurului, cu reducerea aplicată automat.</p>';
+      summaryBody.innerHTML = buildSummaryIntro();
       rangeHint.innerHTML = 'Alege datele direct din <a href="#disponibilitate" class="hint-link">calendarul de disponibilitate</a> de mai sus — zilele ocupate sunt blocate automat.';
       rangeHint.style.color = "";
       return;
@@ -436,9 +518,11 @@
       return;
     }
 
+    var guests = getGuests();
     var rows =
       '<div class="summary-row"><span>Check-in</span><span>' + fmtDate(ci) + '</span></div>' +
-      '<div class="summary-row"><span>Check-out</span><span>' + fmtDate(co) + '</span></div>';
+      '<div class="summary-row"><span>Check-out</span><span>' + fmtDate(co) + '</span></div>' +
+      '<div class="summary-row"><span>Oaspeți</span><span>' + guestsLabel(guests) + '</span></div>';
 
     if(stay.discountPct > 0){
       rows +=
@@ -450,6 +534,18 @@
         '<div class="summary-row"><span>' + stay.nights + ' nopți × ' + stay.avgPerNight + ' RON</span><span>' + stay.total + ' RON</span></div>';
     }
     rows += '<div class="summary-row total"><span>Total</span><span>' + stay.total + ' RON</span></div>';
+
+    var tx = computeTaxes(guests.adults, stay.nights);
+    var calcTxt = function(rate){
+      return rate + ' RON × ' + guests.adults + ' ' + adultsWord(guests.adults) + ' × ' + stay.nights + ' ' + nightsWord(stay.nights);
+    };
+    rows +=
+      '<div class="summary-taxes" aria-label="Taxe locale incluse în preț">' +
+        '<h4>Taxe incluse în preț</h4>' +
+        '<div class="summary-row"><span>Taxă turistică<span class="tax-calc">' + calcTxt(TAX_TOURIST) + '</span></span><span>' + tx.tourist + ' RON</span></div>' +
+        '<div class="summary-row"><span>Taxă Salvamont<span class="tax-calc">' + calcTxt(TAX_SALVAMONT) + '</span></span><span>' + tx.salvamont + ' RON</span></div>' +
+        '<p>Taxele se aplică doar adulților și sunt deja incluse în total — nu se plătesc suplimentar.</p>' +
+      '</div>';
 
     summaryBody.innerHTML = rows;
 
@@ -499,8 +595,19 @@
       return;
     }
 
+    var adultsRaw = selAdults ? parseInt(selAdults.value, 10) : NaN;
+    var childrenRaw = selChildren ? parseInt(selChildren.value, 10) : 0;
+    if(isNaN(adultsRaw) || adultsRaw < 1 || adultsRaw > MAX_ADULTS ||
+       isNaN(childrenRaw) || childrenRaw < 0 || childrenRaw > MAX_CHILDREN){
+      msgEl.textContent = "Capacitatea maximă este de " + MAX_ADULTS + " adulți și " + MAX_CHILDREN + " copii.";
+      msgEl.className = "form-msg show warn";
+      return;
+    }
+    var guests = getGuests();
+
     var ci = toInputValue(ciDate), co = toInputValue(coDate);
     var stay = computeStay(ciDate, coDate);
+    var tx = computeTaxes(guests.adults, stay.nights);
 
     var subject = "Solicitare rezervare A13 Travel Concept — " + ci + " → " + co;
     var body =
@@ -511,9 +618,14 @@
       "Check-in: " + ci + "\n" +
       "Check-out: " + co + "\n" +
       "Nopți: " + stay.nights + "\n" +
+      "Adulți: " + guests.adults + "\n" +
+      "Copii: " + guests.children + "\n\n" +
       "Preț de bază: " + stay.rawTotal + " RON\n" +
       (stay.discountPct > 0 ? "Reducere aplicată: -" + stay.discountPct + "%\n" : "") +
-      "Total: " + stay.total + " RON\n";
+      "Total: " + stay.total + " RON\n\n" +
+      "Taxe incluse în total (doar adulți):\n" +
+      "- Taxă turistică: " + TAX_TOURIST + " RON × " + guests.adults + " × " + stay.nights + " = " + tx.tourist + " RON\n" +
+      "- Taxă Salvamont: " + TAX_SALVAMONT + " RON × " + guests.adults + " × " + stay.nights + " = " + tx.salvamont + " RON\n";
 
     var mailto = "mailto:" + CONTACT_EMAIL +
       "?subject=" + encodeURIComponent(subject) +
@@ -570,6 +682,47 @@
   var THUMB_SIZES = "(max-width:559px) 50vw, (max-width:819px) 33vw, (max-width:1079px) 25vw, 220px";
   var FIRST_SIZES = "(max-width:559px) 100vw, (max-width:819px) 66vw, (max-width:1079px) 50vw, 440px";
 
+  /* Texte alternative (SEO + accesibilitate). Poze noi fără text aici primesc un alt generic. */
+  var GALLERY_ALTS = {
+    "living": {
+      1: "Living cu canapea, fotolii și șemineu decorativ în apartamentul A13 Travel Concept din Poiana Brașov",
+      2: "Living open-space cu zonă de luat masa și bucătărie, apartament A13 Silver Mountain",
+      3: "Bucătărie complet utilată cu espressor, cuptor și plită, apartament A13 Travel Concept"
+    },
+    "dormitor-mare": {
+      1: "Dormitor matrimonial cu pat dublu și fereastră spre pădure, apartament A13 Poiana Brașov",
+      2: "Dormitor mare cu pat dublu și baie proprie, apartament A13 Travel Concept, Silver Mountain",
+      3: "Dormitor mare cu pat dublu, TV și birou, cazare Silver Mountain Poiana Brașov",
+      4: "Dormitor mare cu acces la baia privată, apartament A13 Travel Concept"
+    },
+    "baie-mare": {
+      1: "Baie privată cu cadă, lavoar și oglindă iluminată, dormitorul mare, apartament A13",
+      2: "Baie cu cadă, toaletă suspendată și uscător de prosoape, apartament A13 Poiana Brașov"
+    },
+    "dormitor-mic": {
+      1: "Dormitor cu pat dublu și ușă spre balcon cu vedere la munte, apartament A13 Silver Mountain",
+      2: "Al doilea dormitor cu pat matrimonial și prosoape pregătite, apartament A13 Travel Concept",
+      3: "Dormitor mic cu pat dublu și TV, cazare în regim hotelier Poiana Brașov",
+      4: "Dormitor cu baie privată cu duș, apartament A13 Travel Concept, Silver Mountain"
+    },
+    "baie-mic": {
+      1: "Baie privată cu cabină de duș, dormitorul mic, apartament A13 Poiana Brașov",
+      2: "Baie modernă cu duș și lavoar, apartament A13 Travel Concept, Silver Mountain"
+    },
+    "terasa-living": {
+      1: "Terasă cu mobilier de exterior și vedere spre pădurea de brazi, apartament A13 Poiana Brașov",
+      2: "Terasa livingului cu masă, fotolii și umbrelă, complex Silver Mountain Poiana Brașov"
+    },
+    "terasa-dormitoare": {
+      1: "Balcon închis cu vedere spre pădure, lângă dormitoare, apartament A13 Travel Concept"
+    }
+  };
+  function galAlt(cat, index){
+    var byCat = GALLERY_ALTS[cat.key];
+    return (byCat && byCat[index]) ||
+      (cat.label + " – apartament A13 Travel Concept, Silver Mountain, Poiana Brașov (foto " + index + ")");
+  }
+
   function galIndex(src){ return parseInt(src.split("/").pop(), 10) || 0; }
 
   function addThumb(cat, index){
@@ -578,7 +731,7 @@
     thumb.className = "gal-thumb";
     var img = document.createElement("img");
     var usedWebp = true;
-    img.alt = cat.label + " " + index;
+    img.alt = galAlt(cat, index);
     img.loading = "lazy";
     img.decoding = "async";
     img.width = 600; img.height = 400;
@@ -691,6 +844,8 @@
       lightboxImg.onerror = null;
       if(/\.webp$/.test(src)) lightboxImg.src = src.replace(/\.webp$/, ".jpg");
     };
+    var lbCatObj = GALLERY.find(function(c){return c.key===lbCat;});
+    lightboxImg.alt = galAlt(lbCatObj, galIndex(src));
     lightboxImg.src = src;
     lightboxTitle.textContent = GALLERY.find(function(c){return c.key===lbCat;}).label;
     lightboxCounter.textContent = (lbIndex+1) + " / " + list.length;

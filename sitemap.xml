@@ -1,9 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/</loc>
     <lastmod>2026-09-23</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/hero-apartament.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/living/1.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/living/2.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/living/3.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/dormitor-mare/1.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/dormitor-mare/2.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/dormitor-mare/3.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/dormitor-mare/4.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/dormitor-mic/1.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/dormitor-mic/2.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/dormitor-mic/3.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/dormitor-mic/4.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/baie-mare/1.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/baie-mare/2.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/baie-mic/1.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/baie-mic/2.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/terasa-living/1.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/terasa-living/2.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/terasa-dormitoare/1.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/zona/schi.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/zona/drumetii.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/zona/wellness.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/zona/restaurante.jpg</image:loc></image:image>
+    <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/zona/brasov.jpg</image:loc></image:image>
   </url>
 </urlset>
