@@ -4,7 +4,7 @@
   document.getElementById("year").textContent = new Date().getFullYear();
 
   /* ---------- CONFIG ---------- */
-  var CONTACT_EMAIL = "mircea.george.vulcanescu@gmail.com";
+  var CONTACT_EMAIL = ["mircea.george.vulcanescu", "gmail.com"].join("@");
   var BOOKED_JSON = "booked-dates.json"; // generat periodic de update-calendar.js
   var PRICING_JSON = "pricing.json";     // tarife pe sezon + trepte de reducere
 
@@ -566,41 +566,81 @@
   var activeCat = GALLERY[0].key;
 
   function imgSrc(key, i){ return "images/" + key + "/" + i + ".jpg"; }
+  function imgWebp(key, i, suffix){ return "images/" + key + "/" + i + (suffix || "") + ".webp"; }
+  var THUMB_SIZES = "(max-width:559px) 50vw, (max-width:819px) 33vw, (max-width:1079px) 25vw, 220px";
+  var FIRST_SIZES = "(max-width:559px) 100vw, (max-width:819px) 66vw, (max-width:1079px) 50vw, 440px";
 
-  GALLERY.forEach(function(cat){
-    galFound[cat.key] = [];
+  function galIndex(src){ return parseInt(src.split("/").pop(), 10) || 0; }
 
-    var tab = document.createElement("button");
-    tab.type = "button"; tab.className = "gal-tab" + (cat.key === activeCat ? " active" : "");
-    tab.textContent = cat.label;
-    tab.addEventListener("click", function(){ setActiveCat(cat.key); });
-    galTabsEl.appendChild(tab);
-
-    var panel = document.createElement("div");
-    panel.className = "gal-panel" + (cat.key === activeCat ? " active" : "");
-    panel.id = "gal-panel-" + cat.key;
-    galGridEl.appendChild(panel);
-
-    for(var i=1;i<=cat.max;i++){
-      (function(catKey, index){
-        var thumb = document.createElement("div");
-        thumb.className = "gal-thumb";
-        var img = document.createElement("img");
+  function addThumb(cat, index){
+    var catKey = cat.key;
+    var thumb = document.createElement("div");
+    thumb.className = "gal-thumb";
+    var img = document.createElement("img");
+    var usedWebp = true;
+    img.alt = cat.label + " " + index;
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.width = 600; img.height = 400;
+    img.sizes = index === 1 ? FIRST_SIZES : THUMB_SIZES;
+    img.srcset = imgWebp(catKey, index, "-600") + " 600w, " + imgWebp(catKey, index) + " 1024w";
+    img.src = imgWebp(catKey, index, "-600");
+    img.onload = function(){
+      var full = usedWebp ? imgWebp(catKey, index) : imgSrc(catKey, index);
+      galFound[catKey].push(full);
+      galFound[catKey].sort(function(x, y){ return galIndex(x) - galIndex(y); });
+      thumb.addEventListener("click", function(){
+        openLightbox(catKey, galFound[catKey].indexOf(full));
+      });
+    };
+    img.onerror = function(){
+      if(usedWebp){
+        /* fallback: WebP lipsă (încă negenerat) -> JPG original */
+        usedWebp = false;
+        img.removeAttribute("srcset");
+        img.removeAttribute("sizes");
         img.src = imgSrc(catKey, index);
-        img.alt = cat.label + " " + index;
-        img.loading = "lazy";
-        img.onload = function(){
-          galFound[catKey].push(img.src);
-          thumb.addEventListener("click", function(){
-            openLightbox(catKey, galFound[catKey].indexOf(img.src));
-          });
-        };
-        img.onerror = function(){ thumb.remove(); checkEmpty(catKey); };
-        thumb.appendChild(img);
-        document.getElementById("gal-panel-" + catKey).appendChild(thumb);
-      })(cat.key, i);
-    }
-  });
+        return;
+      }
+      thumb.remove(); checkEmpty(catKey);
+    };
+    thumb.appendChild(img);
+    document.getElementById("gal-panel-" + catKey).appendChild(thumb);
+  }
+
+  /* manifest = { "living":[1,2,3], ... } generat de optimize-images.cjs; null -> sondare 1..max */
+  function buildGallery(manifest){
+    GALLERY.forEach(function(cat){
+      galFound[cat.key] = [];
+
+      var tab = document.createElement("button");
+      tab.type = "button"; tab.className = "gal-tab" + (cat.key === activeCat ? " active" : "");
+      tab.textContent = cat.label;
+      tab.addEventListener("click", function(){ setActiveCat(cat.key); });
+      galTabsEl.appendChild(tab);
+
+      var panel = document.createElement("div");
+      panel.className = "gal-panel" + (cat.key === activeCat ? " active" : "");
+      panel.id = "gal-panel-" + cat.key;
+      galGridEl.appendChild(panel);
+
+      var list = [];
+      if(manifest && Array.isArray(manifest[cat.key])){
+        list = manifest[cat.key].filter(function(n){ return typeof n === "number" && n > 0; });
+      } else {
+        for(var i=1;i<=cat.max;i++) list.push(i);
+      }
+      list.forEach(function(index){ addThumb(cat, index); });
+      if(list.length === 0) checkEmpty(cat.key);
+    });
+  }
+
+  if(galTabsEl && galGridEl){
+    fetch("images/gallery.json", {cache:"no-cache"})
+      .then(function(r){ if(!r.ok) throw new Error("gallery.json " + r.status); return r.json(); })
+      .then(function(m){ buildGallery(m); })
+      .catch(function(){ buildGallery(null); });
+  }
 
   function checkEmpty(key){
     var panel = document.getElementById("gal-panel-" + key);
@@ -646,7 +686,12 @@
   }
   function renderLightbox(){
     var list = galFound[lbCat];
-    lightboxImg.src = list[lbIndex];
+    var src = list[lbIndex];
+    lightboxImg.onerror = function(){
+      lightboxImg.onerror = null;
+      if(/\.webp$/.test(src)) lightboxImg.src = src.replace(/\.webp$/, ".jpg");
+    };
+    lightboxImg.src = src;
     lightboxTitle.textContent = GALLERY.find(function(c){return c.key===lbCat;}).label;
     lightboxCounter.textContent = (lbIndex+1) + " / " + list.length;
   }
@@ -851,6 +896,15 @@
     renderReviewsSummary();
     renderReviewsTabs();
     renderReviewsTrack();
+  }
+
+  /* ---------- FOOTER: e-mail ascuns, deschis doar la click ---------- */
+  var footMail = document.getElementById("footMail");
+  if (footMail) {
+    footMail.addEventListener("click", function(e){
+      e.preventDefault();
+      window.location.href = "mailto:" + CONTACT_EMAIL + "?subject=" + encodeURIComponent("Întrebare A13 Travel Concept");
+    });
   }
 
   /* ---------- INIT ---------- */

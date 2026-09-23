@@ -1,0 +1,41 @@
+name: Optimize images
+
+on:
+  push:
+    paths:
+      - "images/**/*.jpg"
+      - "images/**/*.jpeg"
+      - "hero-apartament.jpg"
+      - "optimize-images.cjs"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install sharp
+        run: npm install sharp --no-save
+
+      - name: Generate WebP variants
+        run: node optimize-images.cjs
+
+      - name: Commit WebP files
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add -- '*.webp' images/gallery.json
+          git commit -m "optimize images (webp)" || echo "no changes"
+          git pull --rebase
+          git push

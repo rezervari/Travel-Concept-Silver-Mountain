@@ -1,0 +1,34 @@
+{
+  "baie-mare": [
+    1,
+    2
+  ],
+  "baie-mic": [
+    1,
+    2
+  ],
+  "dormitor-mare": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "dormitor-mic": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "living": [
+    1,
+    2,
+    3
+  ],
+  "terasa-dormitoare": [
+    1
+  ],
+  "terasa-living": [
+    1,
+    2
+  ]
+}

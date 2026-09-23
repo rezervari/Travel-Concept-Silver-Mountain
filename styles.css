@@ -125,9 +125,6 @@
   }
   .hero-photo{
     position:absolute;inset:0;z-index:0;
-    background-image:url("hero-apartament.jpg");
-    background-size:cover;
-    background-position:center;
   }
   .hero::after{
     content:"";position:absolute;inset:0;z-index:1;
@@ -395,6 +392,9 @@
     background:
       linear-gradient(135deg,rgba(0,53,128,.96),rgba(0,113,194,.82)),
       url("images/living/1.jpg") center/cover;
+    background:
+      linear-gradient(135deg,rgba(0,53,128,.96),rgba(0,113,194,.82)),
+      image-set(url("images/living/1-600.webp") type("image/webp"), url("images/living/1.jpg") type("image/jpeg")) center/cover;
     opacity:.98;
   }
   .area-section::after{
@@ -528,6 +528,9 @@
     background:
       linear-gradient(180deg,rgba(0,53,128,.18),rgba(0,35,80,.96)),
       url("images/living/1.jpg") center/cover;
+    background:
+      linear-gradient(180deg,rgba(0,53,128,.18),rgba(0,35,80,.96)),
+      image-set(url("images/living/1.webp") type("image/webp"), url("images/living/1.jpg") type("image/jpeg")) center/cover;
     box-shadow:0 16px 34px rgba(0,53,128,.16);
   }
   .spotlight-icon{
@@ -893,7 +896,8 @@
     background:linear-gradient(135deg,#274b7a,#3f7ec2 60%,#8fc1ee);
     box-shadow:0 14px 34px rgba(0,53,128,.12);
   }
-  .gallery-hero img{width:100%;height:100%;object-fit:cover;}
+  .gallery-hero picture{position:absolute;inset:0;display:block;}
+  .gallery-hero img{width:100%;height:100%;object-fit:cover;display:block;}
   .gallery-hero-fallback{
     display:none;position:absolute;inset:0;align-items:center;justify-content:center;
     flex-direction:column;color:rgba(255,255,255,.85);font-size:.85rem;font-weight:600;text-align:center;padding:16px;
@@ -1004,11 +1008,39 @@
 
   /* FOOTER */
   footer{background:var(--blue-dark);color:#cfe0f5;padding:40px 0 26px;font-size:.85rem;}
-  .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:26px;margin-bottom:26px;}
-  @media(max-width:700px){.footer-grid{grid-template-columns:1fr;}}
+  .footer-grid{display:grid;grid-template-columns:1.6fr 1.3fr 1fr 1fr;gap:26px;margin-bottom:26px;}
   footer h4{color:var(--white);font-size:.9rem;margin:0 0 12px;}
-  footer .foot-line{margin:0 0 8px;}
+  footer .foot-line{margin:0 0 8px;line-height:1.5;}
+  .foot-contact-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  .foot-btn{display:inline-flex;align-items:center;gap:10px;color:#cfe0f5;text-decoration:none;min-height:24px;}
+  .foot-btn svg{flex:none;color:var(--yellow);}
+  .foot-btn:hover span,.foot-btn:focus-visible span{color:var(--white);text-decoration:underline;}
+  .foot-btn:focus-visible{outline:2px solid var(--yellow);outline-offset:3px;border-radius:4px;}
   .foot-bottom{border-top:1px solid rgba(255,255,255,.15);padding-top:18px;font-size:.75rem;color:#9fb8d9;}
+  @media(max-width:900px){
+    .footer-grid{grid-template-columns:1fr 1fr;gap:26px 24px;}
+    .foot-contact-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+    .foot-btn{
+      display:flex;flex-direction:column;justify-content:center;gap:6px;width:100%;box-sizing:border-box;
+      background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);
+      border-radius:10px;padding:12px 6px;min-height:64px;font-weight:600;font-size:.8rem;color:var(--white);
+    }
+    .foot-btn:hover,.foot-btn:active{background:rgba(255,255,255,.14);}
+    .foot-btn:hover span,.foot-btn:focus-visible span{text-decoration:none;}
+  }
+  @media(max-width:700px){
+    footer{padding:32px 0 22px;}
+    .footer-grid{gap:22px 18px;margin-bottom:22px;}
+    .foot-brand,.foot-contact{grid-column:1 / -1;}
+    .foot-brand{padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.12);}
+    .foot-brand h4{font-size:1.05rem;margin-bottom:8px;}
+    .foot-contact{order:3;}
+    .foot-loc{order:1;}
+    .foot-stay{order:2;}
+    footer h4{font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--yellow);margin-bottom:8px;}
+    .foot-brand h4{text-transform:none;letter-spacing:0;color:var(--white);}
+    .foot-bottom{text-align:center;padding-top:16px;}
+  }
 
   /* RECENZII */
   .reviews-summary{

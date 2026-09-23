@@ -18,7 +18,7 @@ Pagina citește disponibilitatea instant din `booked-dates.json` (fișier local,
 
 ## Regenerare manuală
 ```
-node update-calendar.js
+node update-calendar.cjs
 ```
 
 ## Automatizare la câteva ore
@@ -26,7 +26,7 @@ node update-calendar.js
 **Opțiune A — server propriu (cPanel/VPS) cu cron:**
 Adaugă în crontab (exemplu: la fiecare 3 ore):
 ```
-0 */3 * * * cd /calea/catre/site && node update-calendar.js
+0 */3 * * * cd /calea/catre/site && node update-calendar.cjs
 ```
 
 **Opțiune B — GitHub Pages, fără server:**
@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: node update-calendar.js
+      - run: node update-calendar.cjs
       - run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
