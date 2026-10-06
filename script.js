@@ -871,7 +871,7 @@
     renderLightbox();
   });
 
-  /* ---------- RECENZII (Google / Booking.com / Airbnb) ---------- */
+  /* ---------- RECENZII (Google / Booking.com / Airbnb / Travelminit) ---------- */
   var REVIEWS_JSON = "reviews.json"; // regenerat periodic (Google auto, Booking/Airbnb manual)
   var reviewsData = null;
   var reviewsFilter = "all";
@@ -880,7 +880,8 @@
   var PLATFORM_META = {
     google:  { label:"Google",       badge:"G", cls:"rp-google",  scale:5  },
     booking: { label:"Booking.com",  badge:"B", cls:"rp-booking", scale:10 },
-    airbnb:  { label:"Airbnb",       badge:"A", cls:"rp-airbnb",  scale:5  }
+    airbnb:  { label:"Airbnb",       badge:"A", cls:"rp-airbnb",  scale:5  },
+    travelminit: { label:"Travelminit", badge:"T", cls:"rp-travelminit", scale:10 }
   };
 
   var reviewsSummaryEl = document.getElementById("reviewsSummary");
@@ -909,6 +910,11 @@
   }
 
   function fmtReviewDate(iso){
+    // "YYYY-MM" = platforma afiseaza doar luna (Airbnb, Google)
+    if(/^\d{4}-\d{2}$/.test(iso || "")){
+      var p = iso.split("-");
+      return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString("ro-RO", { month:"long", year:"numeric" });
+    }
     try{
       return new Date(iso).toLocaleDateString("ro-RO", { day:"2-digit", month:"short", year:"numeric" });
     } catch(e){ return iso || ""; }
@@ -925,7 +931,7 @@
       var inner =
         '<span class="rp-badge ' + meta.cls + '">' + meta.badge + '</span>' +
         '<span class="rp-score">' + p.rating + '/' + scale + '</span>' +
-        '<span class="rp-count">(' + p.totalReviews + ' recenzii)</span>';
+        '<span class="rp-count">(' + p.totalReviews + (p.totalReviews === 1 ? ' recenzie' : ' recenzii') + ')</span>';
       html += p.url
         ? '<a class="review-platform-pill" href="' + p.url + '" target="_blank" rel="noopener">' + inner + '</a>'
         : '<span class="review-platform-pill">' + inner + '</span>';
@@ -989,7 +995,7 @@
           '<p class="review-text">' + escapeHtml(r.text || "") + '</p>' +
           '<div class="review-card-bottom">' +
             '<span class="review-author">' + escapeHtml(r.author || "Oaspete") + '</span>' +
-            '<span>' + fmtReviewDate(r.date) + '</span>' +
+            '<span>' + fmtReviewDate(r.date) + (r.translated ? ' · tradus automat' : '') + '</span>' +
           '</div>' +
         '</article>'
       );

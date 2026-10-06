@@ -32,7 +32,8 @@ const MAX_REVIEWS = 30; // cele mai recente N recenzii intra in schema; restul r
 const PLATFORM_META = {
   google:  { scale: 5,  label: "Google" },
   booking: { scale: 10, label: "Booking.com" },
-  airbnb:  { scale: 5,  label: "Airbnb" }
+  airbnb:  { scale: 5,  label: "Airbnb" },
+  travelminit: { scale: 10, label: "Travelminit" }
 };
 
 function main(){

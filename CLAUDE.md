@@ -75,6 +75,7 @@ Scripturi locale opționale: `update-google-reviews.js` (necesită `GOOGLE_PLACE
 - [x] Rezumat rezervare (2026-09-23): eliminat „Prețul pornește de la 700 RON/noapte”; înlocuit cu scara reducerilor + perioade de sărbători (dinamic din `pricing.json`). JSON-LD actualizat la 900–1800 RON.
 
 - [x] Sincronizare calendar directă (2026-10-06): `update-calendar.cjs` citește iCal-urile platformelor (secrete `ICS_*` setate), cron orar `17 * * * *`, commit doar la schimbare, erori ca `::error::` în Annotations (logurile cer login GitHub, Annotations nu). Testat end-to-end (#160): blocări manuale pe Airbnb (20.11) și Travelminit (25.11) apar pe site ca zile ocupate — toate 3 sursele funcționează.
+- [x] Recenzii reale (2026-10-06), citite prin browser: Booking 9.2/6, Airbnb 5.0/2, Google 5.0/1, Travelminit 10/2 (platformă nouă, badge „T”, scală 10). Eliminate recenziile-exemplu inventate (Andreea M., Radu P., Ioana T., Marius D., Cristian V.). Recenziile fără text nu apar ca și card. Câmpuri noi: `date` poate fi `YYYY-MM`, `translated: true`.
 
 ## Idei / backlog
 - (de completat)

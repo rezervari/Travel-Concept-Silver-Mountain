@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-09T00:00:00.000Z",
+  "updatedAt": "2026-10-06T00:00:00.000Z",
   "placeId": "ChIJF2VRokJFs0ARyQl2NfVA3hw",
   "platforms": {
     "google": {
@@ -18,54 +18,80 @@
     },
     "airbnb": {
       "label": "Airbnb",
-      "url": "https://www.airbnb.ie/rooms/1215012792206471225",
+      "url": "https://www.airbnb.com/rooms/1215012792206471225",
       "rating": 5.0,
       "totalReviews": 2,
       "scaleMax": 5
+    },
+    "travelminit": {
+      "label": "Travelminit",
+      "url": "https://travelminit.ro/apartament-travel-concept-silver-mountain-poiana-brasov",
+      "rating": 10,
+      "totalReviews": 2,
+      "scaleMax": 10
     }
   },
   "reviews": [
     {
-      "platform": "google",
-      "author": "Andreea M.",
-      "rating": 5,
-      "date": "2026-08-20",
-      "text": "Apartament exact ca în poze, foarte curat, gazda a răspuns imediat la mesaje. Balconul cu vedere spre munte a fost un plus uriaș."
-    },
-    {
-      "platform": "google",
-      "author": "Radu P.",
-      "rating": 5,
-      "date": "2026-07-30",
-      "text": "Locație excelentă în Poiana Brașov, parcare ușoară, tot ce ne trebuia în bucătărie era acolo."
+      "platform": "booking",
+      "author": "Yanica, Bulgaria",
+      "rating": 10,
+      "date": "2026-08-14",
+      "translated": true,
+      "text": "Ne-a plăcut liniștea, aerul curat și confortul apartamentului."
     },
     {
       "platform": "booking",
-      "author": "Ioana T.",
-      "rating": 9.6,
-      "date": "2026-08-05",
-      "text": "Cazare impecabilă, cele două băi separate au fost foarte practice pentru cele două familii."
+      "author": "Zagan, România",
+      "rating": 9.0,
+      "date": "2026-02-22",
+      "text": "Apartamentelul spațios și foarte curat."
     },
     {
-      "platform": "booking",
-      "author": "Marius D.",
-      "rating": 9.2,
-      "date": "2026-06-18",
-      "text": "Check-in flexibil, comunicare rapidă cu gazda, recomand cu încredere."
+      "platform": "travelminit",
+      "author": "Familie cu copil mai mare",
+      "rating": 10,
+      "date": "2025-10-12",
+      "text": "Înalta calitate"
+    },
+    {
+      "platform": "airbnb",
+      "author": "Septimiu",
+      "rating": 5,
+      "date": "2025-02",
+      "translated": true,
+      "text": "Ne-a plăcut șederea noastră la Silver Mountain, un complex de apartamente amplasat într-o vale frumoasă înconjurată de pădure. Există o conexiune directă de autobuz la pârtii. Apartamentul a fost frumos împărțit pe două etaje, oferind o intimitate sporită și o ambianță confortabilă ca o cabană. Gazda a fost proactivă și cu adevărat de susținere."
     },
     {
       "platform": "airbnb",
       "author": "Alexandru",
       "rating": 5,
-      "date": "2024-09-12",
+      "date": "2024-09",
       "text": "Un apartament excelent cu tot ce iti trebuie si terase cu vedere la padure. Recomand cu caldura si pentru sederi mai lungi."
     },
     {
-      "platform": "airbnb",
-      "author": "Cristian V.",
+      "platform": "booking",
+      "author": "Alexandra, Germania",
+      "rating": 9.0,
+      "date": "2024-08-25",
+      "translated": true,
+      "text": "Apartamentul a fost foarte curat, spațios și avea tot ce ne trebuia. Cafea bună, terasă mare și câte o baie pentru fiecare cameră."
+    },
+    {
+      "platform": "booking",
+      "author": "Jaspal, Germania",
+      "rating": 10,
+      "date": "2024-08-11",
+      "translated": true,
+      "text": "Suntem cu toții foarte încântați de acest apartament și îl recomandăm cu căldură! Mobilier foarte frumos și modern, combinația de mobilier istoric/modern îi conferă o notă deosebită! Ca cireașa de pe tort! Proprietarul a fost mereu și imediat disponibil și la fața locului când am avut nevoie de ajutorul lui!"
+    },
+    {
+      "platform": "google",
+      "author": "TrainPilot Jay",
       "rating": 5,
-      "date": "2026-05-22",
-      "text": "Cea mai bună cazare din Poiana Brașov la prețul ăsta. Vom reveni!"
+      "date": "2024-08",
+      "translated": true,
+      "text": "Toate camerele sunt curate și strălucitoare! Bucătăria are mai multe de oferit decât a mea de acasă!"
     }
   ]
 }

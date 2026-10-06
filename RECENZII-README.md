@@ -1,6 +1,6 @@
 # Cum actualizezi recenziile pe site (zero costuri, ~5 min/lună)
 
-Toate 3 platformele (Google, Booking.com, Airbnb) se actualizează manual, în
+Toate 4 platformele (Google, Booking.com, Airbnb, Travelminit) se actualizează manual, în
 același fișier: `reviews.json`. Nu există niciun API gratuit oficial la
 niciuna dintre ele — Booking/Airbnb nu au avut niciodată, iar Google Places
 API cere obligatoriu un cont de facturare (card) legat de proiect, chiar dacă
@@ -40,6 +40,7 @@ numărul total de recenzii afișat pe pagina publică a locației:
 - **Booking**: din extranet → secțiunea Recenzii, sus arată scorul (din 10)
   și numărul total.
 - **Airbnb**: din pagina publică a anunțului, sub titlu.
+- **Travelminit**: din pagina publică (https://travelminit.ro/apartament-travel-concept-silver-mountain-poiana-brasov), secțiunea „Recenzii de la oaspeți” (scor din 10).
 
 ## 2. Adaugă recenzii noi (`reviews`)
 
@@ -57,11 +58,14 @@ oaspeții). Adaugă un obiect nou în array-ul `reviews`, în formatul:
 }
 ```
 
-- `platform`: `"google"`, `"booking"` sau `"airbnb"` — determină badge-ul,
+- `platform`: `"google"`, `"booking"`, `"airbnb"` sau `"travelminit"` — determină badge-ul,
   culoarea și scala (5 sau 10) afișate pe card.
 - `rating`: pe scala nativă a platformei (5 pentru Google/Airbnb, 10 pentru
-  Booking) — codul face conversia automat pentru afișare cu stele.
-- `date`: format `YYYY-MM-DD`.
+  Booking/Travelminit) — codul face conversia automat pentru afișare cu stele.
+- `date`: format `YYYY-MM-DD`, sau `YYYY-MM` când platforma arată doar luna (Airbnb, Google) — se afișează „februarie 2025”.
+- `translated: true` (opțional): textul e traducerea afișată de platformă → pe card apare „tradus automat”.
+- Recenziile fără text (doar notă) NU se adaugă ca și card — contează doar în `totalReviews`/`rating`.
+- Nu se pun recenzii inventate sau „exemplu”: ajung și în JSON-LD (Google le poate penaliza).
 
 Nu există limită de recenzii afișate — toate apar în tab-ul „Toate" și
 filtrate corect pe tab-ul platformei lor. Cele mai vechi/multe recenzii pot
