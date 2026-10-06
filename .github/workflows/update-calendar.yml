@@ -2,11 +2,16 @@ name: Update calendar
 
 on:
   schedule:
-    - cron: "0 */3 * * *"
+    # din ora in ora, la minutul 17 (ora fixa e aglomerata pe GitHub si rularile se amana)
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: update-calendar
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -22,6 +27,10 @@ jobs:
           node-version: 20
 
       - name: Update calendar
+        env:
+          ICS_BOOKING: ${{ secrets.ICS_BOOKING }}
+          ICS_AIRBNB: ${{ secrets.ICS_AIRBNB }}
+          ICS_TRAVELMINIT: ${{ secrets.ICS_TRAVELMINIT }}
         run: node update-calendar.cjs
 
       - name: Save updated calendar
@@ -29,5 +38,10 @@ jobs:
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
           git add booked-dates.json
-          git commit -m "update calendar" || echo "no changes"
+          if git diff --cached --quiet; then
+            echo "no changes"
+            exit 0
+          fi
+          git commit -m "update calendar"
+          git pull --rebase
           git push

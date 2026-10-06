@@ -44,8 +44,8 @@
         bookedRanges = (data.ranges || []).map(function(r){
           return { start:new Date(r.start), end:new Date(r.end) };
         });
-        var updated = data.updatedAt ? new Date(data.updatedAt).toLocaleString("ro-RO") : null;
-        setStatus(updated ? "Disponibilitate actualizată: " + updated : "Disponibilitate încărcată.", false);
+        // updatedAt = ultima modificare a zilelor ocupate (nu ultima verificare), deci nu se afiseaza
+        setStatus("Disponibilitate sincronizată automat cu Booking, Airbnb și Travelminit.", false);
         renderCalendar();
       })
       .catch(function(){

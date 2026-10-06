@@ -21,31 +21,12 @@
 5. Workflow-urile GitHub Actions fac commit-uri automate (`booked-dates.json`, `pricing.json`, `index.html`) → **înainte de o sesiune nouă: `git pull`**, altfel apar conflicte la push.
 6. Verificarea deploy-ului: se citește site-ul live și se compară cu local.
 
-## Structură fișiere
-| Fișier | Rol |
-|---|---|
-| `index.html` | Pagina unică. Conține meta SEO, OG, JSON-LD (`#lodging`, `#website`, FAQPage). Secțiuni: hero, #apartament, #galerie, #zona, #facilitati, #ghid, #recenzii, #disponibilitate, #harta, #intrebari, #rezervare, trust |
-| `styles.css` | Toate stilurile |
-| `script.js` | IIFE; calendar, prețuri, galerie/lightbox, recenzii, formular (submit prin `mailto`) |
-| `booked-dates.json` | Zile ocupate — **generat automat**, nu se editează manual |
-| `pricing.json` | Tarife — **generat automat** din `pricing/tarife.xlsx` |
-| `reviews.json` | Recenzii Google/Booking/Airbnb — editat manual (vezi `RECENZII-README.md`) |
-| `pricing/tarife.xlsx` | Sursa tarifelor (Mircea o editează) |
-| `images/<categorie>/N.jpg` | Galerie: living, dormitor-mare, dormitor-mic, baie-mare, baie-mic, terasa-living, terasa-dormitoare. Variante `N-600.webp` (miniatură) + `N.webp` (lightbox) — **generate automat** |
-| `images/gallery.json` | Lista pozelor pe categorii (galeria nu mai sondează 1..max → fără 404) — **generat automat** |
-| `images/zona/` | schi, drumetii, wellness, restaurante, brasov (.jpg + `X-800.webp` generat automat) |
-| `hero-apartament.jpg` | Imagine LCP hero (1024×683); servit ca `hero-apartament-828.webp` / `hero-apartament.webp` prin `<picture>` + preload `imagesrcset` |
-| `optimize-images.cjs` | Generează toate WebP-urile + `images/gallery.json` (sharp) |
-| favicon-uri, `icon-*.png`, `site.webmanifest` | PWA/icons |
-| `robots.txt`, `sitemap.xml` | SEO tehnic (actualizează `lastmod` la modificări de conținut) |
-
-## Automatizări (GitHub Actions, `.github/workflows/`)
-| Workflow | Declanșare | Script | Scrie |
-|---|---|---|---|
-| `update-calendar.yml` | la 3 ore + manual | `update-calendar.cjs` (ICS public Google Calendar) | `booked-dates.json` |
-| `update-pricing.yml` | push pe `pricing/tarife.xlsx` + manual | `update-pricing.cjs` (npm `xlsx`) | `pricing.json` |
-| `update-schema.yml` | push pe `reviews.json` + manual | `update-schema.cjs` | `aggregateRating` + `review` din JSON-LD în `index.html` |
-| `optimize-images.yml` | push pe `images/**/*.jpg`, `hero-apartament.jpg` + manual | `optimize-images.cjs` (npm `sharp`) | `*.webp`, `images/gallery.json` |
+## Fișiere generate automat — NU se editează manual
+- `booked-dates.json` (din oră în oră, iCal direct de la Booking/Airbnb/Travelminit din secretele `ICS_BOOKING`/`ICS_AIRBNB`/`ICS_TRAVELMINIT`; fără secrete → Google Calendar; commit doar la schimbare), `pricing.json` (din `pricing/tarife.xlsx`),
+  `aggregateRating`/`review` din JSON-LD în `index.html` (din `reviews.json`),
+  toate `*.webp` + `images/gallery.json` (din JPG-uri) — prin GitHub Actions (`.github/workflows/`).
+- Editate manual: `reviews.json` (vezi `RECENZII-README.md`), `pricing/tarife.xlsx` (Mircea).
+- La modificări de conținut: actualizează `lastmod` în `sitemap.xml`.
 
 Scripturi locale opționale: `update-google-reviews.js` (necesită `GOOGLE_PLACES_API_KEY` în env), `ask-gemini.js` (necesită `GEMINI_API_KEY`). Nu se hardcodează chei.
 
@@ -92,6 +73,8 @@ Scripturi locale opționale: `update-google-reviews.js` (necesită `GOOGLE_PLACE
 
 - [x] Tarife iarnă 2026–2027 (2026-09-23) în `tarife.xlsx`: iarna-2026 1300 (min 2, reduceri 10–33%), Crăciun 1500 (min 3, fără reducere), Revelion 1800 (min 4, fără reducere), iarna-2027 1350, Vacanță schi 1450 (min 2, reduceri 10–33%). După 07.03.2027 nu există sezon → rezervări blocate.
 - [x] Rezumat rezervare (2026-09-23): eliminat „Prețul pornește de la 700 RON/noapte”; înlocuit cu scara reducerilor + perioade de sărbători (dinamic din `pricing.json`). JSON-LD actualizat la 900–1800 RON.
+
+- [ ] Sincronizare calendar directă (2026-10-06): `update-calendar.cjs` citește iCal-urile platformelor, cron orar `17 * * * *`. De pus secretele în GitHub și de rulat manual workflow-ul. Calendarul Google importa de fapt Booking („CLOSED - Not available” 21.12.2026 → +18 luni = date închise pe Booking).
 
 ## Idei / backlog
 - (de completat)
