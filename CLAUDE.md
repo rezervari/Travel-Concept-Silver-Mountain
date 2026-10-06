@@ -74,7 +74,7 @@ Scripturi locale opționale: `update-google-reviews.js` (necesită `GOOGLE_PLACE
 - [x] Tarife iarnă 2026–2027 (2026-09-23) în `tarife.xlsx`: iarna-2026 1300 (min 2, reduceri 10–33%), Crăciun 1500 (min 3, fără reducere), Revelion 1800 (min 4, fără reducere), iarna-2027 1350, Vacanță schi 1450 (min 2, reduceri 10–33%). După 07.03.2027 nu există sezon → rezervări blocate.
 - [x] Rezumat rezervare (2026-09-23): eliminat „Prețul pornește de la 700 RON/noapte”; înlocuit cu scara reducerilor + perioade de sărbători (dinamic din `pricing.json`). JSON-LD actualizat la 900–1800 RON.
 
-- [ ] Sincronizare calendar directă (2026-10-06): `update-calendar.cjs` citește iCal-urile platformelor, cron orar `17 * * * *`. De pus secretele în GitHub și de rulat manual workflow-ul. Calendarul Google importa de fapt Booking („CLOSED - Not available” 21.12.2026 → +18 luni = date închise pe Booking).
+- [x] Sincronizare calendar directă (2026-10-06): `update-calendar.cjs` citește iCal-urile platformelor (secrete `ICS_*` setate), cron orar `17 * * * *`, commit doar la schimbare, erori ca `::error::` în Annotations (logurile cer login GitHub, Annotations nu). Testat end-to-end (#160): blocări manuale pe Airbnb (20.11) și Travelminit (25.11) apar pe site ca zile ocupate — toate 3 sursele funcționează.
 
 ## Idei / backlog
 - (de completat)
