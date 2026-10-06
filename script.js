@@ -5,6 +5,9 @@
 
   /* ---------- CONFIG ---------- */
   var CONTACT_EMAIL = ["mircea.george.vulcanescu", "gmail.com"].join("@");
+  // URL-ul web app-ului Google Apps Script (apps-script/rezervari.gs) care trimite solicitarea pe e-mail.
+  // Gol = se foloseste varianta veche (mailto, deschide clientul de e-mail al oaspetelui).
+  var BOOKING_ENDPOINT = "https://script.google.com/macros/s/AKfycbwdwQ-uHv0ZGgtc8yEBdIt-DV1OxBZg7Lu75PYILBTBHXUJ5E0dMIKL669JBf6p_c7L/exec";
   var BOOKED_JSON = "booked-dates.json"; // generat periodic de update-calendar.js
   var PRICING_JSON = "pricing.json";     // tarife pe sezon + trepte de reducere
 
@@ -563,8 +566,9 @@
 
   syncFormFromSelection();
 
-  /* ---------- SUBMIT (mailto) ---------- */
-  document.getElementById("bookingForm").addEventListener("submit", function(e){
+  /* ---------- SUBMIT (Google Apps Script, cu rezerva mailto) ---------- */
+  var form = document.getElementById("bookingForm");
+  form.addEventListener("submit", function(e){
     e.preventDefault();
     var name = document.getElementById("fname").value.trim();
     var phone = document.getElementById("fphone").value.trim();
@@ -609,34 +613,79 @@
     var stay = computeStay(ciDate, coDate);
     var tx = computeTaxes(guests.adults, stay.nights);
 
-    var subject = "Solicitare rezervare A13 Travel Concept — " + ci + " → " + co;
+    var payload = {
+      name: name, phone: phone, email: email,
+      checkin: ci, checkout: co, nights: stay.nights,
+      adults: guests.adults, children: guests.children,
+      rawTotal: stay.rawTotal, discountPct: stay.discountPct, total: stay.total,
+      taxTourist: tx.tourist, taxSalvamont: tx.salvamont,
+      website: document.getElementById("fwebsite") ? document.getElementById("fwebsite").value : ""
+    };
+
+    if(!BOOKING_ENDPOINT){ openMailto(payload, msgEl); return; }
+
+    var submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    var btnLabel = submitBtn.textContent;
+    submitBtn.textContent = "Se trimite…";
+    msgEl.className = "form-msg";
+
+    // text/plain = cerere „simpla” (fara preflight CORS), compatibila cu Apps Script
+    fetch(BOOKING_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    })
+      .then(function(res){ return res.json(); })
+      .then(function(res){
+        if(res && res.ok){
+          msgEl.textContent = "Mulțumim, " + name + "! Solicitarea a fost trimisă. Ți-am trimis o confirmare a primirii pe " + email + " și revenim cu un răspuns în cel mai scurt timp.";
+          msgEl.className = "form-msg show ok";
+          form.querySelectorAll("#fname, #fphone, #femail").forEach(function(el){ el.value = ""; });
+        } else if(res && res.error === "rate_limit"){
+          msgEl.textContent = "Am primit deja mai multe solicitări de la această adresă. Te rugăm să încerci din nou peste o oră sau să ne contactezi telefonic.";
+          msgEl.className = "form-msg show warn";
+        } else {
+          throw new Error((res && res.error) || "send_failed");
+        }
+      })
+      .catch(function(){
+        // Rezerva: nu pierdem solicitarea — deschidem clientul de e-mail precompletat
+        openMailto(payload, msgEl, true);
+      })
+      .then(function(){
+        submitBtn.disabled = false;
+        submitBtn.textContent = btnLabel;
+      });
+  });
+
+  function openMailto(p, msgEl, afterError){
+    var subject = "Solicitare rezervare A13 Travel Concept — " + p.checkin + " → " + p.checkout;
     var body =
       "Solicitare nouă de rezervare — A13 Travel Concept (Silver Mountain, Poiana Brașov)\n\n" +
-      "Nume: " + name + "\n" +
-      "Telefon: " + phone + "\n" +
-      "Email: " + email + "\n\n" +
-      "Check-in: " + ci + "\n" +
-      "Check-out: " + co + "\n" +
-      "Nopți: " + stay.nights + "\n" +
-      "Adulți: " + guests.adults + "\n" +
-      "Copii: " + guests.children + "\n\n" +
-      "Preț de bază: " + stay.rawTotal + " RON\n" +
-      (stay.discountPct > 0 ? "Reducere aplicată: -" + stay.discountPct + "%\n" : "") +
-      "Total: " + stay.total + " RON\n\n" +
+      "Nume: " + p.name + "\n" +
+      "Telefon: " + p.phone + "\n" +
+      "Email: " + p.email + "\n\n" +
+      "Check-in: " + p.checkin + "\n" +
+      "Check-out: " + p.checkout + "\n" +
+      "Nopți: " + p.nights + "\n" +
+      "Adulți: " + p.adults + "\n" +
+      "Copii: " + p.children + "\n\n" +
+      "Preț de bază: " + p.rawTotal + " RON\n" +
+      (p.discountPct > 0 ? "Reducere aplicată: -" + p.discountPct + "%\n" : "") +
+      "Total: " + p.total + " RON\n\n" +
       "Taxe incluse în total (doar adulți):\n" +
-      "- Taxă turistică: " + TAX_TOURIST + " RON × " + guests.adults + " × " + stay.nights + " = " + tx.tourist + " RON\n" +
-      "- Taxă Salvamont: " + TAX_SALVAMONT + " RON × " + guests.adults + " × " + stay.nights + " = " + tx.salvamont + " RON\n";
+      "- Taxă turistică: " + TAX_TOURIST + " RON × " + p.adults + " × " + p.nights + " = " + p.taxTourist + " RON\n" +
+      "- Taxă Salvamont: " + TAX_SALVAMONT + " RON × " + p.adults + " × " + p.nights + " = " + p.taxSalvamont + " RON\n";
 
-    var mailto = "mailto:" + CONTACT_EMAIL +
+    window.location.href = "mailto:" + CONTACT_EMAIL +
       "?subject=" + encodeURIComponent(subject) +
       "&body=" + encodeURIComponent(body);
 
-    window.location.href = mailto;
-
-
-    msgEl.textContent = "Se deschide clientul tău de email cu solicitarea precompletată către " + CONTACT_EMAIL + ". Trimite mesajul pentru a finaliza cererea.";
-    msgEl.className = "form-msg show ok";
-  });
+    msgEl.textContent = (afterError ? "Nu am putut trimite automat solicitarea. " : "") +
+      "Se deschide clientul tău de email cu solicitarea precompletată. Trimite mesajul pentru a finaliza cererea.";
+    msgEl.className = "form-msg show " + (afterError ? "warn" : "ok");
+  }
 
   /* ---------- MOBILE MENU ---------- */
   var menuToggle = document.getElementById("menuToggle");

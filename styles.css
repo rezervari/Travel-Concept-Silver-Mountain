@@ -729,6 +729,8 @@
   .hint{font-size:.78rem;color:var(--gray);margin-top:-6px;margin-bottom:14px;}
   .submit-row{margin-top:6px;}
   .submit-row button{width:100%;padding:14px;font-size:1rem;}
+  .hp-field{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;}
+  .form-privacy{margin:10px 0 0;}
   .form-msg{margin-top:12px;font-size:.85rem;padding:10px 12px;border-radius:6px;display:none;}
   .form-msg.show{display:block;}
   .form-msg.ok{background:#eaf6ea;color:#1e6b1e;border:1px solid #cbe8cb;}
