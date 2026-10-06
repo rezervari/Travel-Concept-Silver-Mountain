@@ -87,7 +87,7 @@ async function main() {
     .filter(s => process.env[s.env] && process.env[s.env].trim())
     .map(s => ({ name: s.name, url: process.env[s.env].trim() }));
   if (!sources.length) {
-    console.log("Niciun secret ICS_* setat — folosesc calendarul Google.");
+    console.log("::warning::Niciun secret ICS_* setat — folosesc calendarul Google.");
     sources = [{ name: "Google Calendar", url: GOOGLE_ICS_URL }];
   }
 
@@ -100,7 +100,7 @@ async function main() {
       events = parseICS(await fetchICS(s.url));
     } catch (err) {
       // URL-ul nu se afiseaza niciodata in log (e secret)
-      console.error("Eroare la " + s.name + ": " + err.message + " — booked-dates.json ramane neschimbat.");
+      console.error("::error title=Calendar " + s.name + "::Eroare la " + s.name + ": " + err.message + " — booked-dates.json ramane neschimbat.");
       process.exit(1);
     }
     const future = events.filter(e => e.end > today);
@@ -131,6 +131,6 @@ async function main() {
 }
 
 main().catch(err => {
-  console.error("Eroare: " + err.message);
+  console.error("::error::Eroare: " + err.message);
   process.exit(1);
 });
