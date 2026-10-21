@@ -68,7 +68,10 @@ function main(){
   }
 
   var workbook = XLSX.readFile(SOURCE_XLSX); // fara cellDates: citim serialele brute, convertite manual mai jos
-  var sheet = workbook.Sheets[workbook.SheetNames[0]];
+  // Fișierul master de prețuri are mai multe foi (Sezoane, Platforme, Prețuri de setat...);
+  // site-ul citește foaia generată „Export site”. Fallback: prima foaie (format vechi).
+  var exportName = workbook.SheetNames.find(function(n){ return normalize(n) === "export site"; });
+  var sheet = workbook.Sheets[exportName || workbook.SheetNames[0]];
   var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
 
   var headerRowIndex = rows.findIndex(function(r){
