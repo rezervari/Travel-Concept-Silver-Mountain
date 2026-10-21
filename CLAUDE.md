@@ -20,6 +20,13 @@
    ```
 5. Workflow-urile GitHub Actions fac commit-uri automate (`booked-dates.json`, `pricing.json`, `index.html`) → **înainte de o sesiune nouă: `git pull`**, altfel apar conflicte la push.
 6. Verificarea deploy-ului: se citește site-ul live și se compară cu local.
+7. **Regulă Mircea (2026-10-21): de fiecare dată când Claude urcă ceva în repo (push) sau GitHub Actions fac commit în urma lucrului nostru, Claude îl anunță explicit, la finalul răspunsului, că trebuie să ruleze în folderul local, cu comenzile exacte:**
+   ```
+   cd "C:\Users\mirce\Documents\Silver Mountain\AI site Travel Concept"
+   $env:GIT_ASK_YESNO = "false"
+   git pull
+   ```
+   Dacă Mircea are modificări locale necomise: `git stash` → `git pull` → `git stash pop`; la „CONFLICT” trimite textul lui Claude. `GIT_ASK_YESNO=false` oprește întrebările „Deletion of directory .git/objects/.. (y/n)” (folderele .git sunt blocate de Cursor/OneDrive).
 
 ## Fișiere generate automat — NU se editează manual
 - `booked-dates.json` (din oră în oră, iCal direct de la Booking/Airbnb/Travelminit din secretele `ICS_BOOKING`/`ICS_AIRBNB`/`ICS_TRAVELMINIT`; fără secrete → Google Calendar; commit doar la schimbare), `pricing.json` (din `pricing/tarife.xlsx`),
