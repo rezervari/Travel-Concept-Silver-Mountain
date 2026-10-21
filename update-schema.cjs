@@ -105,6 +105,7 @@ function main(){
       "publisher": { "@type": "Organization", "name": meta.label }
     };
     if(r.date) node.datePublished = r.date;
+    if(r.lang) node.inLanguage = r.lang;
     return node;
   });
 

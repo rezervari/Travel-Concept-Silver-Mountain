@@ -63,7 +63,19 @@ oaspeții). Adaugă un obiect nou în array-ul `reviews`, în formatul:
 - `rating`: pe scala nativă a platformei (5 pentru Google/Airbnb, 10 pentru
   Booking/Travelminit) — codul face conversia automat pentru afișare cu stele.
 - `date`: format `YYYY-MM-DD`, sau `YYYY-MM` când platforma arată doar luna (Airbnb, Google) — se afișează „februarie 2025”.
-- `translated: true` (opțional): textul e traducerea afișată de platformă → pe card apare „tradus automat”.
+- `lang`: limba originală (`ro`, `en`, `bg`, `de`…). **Textul se copiază în limba în care a fost scris**, nu traducerea platformei (pe Booking/Airbnb/Google apasă „Afișează originalul”).
+- `translated: true` (opțional, de evitat): doar dacă nu găsești originalul → pe card apare „tradus automat”.
+- Câmpuri opționale care umplu cardul (doar date reale, afișate de platformă la recenzia respectivă):
+  - `title` — titlul scris de oaspete (Booking). NU pune eticheta automată a notei („Excepţional”, „Foarte bine” fără „!” etc.). `titleLang` dacă titlul e în altă limbă decât textul.
+  - `travelerType` — „Familie”, „Grup”, „Cuplu”, „Călător neînsoțit”, „Familie cu copil mai mare”…
+  - `nights` — număr (`4` → „4 nopți”) sau text (`"câteva nopți"` la Airbnb).
+  - `tripType` — „Vacanță”/„Afaceri” (Google).
+  - `categories` — note pe categorii date de oaspete, doar unde platforma le arată per recenzie (Google: Camere/Servire/Locație): `[{"label":"Camere","score":5}]`.
+- Ce NU se pune: partea „Ce nu v-a plăcut” de pe Booking și orice detaliu negativ/operațional.
+- Textele lungi se taie automat la 5 rânduri și apare linkul „Citește recenzia pe …” (spre `reviewsUrl` al platformei).
+
+### Medii pe categorii (blocul de deasupra sliderului)
+`platforms.booking.categories` = mediile afișate pe Booking (Personal, Facilități, Curățenie, Confort, Raport calitate/preț, Locație, WiFi). Actualizează-le odată cu scorul general. Booking NU publică notele pe categorii ale fiecărui oaspete — nu le inventa pe carduri.
 - Recenziile fără text (doar notă) NU se adaugă ca și card — contează doar în `totalReviews`/`rating`.
 - Nu se pun recenzii inventate sau „exemplu”: ajung și în JSON-LD (Google le poate penaliza).
 

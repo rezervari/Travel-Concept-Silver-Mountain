@@ -1031,17 +1031,55 @@
     }
 
     reviewsTrackEl.innerHTML = list.map(function(r){
-      var meta = PLATFORM_META[r.platform] || { badge:"?", cls:"" };
+      var meta = PLATFORM_META[r.platform] || { badge:"?", cls:"", label:"" };
       var platformInfo = (reviewsData && reviewsData.platforms && reviewsData.platforms[r.platform]) || {};
       var scale = platformInfo.scaleMax || meta.scale || 5;
       var scoreLabel = scale === 10 ? (r.rating + "/10") : starString(r.rating, scale);
+      var scoreAria = "Notă " + r.rating + " din " + scale;
+      var platformName = platformInfo.label || meta.label || "";
+      var moreUrl = platformInfo.reviewsUrl || platformInfo.url || "";
+
+      // etichete sejur (doar date reale de pe platformă)
+      var tags = [];
+      if(r.tripType) tags.push(r.tripType);
+      if(r.travelerType) tags.push(r.travelerType);
+      if(r.nights) tags.push(typeof r.nights === "number" ? (r.nights === 1 ? "1 noapte" : r.nights + " nopți") : r.nights);
+      var tagsHtml = tags.length
+        ? '<ul class="review-tags" aria-label="Detalii sejur">' + tags.map(function(t){ return '<li>' + escapeHtml(String(t)) + '</li>'; }).join("") + '</ul>'
+        : "";
+
+      // note pe categorii date de oaspete (doar unde platforma le publică per recenzie, ex. Google)
+      var catsHtml = (r.categories && r.categories.length)
+        ? '<ul class="review-cats" aria-label="Note pe categorii">' + r.categories.map(function(c){
+            return '<li><span>' + escapeHtml(c.label) + '</span><b>' + c.score + '/' + scale + '</b></li>';
+          }).join("") + '</ul>'
+        : "";
+
+      var langAttr = r.lang ? ' lang="' + escapeHtml(r.lang) + '"' : "";
+      var titleLang = r.titleLang || r.lang;
+      var titleHtml = r.title
+        ? '<p class="review-title"' + (titleLang ? ' lang="' + escapeHtml(titleLang) + '"' : "") + '>„' + escapeHtml(r.title) + '”</p>'
+        : "";
+      var moreHtml = moreUrl
+        ? '<a class="review-more" href="' + escapeHtml(moreUrl) + '" target="_blank" rel="noopener">Citește recenzia pe ' + escapeHtml(platformName) + ' <span aria-hidden="true">↗</span></a>'
+        : "";
+
       return (
         '<article class="review-card">' +
           '<div class="review-card-top">' +
-            '<span class="rp-badge ' + meta.cls + '">' + meta.badge + '</span>' +
-            '<span class="review-stars">' + scoreLabel + '</span>' +
+            '<span class="review-platform">' +
+              '<span class="rp-badge ' + meta.cls + '" aria-hidden="true">' + meta.badge + '</span>' +
+              '<span class="review-platform-name">' + escapeHtml(platformName) + '</span>' +
+            '</span>' +
+            '<span class="review-stars" role="img" aria-label="' + scoreAria + '">' + scoreLabel + '</span>' +
           '</div>' +
-          '<p class="review-text">' + escapeHtml(r.text || "") + '</p>' +
+          titleHtml +
+          tagsHtml +
+          '<div class="review-body">' +
+            '<p class="review-text"' + langAttr + '>' + escapeHtml(r.text || "") + '</p>' +
+            moreHtml +
+          '</div>' +
+          catsHtml +
           '<div class="review-card-bottom">' +
             '<span class="review-author">' + escapeHtml(r.author || "Oaspete") + '</span>' +
             '<span>' + fmtReviewDate(r.date) + (r.translated ? ' · tradus automat' : '') + '</span>' +
@@ -1049,6 +1087,7 @@
         '</article>'
       );
     }).join("");
+    markLongReviews();
 
     reviewsDotsEl.innerHTML = list.map(function(_, i){
       return '<button type="button" class="review-dot' + (i === 0 ? " active" : "") + '" aria-label="Recenzia ' + (i+1) + '"></button>';
@@ -1102,8 +1141,52 @@
     });
   }
 
+  /* Texte trunchiate (line-clamp) → afișează linkul „Citește recenzia pe …” */
+  function markLongReviews(){
+    if(!reviewsTrackEl) return;
+    reviewsTrackEl.querySelectorAll(".review-card").forEach(function(card){
+      var txt = card.querySelector(".review-text");
+      if(!txt) return;
+      card.classList.toggle("is-long", txt.scrollHeight > txt.clientHeight + 2);
+    });
+  }
+  var reviewsResizeTimer = null;
+  window.addEventListener("resize", function(){
+    clearTimeout(reviewsResizeTimer);
+    reviewsResizeTimer = setTimeout(markLongReviews, 200);
+  });
+
+  /* Medii pe categorii (Booking publică doar media proprietății, nu nota fiecărui oaspete) */
+  function renderReviewsCategories(){
+    if(!reviewsSummaryEl) return;
+    var old = document.getElementById("reviewsCats");
+    if(old) old.parentNode.removeChild(old);
+    var platforms = (reviewsData && reviewsData.platforms) || {};
+    var key = Object.keys(PLATFORM_META).find(function(k){
+      return platforms[k] && platforms[k].categories && platforms[k].categories.length;
+    });
+    if(!key) return;
+    var p = platforms[key];
+    var meta = PLATFORM_META[key];
+    var scale = p.scaleMax || meta.scale;
+    var box = document.createElement("div");
+    box.className = "reviews-cats";
+    box.id = "reviewsCats";
+    box.innerHTML =
+      '<p class="reviews-cats-head">Note pe categorii · <span>media ' + escapeHtml(p.label || meta.label) +
+        (p.totalReviews ? ', ' + p.totalReviews + ' evaluări' : '') + '</span></p>' +
+      '<ul class="reviews-cats-grid">' + p.categories.map(function(c){
+        var pct = Math.max(0, Math.min(100, c.score / scale * 100));
+        return '<li><span class="rc-label">' + escapeHtml(c.label) + '</span>' +
+          '<span class="rc-bar" aria-hidden="true"><span style="width:' + pct + '%"></span></span>' +
+          '<span class="rc-score">' + String(c.score).replace(".", ",") + '</span></li>';
+      }).join("") + '</ul>';
+    reviewsSummaryEl.parentNode.insertBefore(box, reviewsSummaryEl.nextSibling);
+  }
+
   function initReviewsUI(){
     renderReviewsSummary();
+    renderReviewsCategories();
     renderReviewsTabs();
     renderReviewsTrack();
   }
