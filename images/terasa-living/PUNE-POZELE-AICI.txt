@@ -1,1 +1,4 @@
-Pune aici pozele acestei categorii, numite 1.jpg, 2.jpg, 3.jpg etc.
+Pune aici pozele acestei categorii (JPG), cu nume descriptive și număr de ordine în față, de ex.:
+01-living-semineu-canapea-fotolii-a13-poiana-brasov.jpg, 02-....jpg
+Ordinea din galerie = ordinea numelor. WebP-urile și images/gallery.json le generează automat GitHub (optimize-images.cjs).
+Alt-ul fiecărei poze se scrie în GALLERY_ALTS din script.js (cheia = numele fișierului fără extensie).

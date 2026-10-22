@@ -1123,129 +1123,176 @@
     Array.prototype.forEach.call(lazyBgs, function(el){ bgObserver.observe(el); });
   })();
 
-  /* ---------- GALERIE FOTO ---------- */
+  /* ---------- GALERIE FOTO ----------
+   * Pozele vin din images/gallery.json ({ "categorie": ["01-nume-descriptiv-...", ...] }, generat de optimize-images.cjs).
+   * Mozaic: poza principală + până la 6 miniaturi (desktop: 3 coloane × 2 rânduri alături; ecrane mici: dedesubt);
+   * la mai multe poze, ultima miniatură arată „+N” și deschide galeria completă (lightbox). */
+  // label = tab (scurt, să încapă pe un rând pe desktop); title = titlul din galeria mărită
   var GALLERY = [
-    { key:"living",             label:"Living, luat masa & bucătărie", max:8 },
-    { key:"dormitor-mare",      label:"Dormitor mare",                 max:8 },
-    { key:"baie-mare",          label:"Baie – dormitor mare",          max:6 },
-    { key:"dormitor-mic",       label:"Dormitor mic",                  max:8 },
-    { key:"baie-mic",           label:"Baie – dormitor mic",           max:6 },
-    { key:"terasa-living",      label:"Terasă living",                 max:6 },
-    { key:"terasa-dormitoare",  label:"Terasă dormitoare",             max:6 }
+    { key:"living",             label:"Living & bucătărie", title:"Living & bucătărie" },
+    { key:"terasa-living",      label:"Terasă",             title:"Terasa livingului" },
+    { key:"dormitor-mare",      label:"Dormitor mare",      title:"Dormitorul mare" },
+    { key:"baie-dormitor-mare", label:"Baie mare",          title:"Baia dormitorului mare" },
+    { key:"dormitor-mic",       label:"Dormitor mic",       title:"Dormitorul mic" },
+    { key:"baie-dormitor-mic",  label:"Baie mică",          title:"Baia dormitorului mic" },
+    { key:"balcon-dormitoare",  label:"Balcon",             title:"Balconul dormitoarelor" }
   ];
-  var galFound = {}; // key -> array de src incarcate cu succes
+  // Ordinea din „Toate”: primele 7 se văd în mozaic (prima = poza principală); restul urmează în ordinea categoriilor.
+  var GALLERY_FEATURED = [
+    "living/01-living-semineu-canapea-fotolii-a13-poiana-brasov",
+    "dormitor-mare/01-dormitor-mare-pat-dublu-fereastra-padure-a13-poiana-brasov",
+    "terasa-living/01-terasa-living-vedere-padure-brazi-a13-poiana-brasov",
+    "living/03-bucatarie-utilata-espressor-plita-cuptor-a13-poiana-brasov",
+    "dormitor-mic/01-dormitor-mic-pat-dublu-usa-balcon-a13-poiana-brasov",
+    "baie-dormitor-mare/01-baie-dormitor-mare-cada-lavoar-a13-poiana-brasov",
+    "balcon-dormitoare/01-balcon-inchis-dormitoare-vedere-padure-a13-poiana-brasov"
+  ];
+  /* Texte alternative (SEO + accesibilitate), cheia = „categorie/nume fișier fără extensie”.
+   * Poză nouă fără text aici → alt generic. Dacă gallery.json nu se încarcă, galeria se construiește din aceste chei. */
+  var GALLERY_ALTS = {
+    "living/01-living-semineu-canapea-fotolii-a13-poiana-brasov":
+      "Living cu șemineu, fotolii, canapea și ieșire pe terasă, apartament A13 Travel Concept, Poiana Brașov",
+    "living/02-living-open-space-bucatarie-scara-a13-poiana-brasov":
+      "Living open-space cu masă de dining, bucătărie și scara spre dormitoare, apartament duplex A13 Silver Mountain",
+    "living/03-bucatarie-utilata-espressor-plita-cuptor-a13-poiana-brasov":
+      "Bucătărie complet utilată cu espressor, microunde, plită, cuptor și mașină de spălat vase, apartament A13",
+    "terasa-living/01-terasa-living-vedere-padure-brazi-a13-poiana-brasov":
+      "Terasă cu masă și fotolii, cu vedere spre pădurea de brazi, apartament A13 Travel Concept, Poiana Brașov",
+    "terasa-living/02-terasa-living-fotolii-masa-umbrela-a13-poiana-brasov":
+      "Terasa livingului cu fotolii, masă, scaune și umbrelă, complex Silver Mountain, Poiana Brașov",
+    "dormitor-mare/01-dormitor-mare-pat-dublu-fereastra-padure-a13-poiana-brasov":
+      "Dormitor mare cu pat dublu, prosoape pregătite și fereastră spre pădure, apartament A13 Poiana Brașov",
+    "dormitor-mare/02-dormitor-mare-pat-tv-birou-usa-balcon-a13-poiana-brasov":
+      "Dormitor mare cu pat dublu, TV, birou și ieșire pe balcon, apartament A13 Travel Concept, Silver Mountain",
+    "dormitor-mare/03-dormitor-mare-pat-dublu-baie-proprie-a13-poiana-brasov":
+      "Dormitor mare cu pat dublu și baie proprie, apartament A13 Travel Concept, Silver Mountain",
+    "dormitor-mare/04-dormitor-mare-acces-baie-dressing-a13-poiana-brasov":
+      "Dormitor mare văzut de sus, cu acces la baia proprie și la dressing, apartament A13 Poiana Brașov",
+    "baie-dormitor-mare/01-baie-dormitor-mare-cada-lavoar-a13-poiana-brasov":
+      "Baia dormitorului mare, cu cadă, lavoar pe blat și oglindă iluminată, apartament A13 Poiana Brașov",
+    "baie-dormitor-mare/02-baie-dormitor-mare-cada-toaleta-suspendata-a13-poiana-brasov":
+      "Baie cu cadă, toaletă suspendată, uscător de prosoape și produse de toaletă, apartament A13 Travel Concept",
+    "dormitor-mic/01-dormitor-mic-pat-dublu-usa-balcon-a13-poiana-brasov":
+      "Dormitor mic cu pat dublu și ușă spre balconul cu vedere la pădure, apartament A13 Silver Mountain",
+    "dormitor-mic/02-dormitor-mic-pat-matrimonial-tablou-a13-poiana-brasov":
+      "Al doilea dormitor, cu pat matrimonial, noptiere și prosoape pregătite, apartament A13 Travel Concept",
+    "dormitor-mic/03-dormitor-mic-baie-cu-dus-a13-poiana-brasov":
+      "Intrarea în dormitorul mic, cu baia cu duș și patul dublu, apartament A13 Poiana Brașov",
+    "dormitor-mic/04-dormitor-mic-pat-dublu-tv-a13-poiana-brasov":
+      "Dormitor mic cu pat dublu și TV pe perete, cazare în regim hotelier Silver Mountain, Poiana Brașov",
+    "baie-dormitor-mic/01-baie-dormitor-mic-cabina-dus-a13-poiana-brasov":
+      "Baia dormitorului mic, cu cabină de duș și lavoar, apartament A13 Travel Concept, Poiana Brașov",
+    "baie-dormitor-mic/02-baie-dormitor-mic-dus-lavoar-oglinda-a13-poiana-brasov":
+      "Baie modernă cu cabină de duș, lavoar și oglindă, apartament A13 Silver Mountain",
+    "balcon-dormitoare/01-balcon-inchis-dormitoare-vedere-padure-a13-poiana-brasov":
+      "Balcon închis între dormitoare, cu vedere spre pădurea de brazi, apartament A13 Travel Concept"
+  };
+  var GAL_MAX_TILES = 7;
+  var GAL_MAIN_SIZES = "(min-width:900px) 460px, 100vw";
+  var GAL_THUMB_SIZES = "(min-width:900px) 210px, 34vw";
   var galTabsEl = document.getElementById("galTabs");
   var galGridEl = document.getElementById("galGrid");
-  var activeCat = GALLERY[0].key;
+  var galPhotos = [];      // în ordinea categoriilor: { key, name, label }
+  var galAll = [];         // ordinea din „Toate”
+  var galFilter = "all";
 
-  function imgSrc(key, i){ return "images/" + key + "/" + i + ".jpg"; }
-  function imgWebp(key, i, suffix){ return "images/" + key + "/" + i + (suffix || "") + ".webp"; }
-  var THUMB_SIZES = "(max-width:559px) 50vw, (max-width:819px) 33vw, (max-width:1079px) 25vw, 220px";
-  var FIRST_SIZES = "(max-width:559px) 100vw, (max-width:819px) 66vw, (max-width:1079px) 50vw, 440px";
-
-  /* Texte alternative (SEO + accesibilitate). Poze noi fără text aici primesc un alt generic. */
-  var GALLERY_ALTS = {
-    "living": {
-      1: "Living cu canapea, fotolii și șemineu decorativ în apartamentul A13 Travel Concept din Poiana Brașov",
-      2: "Living open-space cu zonă de luat masa și bucătărie, apartament A13 Silver Mountain",
-      3: "Bucătărie complet utilată cu espressor, cuptor și plită, apartament A13 Travel Concept"
-    },
-    "dormitor-mare": {
-      1: "Dormitor matrimonial cu pat dublu și fereastră spre pădure, apartament A13 Poiana Brașov",
-      2: "Dormitor mare cu pat dublu și baie proprie, apartament A13 Travel Concept, Silver Mountain",
-      3: "Dormitor mare cu pat dublu, TV și birou, cazare Silver Mountain Poiana Brașov",
-      4: "Dormitor mare cu acces la baia privată, apartament A13 Travel Concept"
-    },
-    "baie-mare": {
-      1: "Baie privată cu cadă, lavoar și oglindă iluminată, dormitorul mare, apartament A13",
-      2: "Baie cu cadă, toaletă suspendată și uscător de prosoape, apartament A13 Poiana Brașov"
-    },
-    "dormitor-mic": {
-      1: "Dormitor cu pat dublu și ușă spre balcon cu vedere la munte, apartament A13 Silver Mountain",
-      2: "Al doilea dormitor cu pat matrimonial și prosoape pregătite, apartament A13 Travel Concept",
-      3: "Dormitor mic cu pat dublu și TV, cazare în regim hotelier Poiana Brașov",
-      4: "Dormitor cu baie privată cu duș, apartament A13 Travel Concept, Silver Mountain"
-    },
-    "baie-mic": {
-      1: "Baie privată cu cabină de duș, dormitorul mic, apartament A13 Poiana Brașov",
-      2: "Baie modernă cu duș și lavoar, apartament A13 Travel Concept, Silver Mountain"
-    },
-    "terasa-living": {
-      1: "Terasă cu mobilier de exterior și vedere spre pădurea de brazi, apartament A13 Poiana Brașov",
-      2: "Terasa livingului cu masă, fotolii și umbrelă, complex Silver Mountain Poiana Brașov"
-    },
-    "terasa-dormitoare": {
-      1: "Balcon închis cu vedere spre pădure, lângă dormitoare, apartament A13 Travel Concept"
-    }
-  };
-  function galAlt(cat, index){
-    var byCat = GALLERY_ALTS[cat.key];
-    return (byCat && byCat[index]) ||
-      (cat.label + " – apartament A13 Travel Concept, Silver Mountain, Poiana Brașov (foto " + index + ")");
+  function galFile(p, suffix, ext){ return "images/" + p.key + "/" + p.name + (suffix || "") + ext; }
+  function galAlt(p){
+    return GALLERY_ALTS[p.key + "/" + p.name] || (p.title + " – apartament A13 Travel Concept, Silver Mountain, Poiana Brașov");
+  }
+  function galList(){
+    return galFilter === "all" ? galAll : galPhotos.filter(function(p){ return p.key === galFilter; });
   }
 
-  function galIndex(src){ return parseInt(src.split("/").pop(), 10) || 0; }
-
-  function addThumb(cat, index){
-    var catKey = cat.key;
-    var thumb = document.createElement("div");
-    thumb.className = "gal-thumb";
-    var img = document.createElement("img");
-    var usedWebp = true;
-    img.alt = galAlt(cat, index);
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.width = 600; img.height = 400;
-    img.sizes = index === 1 ? FIRST_SIZES : THUMB_SIZES;
-    img.srcset = imgWebp(catKey, index, "-600") + " 600w, " + imgWebp(catKey, index) + " 1024w";
-    img.src = imgWebp(catKey, index, "-600");
-    img.onload = function(){
-      var full = usedWebp ? imgWebp(catKey, index) : imgSrc(catKey, index);
-      galFound[catKey].push(full);
-      galFound[catKey].sort(function(x, y){ return galIndex(x) - galIndex(y); });
-      thumb.addEventListener("click", function(){
-        openLightbox(catKey, galFound[catKey].indexOf(full));
+  // manifest = { "living": ["01-...", ...], ... } (numerele vechi 1, 2… sunt acceptate și ele)
+  function buildGallery(manifest){
+    if(!manifest){
+      manifest = {};
+      Object.keys(GALLERY_ALTS).forEach(function(id){
+        var parts = id.split("/");
+        (manifest[parts[0]] = manifest[parts[0]] || []).push(parts[1]);
       });
-    };
-    img.onerror = function(){
-      if(usedWebp){
-        /* fallback: WebP lipsă (încă negenerat) -> JPG original */
-        usedWebp = false;
+    }
+    galPhotos = [];
+    GALLERY.forEach(function(cat){
+      (manifest[cat.key] || []).forEach(function(name){
+        galPhotos.push({ key:cat.key, name:String(name), label:cat.label, title:cat.title });
+      });
+    });
+    var byId = {};
+    galPhotos.forEach(function(p){ byId[p.key + "/" + p.name] = p; });
+    galAll = GALLERY_FEATURED.map(function(id){ return byId[id]; }).filter(Boolean);
+    galPhotos.forEach(function(p){ if(galAll.indexOf(p) === -1) galAll.push(p); });
+    var openBtn = document.getElementById("openGalleryBtn");
+    if(openBtn && galAll.length) openBtn.textContent = "🖼️ Vezi toate cele " + galAll.length + " fotografii";
+    renderGalleryTabs();
+    renderGallery();
+  }
+
+  function renderGalleryTabs(){
+    var tabs = [{ key:"all", label:"Toate", count:galAll.length }];
+    GALLERY.forEach(function(cat){
+      var n = galPhotos.filter(function(p){ return p.key === cat.key; }).length;
+      if(n) tabs.push({ key:cat.key, label:cat.label, count:n });
+    });
+    galTabsEl.innerHTML = "";
+    tabs.forEach(function(t){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "gal-tab" + (t.key === galFilter ? " active" : "");
+      b.setAttribute("aria-pressed", t.key === galFilter ? "true" : "false");
+      b.innerHTML = escapeHtml(t.label) + ' <span class="gal-count">' + t.count + "</span>";
+      b.addEventListener("click", function(){
+        galFilter = t.key;
+        galTabsEl.querySelectorAll(".gal-tab").forEach(function(x){
+          var on = x === b;
+          x.classList.toggle("active", on);
+          x.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        renderGallery();
+      });
+      galTabsEl.appendChild(b);
+    });
+  }
+
+  function renderGallery(){
+    var list = galList();
+    var shown = list.slice(0, GAL_MAX_TILES);
+    var more = list.length - shown.length;
+    galGridEl.className = "gal-mosaic gal-n" + shown.length;
+    galGridEl.innerHTML = "";
+    if(!shown.length){
+      galGridEl.innerHTML = '<div class="gal-empty">Fotografiile nu au putut fi încărcate momentan.</div>';
+      return;
+    }
+    shown.forEach(function(p, i){
+      var tile = document.createElement("button");
+      tile.type = "button";
+      tile.className = "gal-tile" + (i === 0 ? " gal-main" : "");
+      var img = document.createElement("img");
+      img.alt = galAlt(p);
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.width = 600; img.height = 400;
+      img.sizes = i === 0 ? GAL_MAIN_SIZES : GAL_THUMB_SIZES;
+      img.srcset = galFile(p, "-600", ".webp") + " 600w, " + galFile(p, "", ".webp") + " 1024w";
+      img.src = galFile(p, "-600", ".webp");
+      img.onerror = function(){
+        // WebP lipsă (încă negenerat de workflow) → JPG-ul original
+        img.onerror = null;
         img.removeAttribute("srcset");
         img.removeAttribute("sizes");
-        img.src = imgSrc(catKey, index);
-        return;
+        img.src = galFile(p, "", ".jpg");
+      };
+      tile.appendChild(img);
+      if(i === shown.length - 1 && more > 0){
+        var badge = document.createElement("span");
+        badge.className = "gal-more";
+        badge.innerHTML = "<b>+" + more + "</b> fotografii";
+        tile.appendChild(badge);
       }
-      thumb.remove(); checkEmpty(catKey);
-    };
-    thumb.appendChild(img);
-    document.getElementById("gal-panel-" + catKey).appendChild(thumb);
-  }
-
-  /* manifest = { "living":[1,2,3], ... } generat de optimize-images.cjs; null -> sondare 1..max */
-  function buildGallery(manifest){
-    GALLERY.forEach(function(cat){
-      galFound[cat.key] = [];
-
-      var tab = document.createElement("button");
-      tab.type = "button"; tab.className = "gal-tab" + (cat.key === activeCat ? " active" : "");
-      tab.textContent = cat.label;
-      tab.addEventListener("click", function(){ setActiveCat(cat.key); });
-      galTabsEl.appendChild(tab);
-
-      var panel = document.createElement("div");
-      panel.className = "gal-panel" + (cat.key === activeCat ? " active" : "");
-      panel.id = "gal-panel-" + cat.key;
-      galGridEl.appendChild(panel);
-
-      var list = [];
-      if(manifest && Array.isArray(manifest[cat.key])){
-        list = manifest[cat.key].filter(function(n){ return typeof n === "number" && n > 0; });
-      } else {
-        for(var i=1;i<=cat.max;i++) list.push(i);
-      }
-      list.forEach(function(index){ addThumb(cat, index); });
-      if(list.length === 0) checkEmpty(cat.key);
+      tile.addEventListener("click", function(){ openLightbox(list, i); });
+      galGridEl.appendChild(tile);
     });
   }
 
@@ -1258,81 +1305,68 @@
     });
   }
 
-  function checkEmpty(key){
-    var panel = document.getElementById("gal-panel-" + key);
-    if(panel.children.length === 0){
-      var empty = document.createElement("div");
-      empty.className = "gal-empty";
-      empty.innerHTML = "Adaugă poze în <code>images/" + key + "/1.jpg</code>, <code>2.jpg</code>… (până la " +
-        (GALLERY.find(function(c){return c.key===key;}).max) + ")";
-      panel.appendChild(empty);
-    }
-  }
-
-  function setActiveCat(key){
-    activeCat = key;
-    galTabsEl.querySelectorAll(".gal-tab").forEach(function(t,idx){
-      t.classList.toggle("active", GALLERY[idx].key === key);
-    });
-    galGridEl.querySelectorAll(".gal-panel").forEach(function(p){
-      p.classList.toggle("active", p.id === "gal-panel-" + key);
-    });
-  }
-
   document.getElementById("openGalleryBtn").addEventListener("click", function(){
     document.getElementById("galerie").scrollIntoView({behavior:"smooth", block:"start"});
   });
 
-  /* Hero preview: prima poza gasita din prima categorie disponibila */
-  var heroImg = document.querySelector("#galleryHero img");
-  heroImg.addEventListener("load", function(){}, {once:true});
-
-  /* LIGHTBOX */
+  /* LIGHTBOX — lista curentă (filtrul activ), săgeți, tastatură (← → Esc) și glisare pe telefon */
   var lightbox = document.getElementById("lightbox");
   var lightboxImg = document.getElementById("lightboxImg");
   var lightboxTitle = document.getElementById("lightboxTitle");
   var lightboxCounter = document.getElementById("lightboxCounter");
-  var lbCat = null, lbIndex = 0;
+  var lightboxCaption = document.getElementById("lightboxCaption");
+  var lbList = [], lbIndex = 0;
 
-  function openLightbox(key, index){
-    lbCat = key; lbIndex = index;
+  function openLightbox(list, index){
+    lbList = list; lbIndex = index;
     renderLightbox();
     lightbox.classList.add("open");
     document.body.style.overflow = "hidden";
+    document.body.classList.add("lightbox-open");
   }
-  function renderLightbox(){
-    var list = galFound[lbCat];
-    var src = list[lbIndex];
-    lightboxImg.onerror = function(){
-      lightboxImg.onerror = null;
-      if(/\.webp$/.test(src)) lightboxImg.src = src.replace(/\.webp$/, ".jpg");
-    };
-    var lbCatObj = GALLERY.find(function(c){return c.key===lbCat;});
-    lightboxImg.alt = galAlt(lbCatObj, galIndex(src));
-    lightboxImg.src = src;
-    lightboxTitle.textContent = GALLERY.find(function(c){return c.key===lbCat;}).label;
-    lightboxCounter.textContent = (lbIndex+1) + " / " + list.length;
-  }
-  document.getElementById("lightboxClose").addEventListener("click", function(){
+  function closeLightbox(){
     lightbox.classList.remove("open");
     document.body.style.overflow = "";
-  });
-  lightbox.addEventListener("click", function(e){
-    if(e.target === lightbox){
-      lightbox.classList.remove("open");
-      document.body.style.overflow = "";
-    }
-  });
-  document.getElementById("lightboxPrev").addEventListener("click", function(){
-    var list = galFound[lbCat];
-    lbIndex = (lbIndex - 1 + list.length) % list.length;
+    document.body.classList.remove("lightbox-open");
+  }
+  function renderLightbox(){
+    var p = lbList[lbIndex];
+    if(!p) return;
+    lightboxImg.onerror = function(){
+      lightboxImg.onerror = null;
+      lightboxImg.src = galFile(p, "", ".jpg");
+    };
+    lightboxImg.alt = galAlt(p);
+    lightboxImg.src = galFile(p, "", ".webp");
+    lightboxTitle.textContent = p.title;
+    if(lightboxCaption) lightboxCaption.textContent = galAlt(p);
+    lightboxCounter.textContent = (lbIndex + 1) + " / " + lbList.length;
+    var next = lbList[(lbIndex + 1) % lbList.length];
+    if(next && next !== p) (new Image()).src = galFile(next, "", ".webp");
+  }
+  function stepLightbox(d){
+    if(!lbList.length) return;
+    lbIndex = (lbIndex + d + lbList.length) % lbList.length;
     renderLightbox();
+  }
+  document.getElementById("lightboxClose").addEventListener("click", closeLightbox);
+  lightbox.addEventListener("click", function(e){ if(e.target === lightbox) closeLightbox(); });
+  document.getElementById("lightboxPrev").addEventListener("click", function(){ stepLightbox(-1); });
+  document.getElementById("lightboxNext").addEventListener("click", function(){ stepLightbox(1); });
+  document.addEventListener("keydown", function(e){
+    if(!lightbox.classList.contains("open")) return;
+    if(e.key === "ArrowLeft") stepLightbox(-1);
+    else if(e.key === "ArrowRight") stepLightbox(1);
+    else if(e.key === "Escape") closeLightbox();
   });
-  document.getElementById("lightboxNext").addEventListener("click", function(){
-    var list = galFound[lbCat];
-    lbIndex = (lbIndex + 1) % list.length;
-    renderLightbox();
-  });
+  var lbTouchX = null;
+  lightboxImg.addEventListener("touchstart", function(e){ lbTouchX = e.touches[0].clientX; }, {passive:true});
+  lightboxImg.addEventListener("touchend", function(e){
+    if(lbTouchX === null) return;
+    var dx = e.changedTouches[0].clientX - lbTouchX;
+    lbTouchX = null;
+    if(Math.abs(dx) > 40) stepLightbox(dx < 0 ? 1 : -1);
+  }, {passive:true});
 
   /* ---------- RECENZII (Google / Booking.com / Airbnb / Travelminit) ---------- */
   var REVIEWS_JSON = "reviews.json"; // regenerat periodic (Google auto, Booking/Airbnb manual)

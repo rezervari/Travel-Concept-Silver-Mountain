@@ -28,14 +28,14 @@
 <meta property="og:site_name" content="A13 Travel Concept">
 <meta property="og:title" content="A13 Travel Concept — Cazare Poiana Brașov | Rezervă Direct Fără Comisioane">
 <meta property="og:description" content="Rezervă direct de la proprietar apartamentul A13 din complexul Silver Mountain, Poiana Brașov: fără comisioanele platformelor de rezervări, cu calendar și preț calculat pe loc.">
-<meta property="og:image" content="https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/living/1.jpg">
+<meta property="og:image" content="https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/living/01-living-semineu-canapea-fotolii-a13-poiana-brasov.jpg">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:site" content="A13 Travel Concept">
 <meta name="twitter:title" content="A13 Travel Concept — Rezervă Direct Silver Mountain Poiana Brașov">
 <meta name="twitter:description" content="Rezervă direct, fără comisioanele platformelor de rezervări: apartamentul A13 din Silver Mountain, Poiana Brașov.">
-<meta name="twitter:image" content="https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/living/1.jpg">
+<meta name="twitter:image" content="https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/living/01-living-semineu-canapea-fotolii-a13-poiana-brasov.jpg">
 
 <!-- Favicon & App Icons -->
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -78,10 +78,10 @@
       ],
       "description": "Apartament cu 2 dormitoare și 2 băi, bucătărie complet utilată și terase, în complexul Silver Mountain din Poiana Brașov. Parcare și Wi-Fi gratuite. Rezervare directă de la proprietar.",
       "image": [
-        "https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/living/1.jpg",
-        "https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/dormitor-mare/1.jpg",
-        "https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/baie-mare/1.jpg",
-        "https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/terasa-living/1.jpg"
+        "https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/living/01-living-semineu-canapea-fotolii-a13-poiana-brasov.jpg",
+        "https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/dormitor-mare/01-dormitor-mare-pat-dublu-fereastra-padure-a13-poiana-brasov.jpg",
+        "https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/baie-dormitor-mare/01-baie-dormitor-mare-cada-lavoar-a13-poiana-brasov.jpg",
+        "https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/terasa-living/01-terasa-living-vedere-padure-brazi-a13-poiana-brasov.jpg"
       ],
       "logo": "https://rezervari.github.io/Travel-Concept-Silver-Mountain/icon-512.png",
       "url": "https://rezervari.github.io/Travel-Concept-Silver-Mountain/",
@@ -563,11 +563,11 @@
     <div class="overview-grid">
       <div class="gallery-hero" id="galleryHero">
         <picture>
-          <source type="image/webp" srcset="images/living/1-600.webp 600w, images/living/1.webp 1024w" sizes="(max-width:900px) 100vw, 600px">
-          <img src="images/living/1.jpg" alt="Living cu canapea, fotolii și șemineu decorativ în apartamentul A13 Travel Concept din Poiana Brașov" width="1024" height="683" loading="lazy" decoding="async" onerror="this.onerror=null;this.style.display='none';this.parentNode.nextElementSibling.style.display='flex';">
+          <source type="image/webp" srcset="images/terasa-living/01-terasa-living-vedere-padure-brazi-a13-poiana-brasov-600.webp 600w, images/terasa-living/01-terasa-living-vedere-padure-brazi-a13-poiana-brasov.webp 1024w" sizes="(max-width:900px) 100vw, 600px">
+          <img src="images/terasa-living/01-terasa-living-vedere-padure-brazi-a13-poiana-brasov.jpg" alt="Terasă cu masă și fotolii, cu vedere spre pădurea de brazi, apartament A13 Travel Concept, Poiana Brașov" width="1024" height="683" loading="lazy" decoding="async" onerror="this.onerror=null;this.style.display='none';this.parentNode.nextElementSibling.style.display='flex';">
         </picture>
-        <div class="gallery-hero-fallback">Fotografie principală<br><small>images/living/1.jpg</small></div>
-        <button type="button" class="gallery-hero-btn" id="openGalleryBtn">🖼️ Vezi toate pozele</button>
+        <div class="gallery-hero-fallback">Terasa apartamentului</div>
+        <button type="button" class="gallery-hero-btn" id="openGalleryBtn">🖼️ Vezi toate cele 18 fotografii</button>
       </div>
 
       <div class="info-card">
@@ -637,10 +637,10 @@
 <section id="galerie" style="background:var(--white);border-top:1px solid var(--line);">
   <div class="wrap">
     <h2 class="section-title">Galerie foto — A13 Travel Concept, Poiana Brașov</h2>
-    <p class="section-sub">Explorează apartamentul pe zone.</p>
+    <p class="section-sub">Living cu bucătărie, două dormitoare cu baie proprie, terasă și balcon spre pădure. Apasă pe o fotografie ca s-o vezi mărită.</p>
 
-    <div class="gal-tabs" id="galTabs"></div>
-    <div class="gal-grid" id="galGrid"></div>
+    <div class="gal-tabs" id="galTabs" aria-label="Categorii de fotografii"></div>
+    <div class="gal-mosaic" id="galGrid"></div>
   </div>
 </section>
 
@@ -655,6 +655,7 @@
       <img id="lightboxImg" src="" alt="Fotografie apartament A13 Travel Concept, Silver Mountain, Poiana Brașov">
       <button type="button" class="lightbox-nav next" id="lightboxNext" aria-label="Poza următoare">›</button>
     </div>
+    <p class="lightbox-caption" id="lightboxCaption"></p>
     <div class="lightbox-counter" id="lightboxCounter"></div>
   </div>
 </div>

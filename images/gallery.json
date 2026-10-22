@@ -1,34 +1,34 @@
 {
-  "baie-mare": [
-    1,
-    2
+  "baie-dormitor-mare": [
+    "01-baie-dormitor-mare-cada-lavoar-a13-poiana-brasov",
+    "02-baie-dormitor-mare-cada-toaleta-suspendata-a13-poiana-brasov"
   ],
-  "baie-mic": [
-    1,
-    2
+  "baie-dormitor-mic": [
+    "01-baie-dormitor-mic-cabina-dus-a13-poiana-brasov",
+    "02-baie-dormitor-mic-dus-lavoar-oglinda-a13-poiana-brasov"
+  ],
+  "balcon-dormitoare": [
+    "01-balcon-inchis-dormitoare-vedere-padure-a13-poiana-brasov"
   ],
   "dormitor-mare": [
-    1,
-    2,
-    3,
-    4
+    "01-dormitor-mare-pat-dublu-fereastra-padure-a13-poiana-brasov",
+    "02-dormitor-mare-pat-tv-birou-usa-balcon-a13-poiana-brasov",
+    "03-dormitor-mare-pat-dublu-baie-proprie-a13-poiana-brasov",
+    "04-dormitor-mare-acces-baie-dressing-a13-poiana-brasov"
   ],
   "dormitor-mic": [
-    1,
-    2,
-    3,
-    4
+    "01-dormitor-mic-pat-dublu-usa-balcon-a13-poiana-brasov",
+    "02-dormitor-mic-pat-matrimonial-tablou-a13-poiana-brasov",
+    "03-dormitor-mic-baie-cu-dus-a13-poiana-brasov",
+    "04-dormitor-mic-pat-dublu-tv-a13-poiana-brasov"
   ],
   "living": [
-    1,
-    2,
-    3
-  ],
-  "terasa-dormitoare": [
-    1
+    "01-living-semineu-canapea-fotolii-a13-poiana-brasov",
+    "02-living-open-space-bucatarie-scara-a13-poiana-brasov",
+    "03-bucatarie-utilata-espressor-plita-cuptor-a13-poiana-brasov"
   ],
   "terasa-living": [
-    1,
-    2
+    "01-terasa-living-vedere-padure-brazi-a13-poiana-brasov",
+    "02-terasa-living-fotolii-masa-umbrela-a13-poiana-brasov"
   ]
 }

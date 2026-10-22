@@ -4,20 +4,26 @@
  * Local (opțional): npm install sharp --no-save && node optimize-images.cjs
  *
  * Reguli (JPG-urile originale NU se modifică):
- *   hero-apartament.jpg      -> hero-apartament-828.webp, hero-apartament.webp
- *   images/zona/X.jpg        -> images/zona/X-800.webp
- *   images/<categorie>/N.jpg -> images/<categorie>/N-600.webp, images/<categorie>/N.webp
- *   + images/gallery.json (lista pozelor pe categorii; galeria nu mai „ghicește” fișierele -> fără 404)
+ *   hero-apartament.jpg         -> hero-apartament-828.webp, hero-apartament.webp
+ *   images/zona/X.jpg           -> images/zona/X-800.webp
+ *   images/<categorie>/NUME.jpg -> images/<categorie>/NUME-600.webp, images/<categorie>/NUME.webp
+ *     (NUME = descriptiv, cu număr de ordine în față: 01-living-semineu-...-a13-poiana-brasov)
+ *   + images/gallery.json: { "<categorie>": ["NUME", ...] } în ordinea numelor (galeria nu „ghicește” fișierele -> fără 404)
+ *   + WebP-urile rămase fără JPG (poză ștearsă/redenumită) se șterg din folderele galeriei.
+ * Doar manifestul, fără sharp (local): node optimize-images.cjs --manifest-only
  */
 "use strict";
 const fs = require("fs");
 const path = require("path");
-const sharp = require("sharp");
 
 const ROOT = __dirname;
 const MAX_FULL = 1600; // latura maximă pentru varianta „full”
+const MANIFEST_ONLY = process.argv.includes("--manifest-only");
+let sharp = null;
 
 async function toWebp(src, dest, width, quality) {
+  if (MANIFEST_ONLY) return;
+  if (!sharp) sharp = require("sharp");
   let img = sharp(src).rotate();
   const meta = await img.metadata();
   const w = width ? Math.min(width, meta.width) : Math.min(MAX_FULL, meta.width);
@@ -47,15 +53,20 @@ function jpgsIn(dir) {
       : [];
 
     const manifest = {};
-    for (const d of dirs) {
+    const byName = function (a, b) { return a.localeCompare(b, "ro", { numeric: true }); };
+    for (const d of dirs.sort(function (a, b) { return byName(a.name, b.name); })) {
       const dir = path.join(imagesDir, d.name);
       if (d.name !== "zona") {
-        manifest[d.name] = jpgsIn(dir)
-          .map(function (f) { return path.basename(f); })
-          .filter(function (b) { return /^\d+\.jpe?g$/i.test(b); })
-          .map(function (b) { return parseInt(b, 10); })
-          .filter(function (n) { return n > 0; })
-          .sort(function (a, b) { return a - b; });
+        const names = jpgsIn(dir).map(function (f) { return path.basename(f).replace(/\.jpe?g$/i, ""); }).sort(byName);
+        if (names.length) manifest[d.name] = names;
+        // WebP-uri orfane (JPG-ul a fost șters sau redenumit)
+        for (const f of fs.readdirSync(dir)) {
+          const m = /^(.*?)(-600)?\.webp$/i.exec(f);
+          if (m && names.indexOf(m[1]) === -1) {
+            fs.unlinkSync(path.join(dir, f));
+            console.log("  șters (fără JPG): " + path.relative(ROOT, path.join(dir, f)));
+          }
+        }
       }
       for (const file of jpgsIn(dir)) {
         const base = file.replace(/\.jpe?g$/i, "");
