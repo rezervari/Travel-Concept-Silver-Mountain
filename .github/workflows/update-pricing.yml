@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "pricing/tarife.xlsx"
+      - "update-pricing.cjs"
   workflow_dispatch:
 
 permissions:

@@ -263,6 +263,48 @@
     };
   }
 
+  /* ---------- COMPARAȚIE CU PLATFORMELE (din pricing.json → otaComparison + seasons[].ota) ----------
+   * Cel mai mic preț pentru același sejur pe platformele de rezervări, cu regulile lor:
+   * Booking = reducerile pe durată ale site-ului (dacă bookingUsesSiteDiscounts) + reducerea de mobil;
+   * Airbnb = reducere săptămânală (7+) / lunară (28+); Travelminit = fără reduceri.
+   * null dacă lipsesc datele pentru vreo noapte. Pe site nu se numește nicio platformă în comparație. */
+  function computeOtaMin(ci, co){
+    var cfg = pricingData && pricingData.otaComparison;
+    if(!cfg) return null;
+    var nights = Math.round((co - ci) / 86400000);
+    var sums = { booking:0, airbnb:0, travelminit:0 };
+    for(var d = new Date(ci); d < co; d.setDate(d.getDate() + 1)){
+      var s = getSeasonForDate(d);
+      if(!s || !s.ota) return null;
+      Object.keys(sums).forEach(function(k){ sums[k] += (typeof s.ota[k] === "number") ? s.ota[k] : NaN; });
+    }
+    var candidates = [];
+    if(isFinite(sums.booking)){
+      var los = cfg.bookingUsesSiteDiscounts ? getDiscountPct(nights, getDiscountTiers(ci)) : 0;
+      candidates.push(sums.booking * (100 - los) / 100 * (100 - (cfg.bookingMobileDiscount || 0)) / 100);
+    }
+    if(isFinite(sums.airbnb)){
+      var air = nights >= 28 ? (cfg.airbnbMonthlyDiscount || 0) : nights >= 7 ? (cfg.airbnbWeeklyDiscount || 0) : 0;
+      candidates.push(sums.airbnb * (100 - air) / 100);
+    }
+    if(isFinite(sums.travelminit)) candidates.push(sums.travelminit);
+    return candidates.length ? Math.min.apply(null, candidates) : null;
+  }
+
+  // Economia afișată: rotunjită prudent (în jos, la 10 RON); afișată doar dacă e de cel puțin 50 RON.
+  function getDirectSaving(ci, co, siteTotal){
+    var ota = computeOtaMin(ci, co);
+    if(ota === null) return null;
+    var saving = Math.floor((ota - siteTotal) / 10) * 10;
+    if(saving < 50) return null;
+    var checked = pricingData.otaComparison.checkedAt;
+    return {
+      otaFrom: Math.round(ota / 10) * 10,
+      saving: saving,
+      checkedAt: checked ? checked.split("-").reverse().join(".") : ""
+    };
+  }
+
   function renderTeaserPrice(){
     var minPrice = getMinBasePrice();
     if(headerPriceEl) headerPriceEl.textContent = minPrice + " RON";
@@ -643,9 +685,11 @@
         html = '<span class="form-total-warn">Intervalul include zile ocupate sau fără tarif — alege alte date.</span>';
       } else {
         validTotal = stay.total;
+        var direct = getDirectSaving(ci, co, stay.total);
         html = '<span class="form-total-dates">' + fmtDate(ci) + ' – ' + fmtDate(co) + ' · ' + stay.nights + ' ' + nightsWord(stay.nights) + ' · ' + guestsLabel(getGuests()) + '</span>' +
                '<span class="form-total-sum">Total ' + stay.total + ' RON</span>' +
-               '<span class="form-total-note">taxe locale incluse' + (stay.discountPct > 0 ? ' · reducere −' + stay.discountPct + '%' : '') + '</span>';
+               '<span class="form-total-note">taxe locale incluse' + (stay.discountPct > 0 ? ' · reducere −' + stay.discountPct + '%' : '') + '</span>' +
+               (direct ? '<span class="form-total-save">Direct economisești ~' + direct.saving + ' RON față de platformele de rezervări</span>' : '');
       }
     }
     // Pe mobil rezumatul e sub formular: totalul apare și chiar deasupra politicii și a butonului.
@@ -708,6 +752,17 @@
         '<div class="summary-row"><span>' + stay.nights + ' nopți × ' + stay.avgPerNight + ' RON</span><span>' + stay.total + ' RON</span></div>';
     }
     rows += '<div class="summary-row total"><span>Total</span><span>' + stay.total + ' RON</span></div>';
+
+    var direct = conflict ? null : getDirectSaving(ci, co, stay.total);
+    if(direct){
+      rows +=
+        '<div class="summary-save">' +
+          '<strong>Direct economisești ~' + direct.saving + ' RON</strong>' +
+          '<span>Pe platformele de rezervări online, același sejur costă de la ~' + direct.otaFrom + ' RON.</span>' +
+          '<small>Prețuri verificate' + (direct.checkedAt ? ' la ' + direct.checkedAt : '') + ', cu reducerile automate ale platformelor (inclusiv pentru mobil). ' +
+          'Pe platforme, unele tarife includ anulare gratuită; tariful direct e nerambursabil.</small>' +
+        '</div>';
+    }
 
     var tx = computeTaxes(guests.adults, stay.nights);
     var calcTxt = function(rate){
@@ -1147,23 +1202,51 @@
     } catch(e){ return iso || ""; }
   }
 
+  // Pastilele cu nota pe platforme: click = filtrează recenziile AICI, pe site; săgeata ↗ (secundară)
+  // deschide pagina de recenzii a platformei. Ordonate după numărul de recenzii.
   function renderReviewsSummary(){
     var platforms = (reviewsData && reviewsData.platforms) || {};
+    var withText = {};
+    ((reviewsData && reviewsData.reviews) || []).forEach(function(r){ withText[r.platform] = true; });
+    var keys = Object.keys(PLATFORM_META)
+      .filter(function(k){ return platforms[k] && platforms[k].totalReviews; })
+      .sort(function(a, b){ return platforms[b].totalReviews - platforms[a].totalReviews; });
     var html = "";
-    Object.keys(PLATFORM_META).forEach(function(key){
-      var p = platforms[key];
-      if(!p || !p.totalReviews) return;
-      var meta = PLATFORM_META[key];
+    keys.forEach(function(key){
+      var p = platforms[key], meta = PLATFORM_META[key];
       var scale = p.scaleMax || meta.scale;
+      var score = String(p.rating).replace(".", ",");
+      var countTxt = p.totalReviews + (p.totalReviews === 1 ? " recenzie" : " recenzii");
+      var label = meta.label + ": " + score + " din " + scale + ", " + countTxt;
       var inner =
-        '<span class="rp-badge ' + meta.cls + '">' + meta.badge + '</span>' +
-        '<span class="rp-score">' + p.rating + '/' + scale + '</span>' +
-        '<span class="rp-count">(' + p.totalReviews + (p.totalReviews === 1 ? ' recenzie' : ' recenzii') + ')</span>';
-      html += p.url
-        ? '<a class="review-platform-pill" href="' + p.url + '" target="_blank" rel="noopener">' + inner + '</a>'
-        : '<span class="review-platform-pill">' + inner + '</span>';
+        '<span class="rp-badge ' + meta.cls + '" aria-hidden="true">' + meta.badge + '</span>' +
+        '<span class="rp-name">' + meta.label + '</span>' +
+        '<span class="rp-score">' + score + '/' + scale + '</span>' +
+        '<span class="rp-count">' + countTxt + '</span>';
+      var main = withText[key]
+        ? '<button type="button" class="rp-main" data-platform="' + key + '" aria-pressed="' + (reviewsFilter === key) + '" aria-label="' + label + '. Arată recenziile de pe ' + meta.label + '">' + inner + '</button>'
+        : '<span class="rp-main" aria-label="' + label + '">' + inner + '</span>';
+      var extUrl = p.reviewsUrl || p.url;
+      var ext = extUrl
+        ? '<a class="rp-ext" href="' + extUrl + '" target="_blank" rel="noopener" aria-label="Vezi recenziile pe ' + meta.label + ' (se deschide într-o fereastră nouă)">↗</a>'
+        : '';
+      html += '<div class="review-platform-pill' + (reviewsFilter === key ? ' is-active' : '') + '">' + main + ext + '</div>';
     });
     reviewsSummaryEl.innerHTML = html || '<span style="color:var(--gray);font-size:.85rem;">Recenziile apar aici după prima sincronizare.</span>';
+    reviewsSummaryEl.querySelectorAll("button.rp-main").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var key = btn.getAttribute("data-platform");
+        setReviewsFilter(reviewsFilter === key ? "all" : key);
+      });
+    });
+  }
+
+  function setReviewsFilter(key){
+    reviewsFilter = key;
+    renderReviewsSummary();
+    renderReviewsTabs();
+    renderReviewsTrack();
+    track("recenzii-filtru", { platforma: key });
   }
 
   function renderReviewsTabs(){
@@ -1183,12 +1266,7 @@
       btn.className = "reviews-tab" + (tab.key === reviewsFilter ? " active" : "");
       btn.setAttribute("role", "tab");
       btn.textContent = tab.label;
-      btn.addEventListener("click", function(){
-        reviewsFilter = tab.key;
-        reviewsTabsEl.querySelectorAll(".reviews-tab").forEach(function(b){ b.classList.remove("active"); });
-        btn.classList.add("active");
-        renderReviewsTrack();
-      });
+      btn.addEventListener("click", function(){ setReviewsFilter(tab.key); });
       reviewsTabsEl.appendChild(btn);
     });
   }

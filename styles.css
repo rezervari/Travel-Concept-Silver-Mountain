@@ -779,6 +779,12 @@
   .form-total-sum{font-size:1.2rem;font-weight:800;color:var(--yellow);}
   .form-total-note{font-size:.75rem;color:#cfe0f5;}
   .form-total-warn{font-size:.86rem;font-weight:700;color:#ffd9d9;}
+  .form-total-save{font-size:.82rem;font-weight:700;color:var(--white);margin-top:4px;}
+
+  /* Economia față de platforme (în rezumat) */
+  .summary-save{margin-top:12px;padding:12px 14px;border-radius:var(--radius);background:rgba(255,255,255,.1);display:flex;flex-direction:column;gap:4px;font-size:.84rem;}
+  .summary-save strong{color:var(--yellow);font-size:.95rem;}
+  .summary-save small{color:#cfe0f5;font-size:.74rem;line-height:1.45;}
 
   /* Contact rapid sub buton */
   .form-contact{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:12px 0 2px;font-size:.84rem;}
@@ -1138,6 +1144,8 @@
   .foot-review{margin-left:auto;background:var(--yellow);border-color:var(--yellow);color:var(--blue-dark);}
   .foot-review:hover,.foot-review:focus-visible{background:#ffd04d;}
   .foot-platforms a:focus-visible{outline:2px solid var(--yellow);outline-offset:3px;}
+  .foot-direct{margin:-4px 0 14px;font-size:.82rem;color:var(--white);}
+  @media(max-width:700px){.foot-direct{text-align:center;}}
   .foot-legal{border-top:1px solid rgba(255,255,255,.15);padding:16px 0;font-size:.78rem;line-height:1.55;color:#cfe0f5;}
   .foot-legal p{margin:0 0 6px;}
   .foot-legal strong{color:var(--white);}
@@ -1185,9 +1193,26 @@
   }
   .reviews-summary::-webkit-scrollbar{display:none;}
   .review-platform-pill{
-    flex:none;display:flex;align-items:center;gap:8px;background:var(--white);
-    border:1px solid var(--line);border-radius:999px;padding:9px 16px;
+    flex:none;display:flex;align-items:stretch;background:var(--white);
+    border:1px solid var(--line);border-radius:999px;overflow:hidden;
     box-shadow:var(--shadow);font-size:.85rem;white-space:nowrap;
+  }
+  .review-platform-pill.is-active{border-color:var(--blue-mid);box-shadow:0 0 0 2px rgba(0,113,194,.25);}
+  .rp-main{
+    display:flex;align-items:center;gap:8px;padding:9px 6px 9px 14px;
+    background:none;border:0;font:inherit;color:inherit;text-align:left;cursor:pointer;
+  }
+  span.rp-main{cursor:default;padding-right:10px;}
+  button.rp-main:hover{background:#f4f8fd;}
+  .rp-name{font-weight:700;color:var(--ink);}
+  .rp-ext{display:flex;align-items:center;justify-content:center;min-width:36px;padding:0 12px 0 6px;color:var(--blue-mid);font-weight:800;}
+  .rp-ext:hover{background:#eef5fc;}
+  .rp-main:focus-visible,.rp-ext:focus-visible{outline:2px solid var(--blue-mid);outline-offset:-3px;}
+  @media(max-width:640px){
+    .reviews-summary{display:grid;grid-template-columns:1fr 1fr;overflow:visible;}
+    .review-platform-pill{border-radius:12px;white-space:normal;}
+    .rp-main{flex:1;min-width:0;flex-wrap:wrap;gap:2px 6px;padding:8px 4px 8px 10px;}
+    .rp-ext{min-width:32px;padding:0 8px;}
   }
   .rp-badge{
     flex:none;display:inline-flex;align-items:center;justify-content:center;

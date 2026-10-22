@@ -15,8 +15,16 @@
  * - Perioadele NEACOPERITE de niciun sezon rămân intenționat fără tarif ->
  *   script.js blochează rezervarea în acele zile (fără fallback de preț implicit).
  *
+ * Opțional (pentru mesajul „pe platforme același sejur costă de la…” din rezumat):
+ *   - foaia „Prețuri de setat”: prețurile ACTUALE de pe platforme pe sezon (coloanele „Booking ACUM”,
+ *     „Airbnb ACUM”, „Travelminit ACUM”; dacă lipsesc, cele țintă) → seasons[].ota;
+ *   - foaia „Platforme”: reducerea automată Booking (mobil), dacă Booking aplică reducerile pe durată,
+ *     reducerile săptămânală/lunară Airbnb → otaComparison;
+ *   - foaia „Date actuale”: data verificării (prima dată zz.ll.aaaa din primele rânduri) → otaComparison.checkedAt.
+ *   Fără aceste foi, pricing.json rămâne ca înainte și site-ul nu afișează comparația.
+ *
  * Rulare manuală:  node update-pricing.cjs
- * Rulare automată: .github/workflows/update-pricing.yml (la push pe pricing/tarife.xlsx)
+ * Rulare automată: .github/workflows/update-pricing.yml (la push pe pricing/tarife.xlsx sau pe acest script)
  */
 
 const fs = require("fs");
@@ -137,6 +145,8 @@ function main(){
     }
   }
 
+  var otaComparison = readOtaComparison(workbook, seasons);
+
   var output = {
     currency: CURRENCY,
     defaultPrice: DEFAULT_PRICE_FALLBACK,
@@ -146,12 +156,99 @@ function main(){
     generatedAt: new Date().toISOString(),
     generatedFrom: path.relative(__dirname, SOURCE_XLSX).split(path.sep).join("/")
   };
+  if(otaComparison) output.otaComparison = otaComparison;
 
   fs.writeFileSync(OUTPUT_JSON, JSON.stringify(output, null, 2) + "\n", "utf8");
   console.log("pricing.json generat cu succes — " + seasons.length + " sezoane:");
   seasons.forEach(function(s){
-    console.log("  - " + s.id + ": " + s.start + " → " + s.end + " · " + s.price + " RON · min " + s.minNights + " nopți");
+    console.log("  - " + s.id + ": " + s.start + " → " + s.end + " · " + s.price + " RON · min " + s.minNights + " nopți" +
+      (s.ota ? " · platforme " + JSON.stringify(s.ota) : ""));
   });
+  if(otaComparison) console.log("Comparație platforme: " + JSON.stringify(otaComparison));
+}
+
+function findSheet(workbook, name){
+  var found = workbook.SheetNames.find(function(n){ return normalize(n) === normalize(name); });
+  return found ? workbook.Sheets[found] : null;
+}
+
+// Header-ele din Excel au rânduri noi și spații multiple („Booking\nACUM”) → comparăm pe text normalizat.
+function headerKey(h){ return normalize(h).replace(/\s+/g, " "); }
+
+// Prețurile de pe platforme pe sezon + regulile lor de reducere. Întoarce null dacă datele lipsesc.
+function readOtaComparison(workbook, seasons){
+  var priceSheet = findSheet(workbook, "Prețuri de setat");
+  if(!priceSheet) return null;
+  var rows = XLSX.utils.sheet_to_json(priceSheet, { header: 1, raw: true, defval: null });
+  var hIdx = rows.findIndex(function(r){ return r.some(function(c){ return headerKey(c) === "id sezon"; }); });
+  if(hIdx === -1) return null;
+  var header = rows[hIdx].map(headerKey);
+  function colOf(names){
+    for(var i = 0; i < names.length; i++){
+      var idx = header.indexOf(names[i]);
+      if(idx !== -1) return idx;
+    }
+    return -1;
+  }
+  var cId = header.indexOf("id sezon");
+  var cols = {
+    booking: colOf(["booking acum", "booking standard rate"]),
+    airbnb: colOf(["airbnb acum", "airbnb pret / noapte"]),
+    travelminit: colOf(["travelminit acum", "travelminit pret / noapte"])
+  };
+
+  var byId = {};
+  rows.slice(hIdx + 1).forEach(function(r){
+    if(r[cId] == null || String(r[cId]).trim() === "") return;
+    var ota = {};
+    Object.keys(cols).forEach(function(k){
+      var v = cols[k] === -1 ? NaN : Number(r[cols[k]]);
+      if(isFinite(v) && v > 0) ota[k] = Math.round(v);
+    });
+    if(Object.keys(ota).length) byId[String(r[cId]).trim()] = ota;
+  });
+
+  var matched = 0;
+  seasons.forEach(function(s){
+    if(byId[s.id]){ s.ota = byId[s.id]; matched++; }
+  });
+  if(!matched) return null;
+
+  // Reguli din foaia „Platforme” (coloanele: Setare | Site direct | Booking.com | Airbnb | Travelminit)
+  var rules = { bookingMobileDiscount: 0, bookingUsesSiteDiscounts: true, airbnbWeeklyDiscount: 0, airbnbMonthlyDiscount: 0 };
+  var platSheet = findSheet(workbook, "Platforme");
+  if(platSheet){
+    var pr = XLSX.utils.sheet_to_json(platSheet, { header: 1, raw: true, defval: null });
+    var pct = function(v){ var n = Number(v); return isFinite(n) ? Math.round(n * 1000) / 10 : 0; };
+    pr.forEach(function(r){
+      var label = headerKey(r[0]);
+      if(label.indexOf("reducere automata a platformei") === 0) rules.bookingMobileDiscount = pct(r[2]);
+      else if(label.indexOf("aplica reducerile pe durata") === 0) rules.bookingUsesSiteDiscounts = Number(r[2]) === 1;
+      else if(label.indexOf("reducere saptamanala") === 0) rules.airbnbWeeklyDiscount = pct(r[1]);
+      else if(label.indexOf("reducere lunara") === 0) rules.airbnbMonthlyDiscount = pct(r[1]);
+    });
+  }
+
+  // Data verificării prețurilor (de ex. „… verificate live în conturi pe 21.10.2026 …”)
+  var checkedAt = null;
+  var dateSheet = findSheet(workbook, "Date actuale");
+  if(dateSheet){
+    XLSX.utils.sheet_to_json(dateSheet, { header: 1, raw: false, defval: "" }).slice(0, 4).some(function(r){
+      return r.some(function(c){
+        var m = /(\d{2})\.(\d{2})\.(\d{4})/.exec(String(c));
+        if(m){ checkedAt = m[3] + "-" + m[2] + "-" + m[1]; return true; }
+        return false;
+      });
+    });
+  }
+
+  return {
+    checkedAt: checkedAt,
+    bookingMobileDiscount: rules.bookingMobileDiscount,
+    bookingUsesSiteDiscounts: rules.bookingUsesSiteDiscounts,
+    airbnbWeeklyDiscount: rules.airbnbWeeklyDiscount,
+    airbnbMonthlyDiscount: rules.airbnbMonthlyDiscount
+  };
 }
 
 main();
