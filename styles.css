@@ -857,6 +857,31 @@
   .summary-row.total{border-bottom:none;font-weight:800;font-size:1.1rem;padding-top:14px;color:var(--yellow);}
   .summary-empty{font-size:.85rem;color:#cfe0f5;}
   .summary-block{margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.15);}
+
+  /* POLITICA DE PLATĂ & ANULARE (în formular, înainte de butonul de trimitere) */
+  .policy-card{background:#f7fafd;border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin:6px 0 16px;font-size:.86rem;}
+  .policy-card h4{margin:0 0 10px;font-size:.95rem;color:var(--blue-dark);}
+  .policy-card p{margin:0 0 10px;}
+  .policy-tags{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;}
+  .policy-tag{background:#eef5fc;color:var(--blue-dark);border-radius:999px;padding:3px 10px;font-size:.75rem;font-weight:700;}
+  .policy-links{font-size:.8rem;margin-bottom:0 !important;}
+  .policy-links a,.form-privacy a{color:var(--blue-mid);text-decoration:underline;text-underline-offset:2px;}
+
+  /* PAGINI LEGALE (condiții de rezervare, confidențialitate) */
+  .legal-header{background:var(--blue-dark);color:var(--white);}
+  .legal-header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:64px;}
+  .legal-brand{font-weight:800;font-size:1.05rem;}
+  .legal-cta{background:var(--yellow);color:var(--blue-dark);font-weight:700;font-size:.88rem;padding:8px 14px;border-radius:var(--radius);}
+  .legal{max-width:780px;padding-top:32px;padding-bottom:48px;}
+  .legal h1{color:var(--blue-dark);font-size:1.7rem;margin:0 0 6px;}
+  .legal h2{color:var(--blue-dark);font-size:1.1rem;margin:28px 0 8px;}
+  .legal p,.legal li{font-size:.95rem;line-height:1.65;}
+  .legal ul{padding-left:20px;}
+  .legal a{color:var(--blue-mid);text-decoration:underline;text-underline-offset:2px;}
+  .legal-updated{color:var(--gray);font-size:.85rem !important;margin:0 0 20px;}
+  .legal-box{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:14px 18px;}
+  .legal-box p{margin:0 0 4px;}
+  .legal-header a:focus-visible,.legal a:focus-visible{outline:2px solid var(--yellow);outline-offset:3px;}
   .summary-block h4{margin:0 0 10px;font-size:.78rem;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:#cfe0f5;}
   .discount-ladder,.special-periods{list-style:none;margin:0;padding:0;}
   .discount-ladder li{display:grid;grid-template-columns:4.6em 1fr 3.2em;align-items:center;gap:10px;font-size:.82rem;padding:4px 0;}
@@ -1062,6 +1087,14 @@
   .foot-review{margin-left:auto;background:var(--yellow);border-color:var(--yellow);color:var(--blue-dark);}
   .foot-review:hover,.foot-review:focus-visible{background:#ffd04d;}
   .foot-platforms a:focus-visible{outline:2px solid var(--yellow);outline-offset:3px;}
+  .foot-legal{border-top:1px solid rgba(255,255,255,.15);padding:16px 0;font-size:.78rem;line-height:1.55;color:#cfe0f5;}
+  .foot-legal p{margin:0 0 6px;}
+  .foot-legal strong{color:var(--white);}
+  .foot-legal a{color:var(--white);text-decoration:underline;text-underline-offset:2px;}
+  .foot-legal-links{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px 18px;}
+  .foot-legal a:focus-visible{outline:2px solid var(--yellow);outline-offset:3px;}
+  .foot-sal{display:inline-block;margin-top:12px;}
+  .foot-sal img{display:block;width:201px;height:50px;border-radius:4px;}
   .foot-bottom{border-top:1px solid rgba(255,255,255,.15);padding-top:18px;font-size:.75rem;color:#9fb8d9;}
   @media(max-width:700px){
     .foot-platforms{flex-direction:column;align-items:center;text-align:center;}

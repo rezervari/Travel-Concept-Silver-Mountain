@@ -376,7 +376,9 @@ function guestText(r) {
     "Check-out: " + cap(weekday(r.checkout)) + ", " + longDate(r.checkout) + ", până la ora 11:00\n" +
     "Durată: " + plural(r.nights, "noapte", "nopți") + "\nOaspeți: " + guestsLabel(r) + "\n\n" +
     priceText(r) + "\n" +
-    "Condiții: plata integrală se face după confirmarea rezervării; suma nu se returnează în caz de anulare.\n\n" +
+    "Condiții: după confirmare, plata integrală se face prin transfer bancar în contul Travel Concept International SRL, în 24 de ore (altfel rezervarea expiră). " +
+    "Dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează; dacă noi nu putem asigura cazarea, îți returnăm integral suma.\n" +
+    "Condițiile complete: " + SITE_URL + "conditii-rezervare.html\n\n" +
     "Întrebări? Răspunde la acest e-mail, sună-ne la " + PHONE_DISPLAY + " sau scrie-ne pe WhatsApp: " + WHATSAPP_URL + "\n\n" +
     "Cu drag,\nEchipa " + BRAND + "\n" + SITE_URL + "\n"
   );
@@ -627,12 +629,14 @@ function guestHtml(r) {
       sectionTitle("Ce urmează") +
       steps([
         ["Verificăm disponibilitatea", "Ne asigurăm că perioada aleasă este liberă pe toate canalele de rezervare."],
-        ["Îți confirmăm rezervarea", "Primești confirmarea și detaliile de plată. Rezervarea devine fermă după confirmarea noastră."],
+        ["Îți confirmăm rezervarea", "Primești confirmarea și datele de plată. Plătești prin transfer bancar în 24 de ore; rezervarea devine fermă când primim plata."],
         ["Pregătim sosirea ta", "Înainte de check-in îți trimitem toate informațiile necesare pentru sosire."]
       ]) +
 
-      noteBox("<strong style=\"color:" + C.blueDark + ";\">Condiții de rezervare.</strong> Plata integrală se face după confirmarea rezervării. " +
-              "În caz de anulare, suma achitată nu se returnează.") +
+      noteBox("<strong style=\"color:" + C.blueDark + ";\">Condiții de rezervare.</strong> După confirmare, plata integrală se face prin transfer bancar " +
+              "în contul Travel Concept International SRL, în 24 de ore (altfel rezervarea expiră). Dacă anulezi, nu te prezinți sau pleci mai devreme, " +
+              "suma achitată nu se rambursează; dacă noi nu putem asigura cazarea, îți returnăm integral suma. " +
+              '<a href="' + SITE_URL + 'conditii-rezervare.html" target="_blank" style="color:' + C.blueMid + ';text-decoration:underline;">Condițiile complete</a>') +
 
       divider() +
 
@@ -645,6 +649,7 @@ function guestHtml(r) {
     footer(
       "Complex Silver Mountain · Poiana Brașov<br>" +
       '<a href="' + SITE_URL + '" target="_blank" style="color:' + C.yellow + ';text-decoration:none;font-weight:700;">Rezervă direct, fără comisioane</a>' +
+      '<br>Travel Concept International SRL · CUI RO15288158 · <a href="mailto:travel@travelconcept.ro" style="color:' + C.headerSub + ';">travel@travelconcept.ro</a>' +
       '<br><span style="color:#9fb6d6;">Ai primit acest e-mail pentru că ai trimis o solicitare de rezervare pe site-ul nostru.</span>'
     );
 
@@ -716,7 +721,7 @@ function ownerHtml(r, sheetUrl) {
       sectionTitle("De făcut") +
       steps([
         ["Verifică disponibilitatea", "Booking, Airbnb și Travelminit — calendarul site-ului se sincronizează automat de mai multe ori pe zi."],
-        ["Confirmă oaspetelui", "Trimite confirmarea și detaliile de plată (plata integrală, nerambursabilă)."],
+        ["Confirmă oaspetelui", "Trimite confirmarea și IBAN-ul firmei: plata integrală prin transfer în 24 de ore, altfel rezervarea expiră (nerambursabilă la anulare)."],
         ["Blochează datele", "După plată, închide perioada pe platforme ca să nu apară suprapuneri."]
       ]) +
       (sheetUrl

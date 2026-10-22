@@ -29,4 +29,12 @@
     <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/zona/restaurante.jpg</image:loc></image:image>
     <image:image><image:loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/images/zona/brasov.jpg</image:loc></image:image>
   </url>
+  <url>
+    <loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/conditii-rezervare.html</loc>
+    <lastmod>2026-10-22</lastmod>
+  </url>
+  <url>
+    <loc>https://rezervari.github.io/Travel-Concept-Silver-Mountain/confidentialitate.html</loc>
+    <lastmod>2026-10-22</lastmod>
+  </url>
 </urlset>

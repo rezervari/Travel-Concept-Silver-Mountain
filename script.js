@@ -4,7 +4,10 @@
   document.getElementById("year").textContent = new Date().getFullYear();
 
   /* ---------- CONFIG ---------- */
+  // Adresa la care ajung solicitările trimise prin varianta de rezervă (mailto) — aceeași căsuță ca Apps Script; nu se afișează.
   var CONTACT_EMAIL = ["mircea.george.vulcanescu", "gmail.com"].join("@");
+  // Adresa publică a firmei (afișată în footer și pe paginile legale) — butonul „E-mail” din footer.
+  var PUBLIC_EMAIL = "travel@travelconcept.ro";
   // URL-ul web app-ului Google Apps Script (apps-script/rezervari.gs) care trimite solicitarea pe e-mail.
   // Gol = se foloseste varianta veche (mailto, deschide clientul de e-mail al oaspetelui).
   var BOOKING_ENDPOINT = "https://script.google.com/macros/s/AKfycbwdwQ-uHv0ZGgtc8yEBdIt-DV1OxBZg7Lu75PYILBTBHXUJ5E0dMIKL669JBf6p_c7L/exec";
@@ -1301,12 +1304,12 @@
     renderReviewsTrack();
   }
 
-  /* ---------- FOOTER: e-mail ascuns, deschis doar la click ---------- */
+  /* ---------- FOOTER: butonul E-mail deschide adresa publică a firmei ---------- */
   var footMail = document.getElementById("footMail");
   if (footMail) {
     footMail.addEventListener("click", function(e){
       e.preventDefault();
-      window.location.href = "mailto:" + CONTACT_EMAIL + "?subject=" + encodeURIComponent("Întrebare A13 Travel Concept");
+      window.location.href = "mailto:" + PUBLIC_EMAIL + "?subject=" + encodeURIComponent("Întrebare A13 Travel Concept");
     });
   }
 

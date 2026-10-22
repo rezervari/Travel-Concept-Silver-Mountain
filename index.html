@@ -99,6 +99,27 @@
         "https://travelminit.ro/apartament-travel-concept-silver-mountain-poiana-brasov"
       ],
       "telephone": "+40744332234",
+      "email": "travel@travelconcept.ro",
+      "starRating": {
+        "@type": "Rating",
+        "ratingValue": "3"
+      },
+      "parentOrganization": {
+        "@type": "Organization",
+        "@id": "https://rezervari.github.io/Travel-Concept-Silver-Mountain/#operator",
+        "name": "Travel Concept International SRL",
+        "legalName": "TRAVEL CONCEPT INTERNATIONAL SRL",
+        "taxID": "RO15288158",
+        "vatID": "RO15288158",
+        "email": "travel@travelconcept.ro",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "Str. Popa Soare nr. 24, et. 1, ap. 4",
+          "addressLocality": "București",
+          "addressRegion": "Sector 2",
+          "addressCountry": "RO"
+        }
+      },
       "priceRange": "900 - 1800 RON",
       "checkinTime": "16:00",
       "checkoutTime": "11:00",
@@ -370,7 +391,7 @@
           "name": "Care este politica de plată și anulare pentru rezervările A13 Travel Concept?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "După confirmarea rezervării, oaspetele achită contravaloarea integrală a sejurului pentru a păstra rezervarea. Suma achitată nu se returnează în cazul anulării sau al oricărei alte situații. Recomandăm confirmarea fermă a datelor sejurului înainte de trimiterea solicitării de rezervare."
+            "text": "După ce confirmăm disponibilitatea, achiți integral sejurul prin transfer bancar în contul Travel Concept International SRL, în 24 de ore de la confirmare; dacă plata nu ajunge în termen, rezervarea expiră. Dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează: rezervările de cazare pentru o perioadă fixă nu au drept de retragere de 14 zile. Dacă noi nu putem asigura cazarea, îți returnăm integral suma achitată."
           }
         },
         {
@@ -1038,7 +1059,7 @@
         </details>
         <details class="faq-item">
           <summary>Care este politica de plată și anulare pentru rezervările A13 Travel Concept?</summary>
-          <p>După confirmarea rezervării, oaspetele achită contravaloarea integrală a sejurului pentru a păstra rezervarea. Suma achitată nu se returnează în cazul anulării sau al oricărei alte situații. Recomandăm confirmarea fermă a datelor sejurului înainte de trimiterea solicitării de rezervare.</p>
+          <p>După ce confirmăm disponibilitatea, achiți integral sejurul prin transfer bancar în contul Travel Concept International SRL, în 24 de ore de la confirmare; dacă plata nu ajunge în termen, rezervarea expiră. Dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează: rezervările de cazare pentru o perioadă fixă nu au drept de retragere de 14 zile. Dacă noi nu putem asigura cazarea, îți returnăm integral suma achitată.</p>
         </details>
         <details class="faq-item">
           <summary>Apartamentul are parcare și WiFi?</summary>
@@ -1145,10 +1166,21 @@
           <input type="text" id="fwebsite" name="website" tabindex="-1" autocomplete="off">
         </div>
 
+        <div class="policy-card">
+          <h4>🛡️ Politica de plată &amp; anulare</h4>
+          <p>După ce îți confirmăm disponibilitatea, plătești integral sejurul prin <strong>transfer bancar</strong> în contul Travel Concept International SRL, în <strong>24 de ore</strong>. Datele de plată le primești în e-mailul de confirmare; dacă plata nu ajunge în termen, rezervarea expiră. Emitem factură.</p>
+          <p>Dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează. Dacă noi nu putem asigura cazarea, îți returnăm integral suma.</p>
+          <div class="policy-tags">
+            <span class="policy-tag">Transfer bancar în 24 h</span>
+            <span class="policy-tag">Fără rambursare la anulare</span>
+          </div>
+          <p class="policy-links"><a href="conditii-rezervare.html">Condiții de rezervare</a> · <a href="confidentialitate.html">Politica de confidențialitate</a></p>
+        </div>
+
         <div class="submit-row">
           <button type="submit" class="btn-primary">Trimite solicitarea de rezervare</button>
         </div>
-        <p class="hint form-privacy">Datele tale sunt folosite doar pentru a răspunde acestei solicitări. Vei primi pe e-mail o confirmare a primirii; rezervarea devine fermă după confirmarea noastră. Site-ul folosește statistici de trafic anonime, fără cookie-uri (Umami).</p>
+        <p class="hint form-privacy">Trimițând solicitarea, confirmi că ai citit <a href="conditii-rezervare.html">Condițiile de rezervare</a>. Datele tale le folosim pentru a răspunde solicitării și, dacă rezervarea se confirmă, pentru încheierea ei — detalii în <a href="confidentialitate.html">Politica de confidențialitate</a>. Vei primi pe e-mail o confirmare a primirii; rezervarea devine fermă după confirmarea noastră și plata integrală. Site-ul folosește statistici de trafic anonime, fără cookie-uri (Umami).</p>
         <div class="form-msg" id="formMsg"></div>
       </form>
 
@@ -1157,15 +1189,6 @@
           <h3>Rezumatul rezervării</h3>
           <div id="summaryBody">
             <p class="summary-empty">Alege datele în calendar și vezi instant prețul final al sejurului, cu reducerea aplicată automat.</p>
-          </div>
-        </div>
-
-        <div class="policy-card">
-          <h4>🛡️ Politica de plată &amp; anulare</h4>
-          <p>După confirmarea rezervării, achiți contravaloarea integrală a sejurului pentru a păstra rezervarea. Suma achitată nu se returnează în caz de anulare sau în orice altă situație.</p>
-          <div class="policy-tags">
-            <span class="policy-tag">Plată integrală la confirmare</span>
-            <span class="policy-tag">Fără rambursare</span>
           </div>
         </div>
       </div>
@@ -1183,7 +1206,7 @@
     <div class="trust-item">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
       <h3>Calendar la zi</h3>
-      <p>Disponibilitatea reflectă rezervările existente în timp real.</p>
+      <p>Disponibilitatea se actualizează automat, de mai multe ori pe zi, din Booking, Airbnb și Travelminit.</p>
     </div>
     <div class="trust-item">
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0Z"/><path d="M12 7v5l3 3"/></svg>
@@ -1230,7 +1253,18 @@
       </ul>
       <a class="foot-review" href="https://search.google.com/local/writereview?placeid=ChIJF2VRokJFs0ARyQl2NfVA3hw" target="_blank" rel="noopener">★ Lasă-ne o recenzie pe Google</a>
     </nav>
-    <div class="foot-bottom">© <span id="year"></span> A13 Travel Concept. Toate drepturile rezervate.</div>
+    <div class="foot-legal">
+      <p><strong>Operator:</strong> TRAVEL CONCEPT INTERNATIONAL SRL · CUI RO15288158 · Nr. Reg. Com. J2021011031409 · Sediu social: Str. Popa Soare nr. 24, et. 1, ap. 4, Sector 2, București</p>
+      <p><strong>Unitate:</strong> apartament de închiriat clasificat 3 stele, certificat de clasificare nr. 39693 din 25.09.2024 · Strada Doinașului 9, Bloc A, Ap. A13, Poiana Brașov</p>
+      <p><strong>Contact:</strong> <a href="mailto:travel@travelconcept.ro">travel@travelconcept.ro</a> · <a href="tel:+40744332234">0744 332 234</a> · Prețurile includ TVA și taxele locale.</p>
+      <ul class="foot-legal-links">
+        <li><a href="conditii-rezervare.html">Condiții de rezervare</a></li>
+        <li><a href="confidentialitate.html">Politica de confidențialitate</a></li>
+        <li><a href="https://anpc.ro/" target="_blank" rel="noopener">ANPC</a></li>
+      </ul>
+      <a class="foot-sal" href="https://anpc.ro/sal" target="_blank" rel="noopener"><img src="anpc-sal.png" width="201" height="50" loading="lazy" alt="ANPC — Soluționarea alternativă a litigiilor (SAL)"></a>
+    </div>
+    <div class="foot-bottom">© <span id="year"></span> A13 Travel Concept · Travel Concept International SRL. Toate drepturile rezervate.</div>
   </div>
 </footer>
 
