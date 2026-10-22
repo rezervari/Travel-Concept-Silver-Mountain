@@ -61,7 +61,12 @@
           "minNights": 7,
           "discount": 33
         }
-      ]
+      ],
+      "ota": {
+        "booking": 1130,
+        "airbnb": 920,
+        "travelminit": 980
+      }
     },
     {
       "id": "iarna-2026",
@@ -95,7 +100,12 @@
           "minNights": 7,
           "discount": 33
         }
-      ]
+      ],
+      "ota": {
+        "booking": 1580,
+        "airbnb": 1420,
+        "travelminit": 1360
+      }
     },
     {
       "id": "Craciun-2026",
@@ -109,7 +119,12 @@
           "minNights": 3,
           "discount": 0
         }
-      ]
+      ],
+      "ota": {
+        "booking": 1890,
+        "airbnb": 1700,
+        "travelminit": 1630
+      }
     },
     {
       "id": "Revelion-2026-2027",
@@ -123,7 +138,12 @@
           "minNights": 4,
           "discount": 0
         }
-      ]
+      ],
+      "ota": {
+        "booking": 2270,
+        "airbnb": 2040,
+        "travelminit": 1960
+      }
     },
     {
       "id": "iarna-2027",
@@ -157,7 +177,12 @@
           "minNights": 7,
           "discount": 33
         }
-      ]
+      ],
+      "ota": {
+        "booking": 1700,
+        "airbnb": 1530,
+        "travelminit": 1470
+      }
     },
     {
       "id": "Vacanta-schi-2027",
@@ -191,7 +216,12 @@
           "minNights": 7,
           "discount": 33
         }
-      ]
+      ],
+      "ota": {
+        "booking": 1830,
+        "airbnb": 1640,
+        "travelminit": 1580
+      }
     },
     {
       "id": "primavara-2027",
@@ -225,9 +255,21 @@
           "minNights": 7,
           "discount": 33
         }
-      ]
+      ],
+      "ota": {
+        "booking": 1130,
+        "airbnb": 1020,
+        "travelminit": 980
+      }
     }
   ],
-  "generatedAt": "2026-10-22T04:55:55.787Z",
-  "generatedFrom": "pricing/tarife.xlsx"
+  "generatedAt": "2026-10-22T10:11:32.716Z",
+  "generatedFrom": "pricing/tarife.xlsx",
+  "otaComparison": {
+    "checkedAt": "2026-10-21",
+    "bookingMobileDiscount": 10,
+    "bookingUsesSiteDiscounts": true,
+    "airbnbWeeklyDiscount": 33,
+    "airbnbMonthlyDiscount": 33
+  }
 }
