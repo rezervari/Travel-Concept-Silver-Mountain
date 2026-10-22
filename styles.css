@@ -410,13 +410,18 @@
     content:"";
     position:absolute;
     inset:0;
+    background:linear-gradient(135deg,rgba(0,53,128,.96),rgba(0,113,194,.82));
+    opacity:.98;
+  }
+  /* Poza de fundal vine abia când secțiunea se apropie de ecran (data-lazy-bg → .bg-ready în script.js),
+     ca să nu se descarce înainte de poza hero (LCP). */
+  .area-section.bg-ready::before{
     background:
       linear-gradient(135deg,rgba(0,53,128,.96),rgba(0,113,194,.82)),
       url("images/living/1.jpg") center/cover;
     background:
       linear-gradient(135deg,rgba(0,53,128,.96),rgba(0,113,194,.82)),
       image-set(url("images/living/1-600.webp") type("image/webp"), url("images/living/1.jpg") type("image/jpeg")) center/cover;
-    opacity:.98;
   }
   .area-section::after{
     content:"";

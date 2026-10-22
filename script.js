@@ -45,14 +45,52 @@
     return current;
   }
 
+  /* ---------- DUPĂ AFIȘAREA POZEI HERO ----------
+   * Datele (JSON-uri, galeria) și statisticile pornesc abia după ce poza hero (elementul LCP) e pe ecran,
+   * ca să nu intre în calculul LCP pe conexiuni lente (PageSpeed mobil: „element render delay”).
+   * Semnalul = intrarea LCP a pozei hero (momentul real al afișării). Rezerve: browsere fără LCP (Safari) →
+   * după încărcarea pozei + un cadru; prima interacțiune; tab în fundal; limită de siguranță 2,5 s. */
+  var heroShownQueue = [];
+  var heroShown = false;
+  function afterHeroShown(fn){
+    if(heroShown) fn(); else heroShownQueue.push(fn);
+  }
+  (function(){
+    var img = document.getElementById("heroPhoto");
+    function run(){
+      if(heroShown) return;
+      heroShown = true;
+      heroShownQueue.splice(0).forEach(function(fn){ fn(); });
+    }
+    if(!img || document.hidden){ run(); return; }
+    setTimeout(run, 2500);
+    ["scroll", "pointerdown", "keydown"].forEach(function(type){
+      window.addEventListener(type, run, {once:true, passive:true});
+    });
+    var lcpSupported = window.PerformanceObserver && PerformanceObserver.supportedEntryTypes &&
+      PerformanceObserver.supportedEntryTypes.indexOf("largest-contentful-paint") !== -1;
+    if(lcpSupported){
+      new PerformanceObserver(function(list){
+        list.getEntries().forEach(function(entry){ if(entry.element === img) setTimeout(run, 0); });
+      }).observe({ type: "largest-contentful-paint", buffered: true });
+      img.addEventListener("error", run, {once:true});
+    } else {
+      var afterPaint = function(){ requestAnimationFrame(function(){ setTimeout(run, 0); }); };
+      if(img.complete) afterPaint();
+      else { img.addEventListener("load", afterPaint, {once:true}); img.addEventListener("error", run, {once:true}); }
+    }
+  })();
+
   /* ---------- STATISTICI (Umami, fără cookie-uri) ---------- */
   // Umami înregistrează singur vizitele și parametrii UTM; aici se adaugă doar evenimentele de conversie.
   if(UMAMI_WEBSITE_ID){
-    var umamiScript = document.createElement("script");
-    umamiScript.src = "https://cloud.umami.is/script.js";
-    umamiScript.setAttribute("data-website-id", UMAMI_WEBSITE_ID);
-    umamiScript.setAttribute("data-domains", "rezervari.github.io"); // fără statistici din teste locale
-    document.head.appendChild(umamiScript);
+    afterHeroShown(function(){
+      var umamiScript = document.createElement("script");
+      umamiScript.src = "https://cloud.umami.is/script.js";
+      umamiScript.setAttribute("data-website-id", UMAMI_WEBSITE_ID);
+      umamiScript.setAttribute("data-domains", "rezervari.github.io"); // fără statistici din teste locale
+      document.head.appendChild(umamiScript);
+    });
   }
 
   // Fără date personale în evenimente: doar nopți, total, sursa vizitei, platforma, locul pe pagină.
@@ -1059,13 +1097,19 @@
   });
 
   /* ---------- FUNDALURI „ZONA” LA NEVOIE ----------
-   * Pozele de fundal din #zona (~270 KB, jumătate din pagină) sunt mult sub primul ecran:
-   * stilul din data-lazy-style se aplică abia când cardul se apropie de ecran. */
+   * Pozele de fundal din #zona (~300 KB, jumătate din pagină) sunt mult sub primul ecran:
+   * data-lazy-style (cardurile) se aplică și data-lazy-bg (secțiunea → clasa .bg-ready) abia când se apropie de ecran. */
   (function(){
-    var lazyBgs = document.querySelectorAll("[data-lazy-style]");
+    var lazyBgs = document.querySelectorAll("[data-lazy-style], [data-lazy-bg]");
     function applyBg(el){
-      el.setAttribute("style", el.getAttribute("data-lazy-style"));
-      el.removeAttribute("data-lazy-style");
+      if(el.hasAttribute("data-lazy-style")){
+        el.setAttribute("style", el.getAttribute("data-lazy-style"));
+        el.removeAttribute("data-lazy-style");
+      }
+      if(el.hasAttribute("data-lazy-bg")){
+        el.classList.add("bg-ready");
+        el.removeAttribute("data-lazy-bg");
+      }
     }
     if(!("IntersectionObserver" in window)){
       Array.prototype.forEach.call(lazyBgs, applyBg);
@@ -1206,10 +1250,12 @@
   }
 
   if(galTabsEl && galGridEl){
-    fetch("images/gallery.json", {cache:"no-cache"})
-      .then(function(r){ if(!r.ok) throw new Error("gallery.json " + r.status); return r.json(); })
-      .then(function(m){ buildGallery(m); })
-      .catch(function(){ buildGallery(null); });
+    afterHeroShown(function(){
+      fetch("images/gallery.json", {cache:"no-cache"})
+        .then(function(r){ if(!r.ok) throw new Error("gallery.json " + r.status); return r.json(); })
+        .then(function(m){ buildGallery(m); })
+        .catch(function(){ buildGallery(null); });
+    });
   }
 
   function checkEmpty(key){
@@ -1614,7 +1660,9 @@
   }
 
   /* ---------- INIT ---------- */
-  loadPricing();
-  loadCalendar();
-  loadReviews();
+  afterHeroShown(function(){
+    loadPricing();
+    loadCalendar();
+    loadReviews();
+  });
 })();
