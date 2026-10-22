@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "reviews.json"
+      - "update-schema.cjs"
   workflow_dispatch:
 
 permissions:

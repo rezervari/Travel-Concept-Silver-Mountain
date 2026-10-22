@@ -18,8 +18,12 @@
  * generat mecanic -- nu curatat manual -- ca sa respecte cerinta Google de reprezentativitate
  * (nu doar recenziile bune). Plafonat la ultimele MAX_REVIEWS ca sa nu creasca nelimitat fisierul.
  *
+ * Tot de aici se scrie și pastila cu nota din hero (#heroRating), cu același HTML pe care îl generează
+ * renderHeroRating() din script.js: e afișată de la primul cadru, deci nu mai împinge conținutul hero-ului
+ * când se încarcă reviews.json (CLS pe mobil).
+ *
  * Rulare manuală:  node update-schema.cjs
- * Rulare automată: .github/workflows/update-schema.yml (la push pe reviews.json)
+ * Rulare automată: .github/workflows/update-schema.yml (la push pe reviews.json sau pe acest script)
  */
 
 const fs = require("fs");
@@ -35,6 +39,25 @@ const PLATFORM_META = {
   airbnb:  { scale: 5,  label: "Airbnb" },
   travelminit: { scale: 10, label: "Travelminit" }
 };
+
+// Același rezultat ca renderHeroRating() din script.js: platforma cu cele mai multe recenzii + totalul.
+function heroRatingHtml(platforms){
+  var best = null, total = 0, count = 0;
+  Object.keys(platforms).forEach(function(k){
+    var p = platforms[k];
+    if(!p || !p.totalReviews) return;
+    total += p.totalReviews; count++;
+    if(!best || p.totalReviews > best.p.totalReviews) best = { k: k, p: p };
+  });
+  if(!best) return '<a href="#recenzii" class="hero-rating" id="heroRating" hidden></a>';
+  var meta = PLATFORM_META[best.k] || { label: best.k, scale: 10 };
+  var scale = best.p.scaleMax || meta.scale;
+  var score = String(best.p.rating).replace(".", ",");
+  var aria = "Notă " + score + " din " + scale + " pe " + meta.label + ", " + total + " recenzii pe " + count + " platforme. Vezi recenziile";
+  return '<a href="#recenzii" class="hero-rating" id="heroRating" aria-label="' + aria + '">' +
+    '<span class="hr-star" aria-hidden="true">★</span><span class="hr-score">' + score + '/' + scale + '</span> pe ' + meta.label +
+    ' <span class="hr-sep" aria-hidden="true">·</span> ' + total + ' recenzii pe ' + count + ' platforme</a>';
+}
 
 function main(){
   if(!fs.existsSync(REVIEWS_JSON)){
@@ -111,6 +134,12 @@ function main(){
 
   var newJsonText = JSON.stringify(jsonLd, null, 2);
   var newHtml = html.slice(0, match.index) + match[1] + newJsonText + match[3] + html.slice(match.index + match[0].length);
+
+  var heroRe = /<a href="#recenzii" class="hero-rating" id="heroRating"[^>]*>[\s\S]*?<\/a>/;
+  if(!heroRe.test(newHtml)){
+    throw new Error('Nu găsesc pastila <a ... id="heroRating"> în index.html.');
+  }
+  newHtml = newHtml.replace(heroRe, heroRatingHtml(platforms));
 
   fs.writeFileSync(INDEX_HTML, newHtml, "utf8");
   console.log("index.html actualizat — aggregateRating: " + google.rating + "/" + (google.scaleMax || PLATFORM_META.google.scale) +
