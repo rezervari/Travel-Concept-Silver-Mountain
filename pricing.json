@@ -9,19 +9,19 @@
     },
     {
       "minNights": 3,
-      "discount": 15
+      "discount": 12
     },
     {
       "minNights": 4,
-      "discount": 20
+      "discount": 15
     },
     {
       "minNights": 5,
-      "discount": 25
+      "discount": 20
     },
     {
       "minNights": 6,
-      "discount": 30
+      "discount": 25
     },
     {
       "minNights": 7,
@@ -43,25 +43,26 @@
         },
         {
           "minNights": 3,
-          "discount": 15
+          "discount": 12
         },
         {
           "minNights": 4,
-          "discount": 20
+          "discount": 15
         },
         {
           "minNights": 5,
-          "discount": 25
+          "discount": 20
         },
         {
           "minNights": 6,
-          "discount": 30
+          "discount": 25
         },
         {
           "minNights": 7,
           "discount": 33
         }
       ],
+      "cancellation": "flexibil 14 zile",
       "ota": {
         "booking": 1130,
         "airbnb": 920,
@@ -82,25 +83,26 @@
         },
         {
           "minNights": 3,
-          "discount": 15
+          "discount": 12
         },
         {
           "minNights": 4,
-          "discount": 20
+          "discount": 15
         },
         {
           "minNights": 5,
-          "discount": 25
+          "discount": 20
         },
         {
           "minNights": 6,
-          "discount": 30
+          "discount": 25
         },
         {
           "minNights": 7,
           "discount": 33
         }
       ],
+      "cancellation": "flexibil 14 zile",
       "ota": {
         "booking": 1580,
         "airbnb": 1420,
@@ -120,6 +122,7 @@
           "discount": 0
         }
       ],
+      "cancellation": "nerambursabil",
       "ota": {
         "booking": 1890,
         "airbnb": 1700,
@@ -139,6 +142,7 @@
           "discount": 0
         }
       ],
+      "cancellation": "nerambursabil",
       "ota": {
         "booking": 2270,
         "airbnb": 2040,
@@ -159,25 +163,26 @@
         },
         {
           "minNights": 3,
-          "discount": 15
+          "discount": 12
         },
         {
           "minNights": 4,
-          "discount": 20
+          "discount": 15
         },
         {
           "minNights": 5,
-          "discount": 25
+          "discount": 20
         },
         {
           "minNights": 6,
-          "discount": 30
+          "discount": 25
         },
         {
           "minNights": 7,
           "discount": 33
         }
       ],
+      "cancellation": "flexibil 14 zile",
       "ota": {
         "booking": 1700,
         "airbnb": 1530,
@@ -198,25 +203,26 @@
         },
         {
           "minNights": 3,
-          "discount": 15
+          "discount": 12
         },
         {
           "minNights": 4,
-          "discount": 20
+          "discount": 15
         },
         {
           "minNights": 5,
-          "discount": 25
+          "discount": 20
         },
         {
           "minNights": 6,
-          "discount": 30
+          "discount": 25
         },
         {
           "minNights": 7,
           "discount": 33
         }
       ],
+      "cancellation": "flexibil 14 zile",
       "ota": {
         "booking": 1830,
         "airbnb": 1640,
@@ -237,25 +243,26 @@
         },
         {
           "minNights": 3,
-          "discount": 15
+          "discount": 12
         },
         {
           "minNights": 4,
-          "discount": 20
+          "discount": 15
         },
         {
           "minNights": 5,
-          "discount": 25
+          "discount": 20
         },
         {
           "minNights": 6,
-          "discount": 30
+          "discount": 25
         },
         {
           "minNights": 7,
           "discount": 33
         }
       ],
+      "cancellation": "flexibil 14 zile",
       "ota": {
         "booking": 1130,
         "airbnb": 1020,
@@ -263,7 +270,7 @@
       }
     }
   ],
-  "generatedAt": "2026-10-22T10:11:32.716Z",
+  "generatedAt": "2026-10-22T11:15:24.586Z",
   "generatedFrom": "pricing/tarife.xlsx",
   "otaComparison": {
     "checkedAt": "2026-10-21",
