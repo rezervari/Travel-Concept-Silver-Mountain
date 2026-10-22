@@ -149,7 +149,12 @@
         "@type": "Apartment",
         "name": "Apartamentul A13",
         "numberOfBedrooms": 2,
-        "numberOfBathroomsTotal": 2
+        "numberOfBathroomsTotal": 2,
+        "occupancy": {
+          "@type": "QuantitativeValue",
+          "maxValue": 4,
+          "unitText": "persoane"
+        }
       },
       "address": {
         "@type": "PostalAddress",
@@ -371,7 +376,7 @@
           "name": "Câte persoane pot fi cazate în apartamentul A13?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "Apartamentul A13 poate găzdui maximum 4 adulți, plus maximum 2 copii. Spațiul include 2 dormitoare cu pat matrimonial, living spațios, bucătărie complet utilată, balcon și terasă."
+            "text": "Apartamentul A13 poate găzdui maximum 4 persoane (adulți și copii). Spațiul include 2 dormitoare cu pat matrimonial, living spațios, bucătărie complet utilată, balcon și terasă."
           }
         },
         {
@@ -411,7 +416,7 @@
           "name": "Care este politica de plată și anulare pentru rezervările A13 Travel Concept?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "După ce confirmăm disponibilitatea, achiți integral sejurul prin transfer bancar în contul Travel Concept International SRL, în 24 de ore de la confirmare; dacă plata nu ajunge în termen, rezervarea expiră. Dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează: rezervările de cazare pentru o perioadă fixă nu au drept de retragere de 14 zile. Dacă noi nu putem asigura cazarea, îți returnăm integral suma achitată."
+            "text": "După ce confirmăm disponibilitatea, achiți integral sejurul prin transfer bancar în contul Travel Concept International SRL, în 24 de ore de la confirmare; dacă plata nu ajunge în termen, rezervarea expiră. Poți alege între două tarife. La tariful nerambursabil (cel mai mic preț), dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează. La tariful flexibil (cu 10% mai mult), anularea e gratuită până cu 14 zile înainte de sosire și îți returnăm integral suma; după acest termen, suma nu se mai rambursează. Tariful flexibil nu e disponibil de sărbători (Crăciun, Revelion) și pentru sosirile în mai puțin de 15 zile. Rezervările de cazare pentru o perioadă fixă nu au drept de retragere de 14 zile. Dacă noi nu putem asigura cazarea, îți returnăm integral suma achitată."
           }
         },
         {
@@ -585,7 +590,7 @@
           </div>
           <div class="info-highlight">
             <span class="info-highlight-icon"><svg class="amenity-icon" viewBox="0 0 24 24"><use href="#icon-family"></use></svg></span>
-            <span>Max. 4 adulți + 2 copii</span>
+            <span>Max. 4 persoane</span>
           </div>
         </div>
 
@@ -1062,7 +1067,7 @@
         </details>
         <details class="faq-item">
           <summary>Câte persoane pot fi cazate în apartamentul A13?</summary>
-          <p>Apartamentul A13 poate găzdui maximum 4 adulți, plus maximum 2 copii. Spațiul include 2 dormitoare cu pat matrimonial, living spațios, bucătărie complet utilată, balcon și terasă.</p>
+          <p>Apartamentul A13 poate găzdui maximum 4 persoane (adulți și copii). Spațiul include 2 dormitoare cu pat matrimonial, living spațios, bucătărie complet utilată, balcon și terasă.</p>
         </details>
         <details class="faq-item">
           <summary>Cum se stabilește tariful pentru cazare la A13 Travel Concept?</summary>
@@ -1082,7 +1087,7 @@
         </details>
         <details class="faq-item">
           <summary>Care este politica de plată și anulare pentru rezervările A13 Travel Concept?</summary>
-          <p>După ce confirmăm disponibilitatea, achiți integral sejurul prin transfer bancar în contul Travel Concept International SRL, în 24 de ore de la confirmare; dacă plata nu ajunge în termen, rezervarea expiră. Dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează: rezervările de cazare pentru o perioadă fixă nu au drept de retragere de 14 zile. Dacă noi nu putem asigura cazarea, îți returnăm integral suma achitată.</p>
+          <p>După ce confirmăm disponibilitatea, achiți integral sejurul prin transfer bancar în contul Travel Concept International SRL, în 24 de ore de la confirmare; dacă plata nu ajunge în termen, rezervarea expiră. Poți alege între două tarife. La tariful nerambursabil (cel mai mic preț), dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează. La tariful flexibil (cu 10% mai mult), anularea e gratuită până cu 14 zile înainte de sosire și îți returnăm integral suma; după acest termen, suma nu se mai rambursează. Tariful flexibil nu e disponibil de sărbători (Crăciun, Revelion) și pentru sosirile în mai puțin de 15 zile. Rezervările de cazare pentru o perioadă fixă nu au drept de retragere de 14 zile. Dacă noi nu putem asigura cazarea, îți returnăm integral suma achitată.</p>
         </details>
         <details class="faq-item">
           <summary>Apartamentul are parcare și WiFi?</summary>
@@ -1179,10 +1184,26 @@
               <option value="0" selected>Fără copii</option>
               <option value="1">1 copil</option>
               <option value="2">2 copii</option>
+              <option value="3">3 copii</option>
             </select>
           </div>
         </div>
-        <p class="hint" id="guestsHint">Capacitate maximă: 4 adulți + 2 copii.</p>
+        <p class="hint" id="guestsHint">Capacitate maximă: 4 persoane (adulți și copii).</p>
+
+        <fieldset class="rate-choice" id="rateChoice">
+          <legend>Tarif</legend>
+          <label class="rate-option">
+            <input type="radio" name="rate" id="rateNonref" value="nerambursabil" checked>
+            <span class="rate-text"><strong>Nerambursabil</strong> — cel mai mic preț; suma nu se rambursează la anulare.</span>
+            <span class="rate-price" id="rateNonrefPrice"></span>
+          </label>
+          <label class="rate-option">
+            <input type="radio" name="rate" id="rateFlex" value="flexibil">
+            <span class="rate-text"><strong>Flexibil (+10%)</strong> — anulare gratuită până cu 14 zile înainte de sosire.</span>
+            <span class="rate-price" id="rateFlexPrice"></span>
+          </label>
+          <p class="hint rate-hint" id="rateHint" aria-live="polite"></p>
+        </fieldset>
 
         <div class="hp-field" aria-hidden="true">
           <label for="fwebsite">Website</label>
@@ -1194,10 +1215,10 @@
         <div class="policy-card">
           <h4>🛡️ Politica de plată &amp; anulare</h4>
           <p>După ce îți confirmăm disponibilitatea, plătești integral sejurul prin <strong>transfer bancar</strong> în contul Travel Concept International SRL, în <strong>24 de ore</strong>. Datele de plată le primești în e-mailul de confirmare; dacă plata nu ajunge în termen, rezervarea expiră. Emitem factură.</p>
-          <p>Dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează. Dacă noi nu putem asigura cazarea, îți returnăm integral suma.</p>
+          <p><strong>Nerambursabil:</strong> dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează. <strong>Flexibil (+10%):</strong> anulare gratuită până cu 14 zile înainte de sosire, cu returnarea integrală a sumei; după acest termen, suma nu se mai rambursează. De sărbători și pentru sosirile în mai puțin de 15 zile, doar tariful nerambursabil. Dacă noi nu putem asigura cazarea, îți returnăm integral suma.</p>
           <div class="policy-tags">
             <span class="policy-tag">Transfer bancar în 24 h</span>
-            <span class="policy-tag">Fără rambursare la anulare</span>
+            <span class="policy-tag">Nerambursabil sau flexibil (+10%)</span>
           </div>
           <p class="policy-links"><a href="conditii-rezervare.html">Condiții de rezervare</a> · <a href="confidentialitate.html">Politica de confidențialitate</a></p>
         </div>

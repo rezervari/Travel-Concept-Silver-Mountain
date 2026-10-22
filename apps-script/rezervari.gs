@@ -23,12 +23,16 @@ var WHATSAPP_URL = "https://wa.me/40744332234";
 var SHEET_NAME = "Solicitări";
 var SHEET_HEADERS = ["Primită la", "Nume", "Telefon", "Email", "Check-in", "Check-out", "Nopți",
                      "Adulți", "Copii", "Preț bază", "Reducere %", "Total RON", "Status",
-                     "Sursă", "Referrer", "Verificare"];
+                     "Sursă", "Referrer", "Verificare", "Tarif"];
 var MAX_PER_EMAIL_PER_HOUR = 3;   // anti-abuz: același oaspete
 var MAX_PER_HOUR_TOTAL = 10;      // anti-abuz: total
 var TAX_TOURIST = 7;              // RON / adult / noapte (la fel ca TAX_TOURIST din script.js)
 var TAX_SALVAMONT = 5;            // RON / adult / noapte (la fel ca TAX_SALVAMONT din script.js)
 var SITE_JSON_CACHE_SEC = 120;    // cât păstrăm în cache pricing.json / booked-dates.json
+var MAX_GUESTS = 4;               // capacitate: adulți + copii (ca MAX_GUESTS din script.js)
+var FLEX_MARKUP_PCT = 10;         // tariful flexibil = nerambursabil + 10% (ca FLEX_MARKUP_PCT din script.js)
+var FLEX_CANCEL_DAYS = 14;        // anulare gratuită până cu 14 zile înainte de sosire
+var FLEX_MIN_LEAD_DAYS = 15;      // flexibil doar pentru sosiri peste cel puțin 15 zile
 
 // Cromatica site-ului (styles.css :root)
 var C = {
@@ -122,18 +126,20 @@ function validate(d) {
     checkin: str(d.checkin, 10),
     checkout: str(d.checkout, 10),
     nights: num(d.nights, 1, 60),
-    adults: num(d.adults, 1, 4),
-    children: num(d.children, 0, 2),
+    adults: num(d.adults, 1, MAX_GUESTS),
+    children: num(d.children, 0, MAX_GUESTS - 1),
     rawTotal: num(d.rawTotal, 0, 1000000),
     discountPct: num(d.discountPct, 0, 100) || 0,
     total: num(d.total, 0, 1000000),
     taxTourist: num(d.taxTourist, 0, 100000) || 0,
     taxSalvamont: num(d.taxSalvamont, 0, 100000) || 0,
     source: str(d.source, 120),
-    referrer: str(d.referrer, 120)
+    referrer: str(d.referrer, 120),
+    rate: str(d.rate, 20) === "flexibil" ? "flexibil" : "nerambursabil"
   };
 
   if (!r.name || !r.phone) return { error: "missing" };
+  if (r.adults !== null && r.children !== null && r.adults + r.children > MAX_GUESTS) return { error: "capacity" };
   // Numele apare în e-mailul trimis oaspetelui: fără linkuri sau adrese în el.
   if (/https?:|www\.|:\/\/|@/i.test(r.name)) return { error: "name" };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email)) return { error: "email" };
@@ -164,14 +170,16 @@ function logRow(r, status) {
     sh = ss.insertSheet(SHEET_NAME);
     sh.appendRow(SHEET_HEADERS);
     sh.setFrozenRows(1);
-  } else if (sh.getRange(1, SHEET_HEADERS.length).getValue() === "") {
-    // Foaie creată de versiunea veche (13 coloane): adaugă antetele noi la final.
-    sh.getRange(1, 14, 1, SHEET_HEADERS.length - 13).setValues([SHEET_HEADERS.slice(13)]);
+  } else {
+    // Foaie creată de o versiune mai veche: completează antetele care lipsesc la final.
+    var hdr = sh.getRange(1, 1, 1, SHEET_HEADERS.length).getValues()[0];
+    SHEET_HEADERS.forEach(function (h, i) { if (hdr[i] === "") sh.getRange(1, i + 1).setValue(h); });
   }
   // Telefonul se scrie ca text ("'"), altfel Sheets îl face număr și pierde 0-ul din față (0726… → 726…).
   sh.appendRow([new Date(), r.name, "'" + r.phone, r.email, r.checkin, r.checkout, r.nights,
                 r.adults, r.children, r.rawTotal, r.discountPct, r.total, status,
-                r.source || "necunoscută", r.referrer, (r.notes || []).join("; ") || "OK"].map(safeCell));
+                r.source || "necunoscută", r.referrer, (r.notes || []).join("; ") || "OK",
+                rateLabel(r)].map(safeCell));
   return ss.getUrl();
 }
 
@@ -211,6 +219,15 @@ function verifyStay(r) {
       var pct = 0;
       tiers.forEach(function (t) { if (nights >= t.minNights && t.discount > pct) pct = t.discount; });
       var total = Math.round(raw * (100 - pct) / 100);
+      r.baseTotal = total; // tariful nerambursabil
+      if (r.rate === "flexibil") {
+        if (flexAllowed(pricing, r.checkin, nights)) {
+          total = Math.round(total * (100 + FLEX_MARKUP_PCT) / 100);
+        } else {
+          notes.push("Tarif flexibil indisponibil pentru aceste date (sărbători sau sosire în mai puțin de " + FLEX_MIN_LEAD_DAYS + " zile) — tratat ca nerambursabil");
+          r.rate = "nerambursabil";
+        }
+      }
       if (total !== r.total) notes.push("Preț: site " + ron(r.total) + ", calculat " + ron(total));
       r.rawTotal = raw;
       r.discountPct = pct;
@@ -236,6 +253,31 @@ function verifyStay(r) {
   }
   return notes;
 }
+
+// Tariful flexibil: doar dacă toate nopțile cad în sezoane cu politica „flexibil” (coloana „Politică anulare”
+// din Excel → seasons[].cancellation; dacă lipsește: sezoane cu reduceri pe durată, adică nu „tarif fix” de
+// sărbători) și sosirea e peste cel puțin FLEX_MIN_LEAD_DAYS zile (aceeași regulă ca flexAvailable din script.js).
+function flexAllowed(pricing, checkin, nights) {
+  var today = Utilities.formatDate(new Date(), "Europe/Bucharest", "yyyy-MM-dd");
+  if (checkin < addDays(today, FLEX_MIN_LEAD_DAYS)) return false;
+  for (var i = 0; i < nights; i++) {
+    var s = seasonFor(pricing, addDays(checkin, i));
+    if (!s || !seasonIsFlexible(s)) return false;
+  }
+  return true;
+}
+
+function seasonIsFlexible(s) {
+  if (typeof s.cancellation === "string") return s.cancellation.indexOf("flexibil") === 0;
+  return (s.discountTiers || []).some(function (t) { return t.discount > 0; });
+}
+
+function rateLabel(r) {
+  return r.rate === "flexibil" ? "Flexibil (+" + FLEX_MARKUP_PCT + "%)" : "Nerambursabil";
+}
+
+// Ultima zi în care anularea e gratuită la tariful flexibil: „6 decembrie 2026”.
+function flexDeadline(r) { return longDate(addDays(r.checkin, -FLEX_CANCEL_DAYS)); }
 
 function seasonFor(pricing, iso) {
   var list = pricing.seasons || [];
@@ -335,19 +377,35 @@ function totalLabel(r) { return r.priceUnconfirmed ? "preț de confirmat" : ron(
 function ownerSubject(r) {
   return (r.notes && r.notes.length ? "[De verificat] " : "") +
          "Solicitare nouă · " + rangeShort(r.checkin, r.checkout) + " · " + plural(r.nights, "noapte", "nopți") +
-         " · " + r.name + " · " + totalLabel(r);
+         " · " + r.name + " · " + totalLabel(r) + (r.rate === "flexibil" ? " · flexibil" : "");
 }
 function guestSubject(r) {
   return "Am primit solicitarea ta · " + BRAND + " · " + rangeShort(r.checkin, r.checkout);
 }
 
+// Totalul tarifului nerambursabil (fără suplimentul flexibil).
+function baseTotalOf(r) {
+  if (typeof r.baseTotal === "number") return r.baseTotal;
+  return r.rate === "flexibil" ? Math.round(r.total * 100 / (100 + FLEX_MARKUP_PCT)) : r.total;
+}
+
+// Condițiile de anulare pentru tariful ales (text simplu, folosit și în HTML după esc()).
+function cancellationText(r) {
+  var pay = "După confirmare, plata integrală se face prin transfer bancar în contul Travel Concept International SRL, în 24 de ore (altfel rezervarea expiră). ";
+  var cancel = r.rate === "flexibil"
+    ? "Tarif flexibil: anulare gratuită până pe " + flexDeadline(r) + " (cu " + FLEX_CANCEL_DAYS + " zile înainte de sosire), cu rambursarea integrală a sumei; după această dată, suma achitată nu se rambursează. "
+    : "Tarif nerambursabil: dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează. ";
+  return pay + cancel + "Dacă noi nu putem asigura cazarea, îți returnăm integral suma.";
+}
+
 function priceText(r) {
   if (r.priceUnconfirmed) return "Preț: îl confirmăm în răspunsul la solicitare (datele nu au tarif publicat pe site).\n";
-  var disc = r.rawTotal - r.total;
+  var base = baseTotalOf(r);
   return (
     "Preț " + plural(r.nights, "noapte", "nopți") + ": " + ron(r.rawTotal) + "\n" +
-    (r.discountPct > 0 ? "Reducere sejur (-" + r.discountPct + "%): -" + ron(disc) + "\n" : "") +
-    "TOTAL: " + ron(r.total) + "\n" +
+    (r.discountPct > 0 ? "Reducere sejur (-" + r.discountPct + "%): -" + ron(r.rawTotal - base) + "\n" : "") +
+    (r.rate === "flexibil" ? "Tarif flexibil (+" + FLEX_MARKUP_PCT + "%): +" + ron(r.total - base) + "\n" : "") +
+    "TOTAL: " + ron(r.total) + " · tarif " + rateLabel(r).toLowerCase() + "\n" +
     "Taxe locale incluse în total: taxă turistică " + ron(r.taxTourist) + ", taxă Salvamont " + ron(r.taxSalvamont) + "\n"
   );
 }
@@ -376,8 +434,7 @@ function guestText(r) {
     "Check-out: " + cap(weekday(r.checkout)) + ", " + longDate(r.checkout) + ", până la ora 11:00\n" +
     "Durată: " + plural(r.nights, "noapte", "nopți") + "\nOaspeți: " + guestsLabel(r) + "\n\n" +
     priceText(r) + "\n" +
-    "Condiții: după confirmare, plata integrală se face prin transfer bancar în contul Travel Concept International SRL, în 24 de ore (altfel rezervarea expiră). " +
-    "Dacă anulezi, nu te prezinți sau pleci mai devreme, suma achitată nu se rambursează; dacă noi nu putem asigura cazarea, îți returnăm integral suma.\n" +
+    "Condiții: " + cancellationText(r) + "\n" +
     "Condițiile complete: " + SITE_URL + "conditii-rezervare.html\n\n" +
     "Întrebări? Răspunde la acest e-mail, sună-ne la " + PHONE_DISPLAY + " sau scrie-ne pe WhatsApp: " + WHATSAPP_URL + "\n\n" +
     "Cu drag,\nEchipa " + BRAND + "\n" + SITE_URL + "\n"
@@ -518,7 +575,8 @@ function priceTable(r) {
     return noteBox("<strong style=\"color:" + C.blueDark + ";\">Preț de confirmat.</strong> " +
                    "Pentru aceste date nu există încă tarif publicat pe site; prețul îl comunicăm în răspunsul nostru.");
   }
-  var disc = r.rawTotal - r.total;
+  var base = baseTotalOf(r);
+  var disc = r.rawTotal - base;
   var perNight = r.nights ? Math.round(r.total / r.nights) : r.total;
   function row(label, value, opts) {
     opts = opts || {};
@@ -533,6 +591,8 @@ function priceTable(r) {
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">' +
       row("Cazare · " + plural(r.nights, "noapte", "nopți"), esc(ron(r.rawTotal))) +
       (r.discountPct > 0 ? row("Reducere sejur (−" + r.discountPct + "%)", "−" + esc(ron(disc)), { color: C.green, bold: true }) : "") +
+      (r.rate === "flexibil" ? row("Tarif flexibil (+" + FLEX_MARKUP_PCT + "%) · anulare gratuită până pe " + esc(flexDeadline(r)), "+" + esc(ron(r.total - base))) : "") +
+      row("Tarif", esc(rateLabel(r)), { top: true, bold: true }) +
       '<tr>' +
         '<td style="padding:14px 0 4px;border-top:2px solid ' + C.blueDark + ';font-size:15px;line-height:22px;font-weight:800;color:' + C.blueDark + ';">Total</td>' +
         '<td align="right" class="total" style="padding:14px 0 4px;border-top:2px solid ' + C.blueDark + ';font-size:26px;line-height:30px;font-weight:800;color:' + C.blueDark + ';white-space:nowrap;">' + esc(ron(r.total)) + '</td>' +
@@ -633,9 +693,7 @@ function guestHtml(r) {
         ["Pregătim sosirea ta", "Înainte de check-in îți trimitem toate informațiile necesare pentru sosire."]
       ]) +
 
-      noteBox("<strong style=\"color:" + C.blueDark + ";\">Condiții de rezervare.</strong> După confirmare, plata integrală se face prin transfer bancar " +
-              "în contul Travel Concept International SRL, în 24 de ore (altfel rezervarea expiră). Dacă anulezi, nu te prezinți sau pleci mai devreme, " +
-              "suma achitată nu se rambursează; dacă noi nu putem asigura cazarea, îți returnăm integral suma. " +
+      noteBox("<strong style=\"color:" + C.blueDark + ";\">Condiții de rezervare.</strong> " + esc(cancellationText(r)) + " " +
               '<a href="' + SITE_URL + 'conditii-rezervare.html" target="_blank" style="color:' + C.blueMid + ';text-decoration:underline;">Condițiile complete</a>') +
 
       divider() +
@@ -721,7 +779,10 @@ function ownerHtml(r, sheetUrl) {
       sectionTitle("De făcut") +
       steps([
         ["Verifică disponibilitatea", "Booking, Airbnb și Travelminit — calendarul site-ului se sincronizează automat de mai multe ori pe zi."],
-        ["Confirmă oaspetelui", "Trimite confirmarea și IBAN-ul firmei: plata integrală prin transfer în 24 de ore, altfel rezervarea expiră (nerambursabilă la anulare)."],
+        ["Confirmă oaspetelui", "Trimite confirmarea și IBAN-ul firmei: plata integrală prin transfer în 24 de ore, altfel rezervarea expiră. " +
+          (r.rate === "flexibil"
+            ? "Tarif FLEXIBIL: anulare gratuită până pe " + esc(flexDeadline(r)) + " (rambursare integrală)."
+            : "Tarif nerambursabil.")],
         ["Blochează datele", "După plată, închide perioada pe platforme ca să nu apară suprapuneri."]
       ]) +
       (sheetUrl

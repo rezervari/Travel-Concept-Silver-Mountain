@@ -38,9 +38,9 @@ const CURRENCY = "RON";
 const GLOBAL_MIN_NIGHTS = 2;
 const DEFAULT_PRICE_FALLBACK = 700; // folosit DOAR daca pricing.json nu poate fi incarcat deloc in browser (eroare retea)
 const DEFAULT_DISCOUNT_TIERS_FALLBACK = [
-  { minNights: 2, discount: 10 }, { minNights: 3, discount: 15 },
-  { minNights: 4, discount: 20 }, { minNights: 5, discount: 25 },
-  { minNights: 6, discount: 30 }, { minNights: 7, discount: 33 }
+  { minNights: 2, discount: 10 }, { minNights: 3, discount: 12 },
+  { minNights: 4, discount: 15 }, { minNights: 5, discount: 20 },
+  { minNights: 6, discount: 25 }, { minNights: 7, discount: 33 }
 ];
 
 // 25569 = numarul de zile intre epoca Excel (1899-12-30) si epoca Unix (1970-01-01).
@@ -145,6 +145,7 @@ function main(){
     }
   }
 
+  readCancellationPolicies(workbook, seasons);
   var otaComparison = readOtaComparison(workbook, seasons);
 
   var output = {
@@ -174,6 +175,28 @@ function findSheet(workbook, name){
 
 // Header-ele din Excel au rânduri noi și spații multiple („Booking\nACUM”) → comparăm pe text normalizat.
 function headerKey(h){ return normalize(h).replace(/\s+/g, " "); }
+
+// Politica de anulare pe sezon din foaia „Sezoane” (coloana „Politică anulare…”: „Flexibil 14 zile” /
+// „Nerambursabil”) → seasons[].cancellation, normalizat („flexibil 14 zile” / „nerambursabil”).
+// Site-ul oferă tariful direct flexibil doar în sezoanele „flexibil”. Fără foaie/coloană: nimic de adăugat.
+function readCancellationPolicies(workbook, seasons){
+  var sheet = findSheet(workbook, "Sezoane");
+  if(!sheet) return;
+  var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
+  var hIdx = rows.findIndex(function(r){ return r.some(function(c){ return headerKey(c) === "id sezon"; }); });
+  if(hIdx === -1) return;
+  var header = rows[hIdx].map(headerKey);
+  var cId = header.indexOf("id sezon");
+  var cPol = header.findIndex(function(h){ return h.indexOf("politica anulare") === 0; });
+  if(cPol === -1) return;
+  var byId = {};
+  rows.slice(hIdx + 1).forEach(function(r){
+    if(r[cId] == null || r[cPol] == null) return;
+    var pol = headerKey(r[cPol]);
+    if(pol) byId[String(r[cId]).trim()] = pol;
+  });
+  seasons.forEach(function(s){ if(byId[s.id]) s.cancellation = byId[s.id]; });
+}
 
 // Prețurile de pe platforme pe sezon + regulile lor de reducere. Întoarce null dacă datele lipsesc.
 function readOtaComparison(workbook, seasons){

@@ -89,9 +89,9 @@
     defaultPrice: 700,
     globalMinNights: 2,
     defaultDiscountTiers: [
-      { minNights:2, discount:10 }, { minNights:3, discount:15 },
-      { minNights:4, discount:20 }, { minNights:5, discount:25 },
-      { minNights:6, discount:30 }, { minNights:7, discount:33 }
+      { minNights:2, discount:10 }, { minNights:3, discount:12 },
+      { minNights:4, discount:15 }, { minNights:5, discount:20 },
+      { minNights:6, discount:25 }, { minNights:7, discount:33 }
     ],
     seasons: []
   };
@@ -562,7 +562,8 @@
   }
 
   /* ---------- OASPETI + TAXE LOCALE (incluse in pret, doar pentru adulti) ---------- */
-  var MAX_ADULTS = 4, MAX_CHILDREN = 2;
+  // Capacitate: max. 4 persoane în total (ca în certificatul de clasificare și pe platforme).
+  var MAX_GUESTS = 4, MAX_ADULTS = 4, MAX_CHILDREN = 3;
   var TAX_TOURIST = 7;    // RON / adult / noapte
   var TAX_SALVAMONT = 5;  // RON / adult / noapte
   var selAdults = document.getElementById("fadults");
@@ -574,11 +575,20 @@
     return Math.min(max, Math.max(min, n));
   }
   function getGuests(){
+    var adults = clampInt(selAdults ? selAdults.value : 2, 1, MAX_ADULTS, 2);
     return {
-      adults: clampInt(selAdults ? selAdults.value : 2, 1, MAX_ADULTS, 2),
-      children: clampInt(selChildren ? selChildren.value : 0, 0, MAX_CHILDREN, 0)
+      adults: adults,
+      children: clampInt(selChildren ? selChildren.value : 0, 0, Math.min(MAX_CHILDREN, MAX_GUESTS - adults), 0)
     };
   }
+  // Copiii disponibili depind de adulți: adulți + copii ≤ 4.
+  function syncChildrenOptions(){
+    if(!selAdults || !selChildren) return;
+    var limit = MAX_GUESTS - clampInt(selAdults.value, 1, MAX_ADULTS, 2);
+    [].forEach.call(selChildren.options, function(o){ o.disabled = parseInt(o.value, 10) > limit; });
+    if(parseInt(selChildren.value, 10) > limit) selChildren.value = String(limit);
+  }
+  syncChildrenOptions();
   function guestsLabel(g){
     var s = g.adults + (g.adults === 1 ? " adult" : " adulți");
     if(g.children > 0) s += ", " + g.children + (g.children === 1 ? " copil" : " copii");
@@ -593,7 +603,7 @@
   function adultsWord(n){ return n === 1 ? "adult" : "adulți"; }
 
   [selAdults, selChildren].forEach(function(el){
-    if(el) el.addEventListener("change", function(){ updateSummary(); });
+    if(el) el.addEventListener("change", function(){ syncChildrenOptions(); updateSummary(); });
   });
 
   /* ---------- REZUMAT: stare initiala (fara date alese) ----------
@@ -647,9 +657,68 @@
   }
 
   function updateSummary(){
+    updateRateUI();
     renderSummary();
     updateQuickContact();
   }
+
+  /* ---------- TARIF: NERAMBURSABIL / FLEXIBIL ----------
+   * Flexibil = nerambursabil + 10%, anulare gratuită până cu 14 zile înainte de sosire. Oferit doar dacă toate
+   * nopțile cad în sezoane „flexibil” (pricing.json → seasons[].cancellation, din coloana „Politică anulare” a
+   * foii „Sezoane”) și sosirea e peste cel puțin 15 zile. Aceleași reguli în apps-script/rezervari.gs. */
+  var FLEX_MARKUP_PCT = 10, FLEX_CANCEL_DAYS = 14, FLEX_MIN_LEAD_DAYS = 15;
+  var rateNonref = document.getElementById("rateNonref");
+  var rateFlex = document.getElementById("rateFlex");
+
+  function seasonIsFlexible(s){
+    if(typeof s.cancellation === "string") return s.cancellation.indexOf("flexibil") === 0;
+    return (s.discountTiers || []).some(function(t){ return t.discount > 0; });
+  }
+  function flexTooSoon(ci){
+    return Math.round((stripTime(ci) - today) / 86400000) < FLEX_MIN_LEAD_DAYS;
+  }
+  function flexAvailable(ci, co){
+    if(!ci || !co || co <= ci || flexTooSoon(ci)) return false;
+    for(var d = new Date(ci); d < co; d.setDate(d.getDate() + 1)){
+      var s = getSeasonForDate(d);
+      if(!s || !seasonIsFlexible(s)) return false;
+    }
+    return true;
+  }
+  function currentRate(ci, co){
+    return rateFlex && rateFlex.checked && flexAvailable(ci, co) ? "flexibil" : "nerambursabil";
+  }
+  function totalForRate(base, rate){
+    return rate === "flexibil" ? Math.round(base * (100 + FLEX_MARKUP_PCT) / 100) : base;
+  }
+  function flexDeadline(ci){
+    return new Date(ci.getFullYear(), ci.getMonth(), ci.getDate() - FLEX_CANCEL_DAYS);
+  }
+
+  // Alegerea oaspetelui se păstrează: dacă alte date nu permit flexibil, revine la flexibil când e din nou posibil.
+  var preferFlex = false;
+  function updateRateUI(){
+    if(!rateNonref || !rateFlex) return;
+    var ci = selection.checkin, co = selection.checkout;
+    var valid = ci && co && co > ci, avail = valid && flexAvailable(ci, co);
+    rateFlex.disabled = valid && !avail;
+    if(rateFlex.disabled) rateNonref.checked = true;
+    else if(preferFlex) rateFlex.checked = true;
+    var base = valid ? computeStay(ci, co).total : null;
+    document.getElementById("rateNonrefPrice").textContent = valid ? base + " RON" : "";
+    document.getElementById("rateFlexPrice").textContent = avail ? totalForRate(base, "flexibil") + " RON" : "";
+    document.getElementById("rateHint").textContent = !valid ? ""
+      : avail ? "La tariful flexibil, anularea e gratuită până pe " + fmtDate(flexDeadline(ci)) + "."
+      : flexTooSoon(ci) ? "Tariful flexibil e disponibil doar pentru sosirile peste cel puțin " + FLEX_MIN_LEAD_DAYS + " zile."
+      : "Tariful flexibil nu e disponibil de sărbători (Crăciun, Revelion).";
+  }
+  [rateNonref, rateFlex].forEach(function(el){
+    if(el) el.addEventListener("change", function(){
+      preferFlex = rateFlex.checked;
+      track("tarif-ales", { tarif: rateFlex.checked ? "flexibil" : "nerambursabil" });
+      updateSummary();
+    });
+  });
 
   /* ---------- CONTACT RAPID + TOTAL LÂNGĂ BUTON + BARA DE JOS (mobil) ---------- */
   var WA_NUMBER = "40744332234";
@@ -662,7 +731,8 @@
     if(ci && co && co > ci){
       var n = Math.round((co - ci) / 86400000);
       msg = "Bună ziua! Aș dori să rezerv A13 Travel Concept pentru " + fmtDate(ci) + " – " + fmtDate(co) +
-            " (" + n + " " + nightsWord(n) + ", " + guestsLabel(getGuests()) + "). Este disponibil?";
+            " (" + n + " " + nightsWord(n) + ", " + guestsLabel(getGuests()) +
+            (currentRate(ci, co) === "flexibil" ? ", tarif flexibil" : "") + "). Este disponibil?";
     } else {
       msg = "Bună ziua! Aș dori informații despre rezervarea apartamentului A13 Travel Concept.";
     }
@@ -684,11 +754,13 @@
       } else if(hasBlockedBetween(ci, co)){
         html = '<span class="form-total-warn">Intervalul include zile ocupate sau fără tarif — alege alte date.</span>';
       } else {
-        validTotal = stay.total;
-        var direct = getDirectSaving(ci, co, stay.total);
+        var rate = currentRate(ci, co);
+        validTotal = totalForRate(stay.total, rate);
+        var direct = getDirectSaving(ci, co, validTotal);
         html = '<span class="form-total-dates">' + fmtDate(ci) + ' – ' + fmtDate(co) + ' · ' + stay.nights + ' ' + nightsWord(stay.nights) + ' · ' + guestsLabel(getGuests()) + '</span>' +
-               '<span class="form-total-sum">Total ' + stay.total + ' RON</span>' +
-               '<span class="form-total-note">taxe locale incluse' + (stay.discountPct > 0 ? ' · reducere −' + stay.discountPct + '%' : '') + '</span>' +
+               '<span class="form-total-sum">Total ' + validTotal + ' RON</span>' +
+               '<span class="form-total-note">taxe locale incluse' + (stay.discountPct > 0 ? ' · reducere −' + stay.discountPct + '%' : '') +
+               ' · tarif ' + (rate === "flexibil" ? 'flexibil' : 'nerambursabil') + '</span>' +
                (direct ? '<span class="form-total-save">Direct economisești ~' + direct.saving + ' RON față de platformele de rezervări</span>' : '');
       }
     }
@@ -751,16 +823,23 @@
       rows +=
         '<div class="summary-row"><span>' + stay.nights + ' nopți × ' + stay.avgPerNight + ' RON</span><span>' + stay.total + ' RON</span></div>';
     }
-    rows += '<div class="summary-row total"><span>Total</span><span>' + stay.total + ' RON</span></div>';
+    var rate = currentRate(ci, co), finalTotal = totalForRate(stay.total, rate);
+    if(rate === "flexibil"){
+      rows += '<div class="summary-row"><span>Tarif flexibil (+' + FLEX_MARKUP_PCT + '%)</span><span>+' + (finalTotal - stay.total) + ' RON</span></div>';
+    }
+    rows += '<div class="summary-row"><span>Tarif</span><span>' + (rate === "flexibil" ? "Flexibil" : "Nerambursabil") + '</span></div>';
+    rows += '<div class="summary-row total"><span>Total</span><span>' + finalTotal + ' RON</span></div>';
 
-    var direct = conflict ? null : getDirectSaving(ci, co, stay.total);
+    var direct = conflict ? null : getDirectSaving(ci, co, finalTotal);
     if(direct){
       rows +=
         '<div class="summary-save">' +
           '<strong>Direct economisești ~' + direct.saving + ' RON</strong>' +
           '<span>Pe platformele de rezervări online, același sejur costă de la ~' + direct.otaFrom + ' RON.</span>' +
           '<small>Prețuri verificate' + (direct.checkedAt ? ' la ' + direct.checkedAt : '') + ', cu reducerile automate ale platformelor (inclusiv pentru mobil). ' +
-          'Pe platforme, unele tarife includ anulare gratuită; tariful direct e nerambursabil.</small>' +
+          (rate === "flexibil"
+            ? 'Tariful direct ales are anulare gratuită până pe ' + fmtDate(flexDeadline(ci)) + '.'
+            : 'Pe platforme, unele tarife includ anulare gratuită; tariful direct ales e nerambursabil.') + '</small>' +
         '</div>';
     }
 
@@ -829,8 +908,8 @@
     var adultsRaw = selAdults ? parseInt(selAdults.value, 10) : NaN;
     var childrenRaw = selChildren ? parseInt(selChildren.value, 10) : 0;
     if(isNaN(adultsRaw) || adultsRaw < 1 || adultsRaw > MAX_ADULTS ||
-       isNaN(childrenRaw) || childrenRaw < 0 || childrenRaw > MAX_CHILDREN){
-      msgEl.textContent = "Capacitatea maximă este de " + MAX_ADULTS + " adulți și " + MAX_CHILDREN + " copii.";
+       isNaN(childrenRaw) || childrenRaw < 0 || childrenRaw > MAX_CHILDREN || adultsRaw + childrenRaw > MAX_GUESTS){
+      msgEl.textContent = "Capacitatea maximă este de " + MAX_GUESTS + " persoane (adulți și copii).";
       msgEl.className = "form-msg show warn";
       return;
     }
@@ -839,12 +918,14 @@
     var ci = toInputValue(ciDate), co = toInputValue(coDate);
     var stay = computeStay(ciDate, coDate);
     var tx = computeTaxes(guests.adults, stay.nights);
+    var rate = currentRate(ciDate, coDate);
 
     var payload = {
       name: name, phone: phone, email: email,
       checkin: ci, checkout: co, nights: stay.nights,
       adults: guests.adults, children: guests.children,
-      rawTotal: stay.rawTotal, discountPct: stay.discountPct, total: stay.total,
+      rawTotal: stay.rawTotal, discountPct: stay.discountPct, total: totalForRate(stay.total, rate),
+      rate: rate, cancelBy: rate === "flexibil" ? toInputValue(flexDeadline(ciDate)) : "",
       taxTourist: tx.tourist, taxSalvamont: tx.salvamont,
       source: VISIT_SOURCE.label, referrer: VISIT_SOURCE.referrer,
       website: document.getElementById("fwebsite") ? document.getElementById("fwebsite").value : ""
@@ -870,7 +951,7 @@
           msgEl.textContent = "Mulțumim, " + name + "! Solicitarea a fost trimisă. Ți-am trimis o confirmare a primirii pe " + email + " și îți răspundem în cel mult 2 ore (între 08:00 și 22:00).";
           msgEl.className = "form-msg show ok";
           form.querySelectorAll("#fname, #fphone, #femail").forEach(function(el){ el.value = ""; });
-          track("solicitare-trimisa", { nopti: stay.nights, total: stay.total, sursa: VISIT_SOURCE.label });
+          track("solicitare-trimisa", { nopti: stay.nights, total: payload.total, tarif: rate, sursa: VISIT_SOURCE.label });
         } else if(res && res.error === "rate_limit"){
           msgEl.textContent = "Am primit deja mai multe solicitări de la această adresă. Te rugăm să încerci din nou peste o oră sau să ne contactezi telefonic.";
           msgEl.className = "form-msg show warn";
@@ -890,7 +971,7 @@
   });
 
   function openMailto(p, msgEl, afterError){
-    track(afterError ? "solicitare-mailto-dupa-eroare" : "solicitare-mailto", { nopti: p.nights, total: p.total, sursa: p.source });
+    track(afterError ? "solicitare-mailto-dupa-eroare" : "solicitare-mailto", { nopti: p.nights, total: p.total, tarif: p.rate, sursa: p.source });
     var subject = "Solicitare rezervare A13 Travel Concept — " + p.checkin + " → " + p.checkout;
     var body =
       "Solicitare nouă de rezervare — A13 Travel Concept (Silver Mountain, Poiana Brașov)\n\n" +
@@ -904,6 +985,7 @@
       "Copii: " + p.children + "\n\n" +
       "Preț de bază: " + p.rawTotal + " RON\n" +
       (p.discountPct > 0 ? "Reducere aplicată: -" + p.discountPct + "%\n" : "") +
+      (p.rate === "flexibil" ? "Tarif flexibil: +" + FLEX_MARKUP_PCT + "% (anulare gratuită până pe " + p.cancelBy + ")\n" : "Tarif: nerambursabil\n") +
       "Total: " + p.total + " RON\n\n" +
       "Taxe incluse în total (doar adulți):\n" +
       "- Taxă turistică: " + TAX_TOURIST + " RON × " + p.adults + " × " + p.nights + " = " + p.taxTourist + " RON\n" +
