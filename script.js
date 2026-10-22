@@ -68,7 +68,8 @@
     var a = e.target.closest ? e.target.closest("a") : null;
     if(!a) return;
     var href = a.getAttribute("href") || "";
-    var loc = a.closest("footer") ? "footer" : a.closest("#recenzii") ? "recenzii" : a.closest("#harta") ? "harta" : "pagina";
+    var loc = a.closest("footer") ? "footer" : a.closest("#mobileStickyCta") ? "bara-mobil" : a.closest("#rezervare") ? "formular"
+      : a.closest("#recenzii") ? "recenzii" : a.closest("#harta") ? "harta" : "pagina";
     if(a.id === "footMail") track("contact-email", { loc: loc });
     else if(href.indexOf("tel:") === 0) track("contact-telefon", { loc: loc });
     else if(href.indexOf("wa.me") >= 0) track("contact-whatsapp", { loc: loc });
@@ -604,6 +605,70 @@
   }
 
   function updateSummary(){
+    renderSummary();
+    updateQuickContact();
+  }
+
+  /* ---------- CONTACT RAPID + TOTAL LÂNGĂ BUTON + BARA DE JOS (mobil) ---------- */
+  var WA_NUMBER = "40744332234";
+  var formTotalEl = document.getElementById("formTotal");
+  var stickyBtn = document.getElementById("mobileStickyBtn");
+
+  // Mesaj WhatsApp precompletat cu datele și oaspeții aleși (dacă există).
+  function whatsappHref(){
+    var ci = selection.checkin, co = selection.checkout, msg;
+    if(ci && co && co > ci){
+      var n = Math.round((co - ci) / 86400000);
+      msg = "Bună ziua! Aș dori să rezerv A13 Travel Concept pentru " + fmtDate(ci) + " – " + fmtDate(co) +
+            " (" + n + " " + nightsWord(n) + ", " + guestsLabel(getGuests()) + "). Este disponibil?";
+    } else {
+      msg = "Bună ziua! Aș dori informații despre rezervarea apartamentului A13 Travel Concept.";
+    }
+    return "https://wa.me/" + WA_NUMBER + "?text=" + encodeURIComponent(msg);
+  }
+
+  function updateQuickContact(){
+    var href = whatsappHref();
+    ["formWhatsApp", "mobileStickyWa"].forEach(function(id){
+      var el = document.getElementById(id);
+      if(el) el.href = href;
+    });
+
+    var ci = selection.checkin, co = selection.checkout, html = "", validTotal = null;
+    if(ci && co && co > ci){
+      var stay = computeStay(ci, co), minNights = getMinNightsForDate(ci);
+      if(stay.nights < minNights){
+        html = '<span class="form-total-warn">Sejur minim ' + minNights + ' nopți pentru aceste date — alege un interval mai lung.</span>';
+      } else if(hasBlockedBetween(ci, co)){
+        html = '<span class="form-total-warn">Intervalul include zile ocupate sau fără tarif — alege alte date.</span>';
+      } else {
+        validTotal = stay.total;
+        html = '<span class="form-total-dates">' + fmtDate(ci) + ' – ' + fmtDate(co) + ' · ' + stay.nights + ' ' + nightsWord(stay.nights) + ' · ' + guestsLabel(getGuests()) + '</span>' +
+               '<span class="form-total-sum">Total ' + stay.total + ' RON</span>' +
+               '<span class="form-total-note">taxe locale incluse' + (stay.discountPct > 0 ? ' · reducere −' + stay.discountPct + '%' : '') + '</span>';
+      }
+    }
+    // Pe mobil rezumatul e sub formular: totalul apare și chiar deasupra politicii și a butonului.
+    if(formTotalEl){
+      formTotalEl.innerHTML = html;
+      formTotalEl.classList.toggle("is-empty", !html);
+    }
+    if(stickyBtn){
+      stickyBtn.textContent = validTotal !== null ? "Continuă rezervarea · " + validTotal + " RON" : "Verifică disponibilitatea";
+      stickyBtn.setAttribute("href", validTotal !== null ? "#rezervare" : "#disponibilitate");
+    }
+  }
+
+  // Bara de jos dispare cât timp butonul de trimitere e pe ecran (nu-l mai acoperă și nu se dublează).
+  var stickyBar = document.getElementById("mobileStickyCta");
+  var submitRowEl = document.querySelector("#bookingForm .submit-row");
+  if(stickyBar && submitRowEl && "IntersectionObserver" in window){
+    new IntersectionObserver(function(entries){
+      stickyBar.classList.toggle("is-hidden", entries[entries.length - 1].isIntersecting);
+    }).observe(submitRowEl);
+  }
+
+  function renderSummary(){
     var ci = selection.checkin, co = selection.checkout;
 
     if(!ci || !co || co <= ci){
@@ -747,7 +812,7 @@
       .then(function(res){ return res.json(); })
       .then(function(res){
         if(res && res.ok){
-          msgEl.textContent = "Mulțumim, " + name + "! Solicitarea a fost trimisă. Ți-am trimis o confirmare a primirii pe " + email + " și revenim cu un răspuns în cel mai scurt timp.";
+          msgEl.textContent = "Mulțumim, " + name + "! Solicitarea a fost trimisă. Ți-am trimis o confirmare a primirii pe " + email + " și îți răspundem în cel mult 2 ore (între 08:00 și 22:00).";
           msgEl.className = "form-msg show ok";
           form.querySelectorAll("#fname, #fphone, #femail").forEach(function(el){ el.value = ""; });
           track("solicitare-trimisa", { nopti: stay.nights, total: stay.total, sursa: VISIT_SOURCE.label });
@@ -1297,7 +1362,29 @@
     reviewsSummaryEl.parentNode.insertBefore(box, reviewsSummaryEl.nextSibling);
   }
 
+  // Nota din primul ecran: platforma cu cele mai multe recenzii + totalul recenziilor (duce la #recenzii).
+  function renderHeroRating(){
+    var el = document.getElementById("heroRating");
+    if(!el || !reviewsData || !reviewsData.platforms) return;
+    var best = null, total = 0, count = 0;
+    Object.keys(reviewsData.platforms).forEach(function(k){
+      var p = reviewsData.platforms[k];
+      if(!p || !p.totalReviews) return;
+      total += p.totalReviews; count++;
+      if(!best || p.totalReviews > best.p.totalReviews) best = { k:k, p:p };
+    });
+    if(!best) return;
+    var meta = PLATFORM_META[best.k] || { label:best.k, scale:10 };
+    var scale = best.p.scaleMax || meta.scale;
+    var score = String(best.p.rating).replace(".", ",");
+    el.innerHTML = '<span class="hr-star" aria-hidden="true">★</span><span class="hr-score">' + score + '/' + scale + '</span> pe ' + meta.label +
+                   ' <span class="hr-sep" aria-hidden="true">·</span> ' + total + ' recenzii pe ' + count + ' platforme';
+    el.setAttribute("aria-label", "Notă " + score + " din " + scale + " pe " + meta.label + ", " + total + " recenzii pe " + count + " platforme. Vezi recenziile");
+    el.hidden = false;
+  }
+
   function initReviewsUI(){
+    renderHeroRating();
     renderReviewsSummary();
     renderReviewsCategories();
     renderReviewsTabs();

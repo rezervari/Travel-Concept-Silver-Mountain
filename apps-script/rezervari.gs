@@ -370,7 +370,7 @@ function guestText(r) {
   return (
     "Bună, " + firstName(r.name) + "!\n\n" +
     "Îți mulțumim pentru solicitarea de rezervare la " + BRAND + " – Silver Mountain, Poiana Brașov.\n" +
-    "Am primit-o și revenim cu un răspuns în cel mai scurt timp.\n\n" +
+    "Am primit-o și îți răspundem în cel mult 2 ore (între 08:00 și 22:00; solicitările de noapte, dimineața).\n\n" +
     "Acesta este un e-mail de confirmare a primirii. Rezervarea devine fermă după confirmarea noastră.\n\n" +
     "Check-in: " + cap(weekday(r.checkin)) + ", " + longDate(r.checkin) + ", după ora 16:00\n" +
     "Check-out: " + cap(weekday(r.checkout)) + ", " + longDate(r.checkout) + ", până la ora 11:00\n" +
@@ -614,7 +614,7 @@ function guestHtml(r) {
       eyebrow("Solicitare primită") +
       h1("Mulțumim, " + esc(firstName(r.name)) + "!") +
       p("Am primit solicitarea ta de rezervare la <strong>" + esc(BRAND) + "</strong>, în complexul Silver Mountain din Poiana Brașov. " +
-        "Verificăm disponibilitatea și revenim cu un răspuns în cel mai scurt timp.") +
+        "Verificăm disponibilitatea și îți răspundem în cel mult 2 ore (între 08:00 și 22:00; solicitările de noapte, dimineața).") +
       pill("În așteptarea confirmării", C.yellowTint, C.yellowInk) +
 
       sectionTitle("Sejurul tău") +
@@ -654,7 +654,7 @@ function guestHtml(r) {
     );
 
   return layout(
-    "Am primit solicitarea ta pentru " + rangeShort(r.checkin, r.checkout) + " · " + plural(r.nights, "noapte", "nopți") + " · " + totalLabel(r) + ". Revenim în cel mai scurt timp.",
+    "Am primit solicitarea ta pentru " + rangeShort(r.checkin, r.checkout) + " · " + plural(r.nights, "noapte", "nopți") + " · " + totalLabel(r) + ". Îți răspundem în cel mult 2 ore.",
     inner
   );
 }
