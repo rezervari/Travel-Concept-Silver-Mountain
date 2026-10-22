@@ -37,6 +37,14 @@
     });
   }
 
+  // Calendarul se randeaza abia dupa ce au sosit AMBELE fisiere (booked-dates.json + pricing.json).
+  // Altfel, daca zilele ocupate soseau primele, toate zilele apareau "Fara tarif definit".
+  var calendarDataPending = 2;
+  function calendarDataLoaded(){
+    calendarDataPending--;
+    if(calendarDataPending <= 0) renderCalendar();
+  }
+
   function loadCalendar(){
     fetch(BOOKED_JSON, {cache:"no-store"})
       .then(function(res){
@@ -49,11 +57,11 @@
         });
         // updatedAt = ultima modificare a zilelor ocupate (nu ultima verificare), deci nu se afiseaza
         setStatus("Disponibilitate sincronizată automat cu Booking, Airbnb și Travelminit.", false);
-        renderCalendar();
+        calendarDataLoaded();
       })
       .catch(function(){
         setStatus("Nu am găsit fișierul de disponibilitate. Rulează update-calendar.js pentru a-l genera.", true);
-        renderCalendar();
+        calendarDataLoaded();
       });
   }
 
@@ -67,6 +75,20 @@
 
   function stripTime(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
 
+  // Prima zi a unei rezervari existente: ocupata, dar poate fi aleasa ca zi de check-out
+  // (oaspetele nostru pleaca pana la 11:00, urmatorul soseste dupa 16:00) -- doar daca
+  // noaptea dinainte e libera si are tarif.
+  function isCheckoutOnlyDay(date){
+    if(!isDateBooked(date)) return false;
+    var prev = new Date(date.getFullYear(), date.getMonth(), date.getDate() - 1);
+    return prev >= today && !isDateBooked(prev) && isDatePriced(prev);
+  }
+
+  // O zi poate fi check-in doar daca are tarif definit si nu e ocupata.
+  function canCheckin(date){
+    return isDatePriced(date) && !isDateBooked(date);
+  }
+
   /* ---------- PRICING ENGINE (tarife pe sezon + reduceri progresive) ---------- */
   var headerPriceEl = document.getElementById("headerPriceValue");
   var infoPriceEl = document.getElementById("infoPriceValue");
@@ -79,11 +101,13 @@
         pricingData = data;
         renderTeaserPrice();
         updateSummary();
+        calendarDataLoaded();
       })
       .catch(function(){
         pricingData = FALLBACK_PRICING;
         renderTeaserPrice();
         updateSummary();
+        calendarDataLoaded();
       });
   }
 
@@ -226,6 +250,13 @@
         cell.classList.add("past");
       } else if(booked){
         cell.classList.add("booked");
+        if(isCheckoutOnlyDay(date)){
+          cell.classList.add("checkout-only");
+          cell.title = "Ocupat de la această dată — disponibilă doar ca zi de check-out";
+          cell.addEventListener("click", function(dt){
+            return function(){ handleDayClick(dt); };
+          }(date));
+        }
       } else if(unpriced){
         // Fara sezon/tarif definit: nu poate fi ales ca prima zi (check-in),
         // dar ramane clickabil pentru a putea servi drept zi de check-out
@@ -309,17 +340,17 @@
 
   function handleDayClick(date){
     if(!selection.checkin || (selection.checkin && selection.checkout)){
-      // Prima zi selectata devine check-in -> trebuie sa fie o noapte cu tarif definit
-      if(!isDatePriced(date)) return;
+      // Prima zi selectata devine check-in -> trebuie sa fie o noapte libera, cu tarif definit
+      if(!canCheckin(date)) return;
       selection.checkin = date; selection.checkout = null;
     } else {
       if(date <= selection.checkin){
-        if(!isDatePriced(date)) return;
+        if(!canCheckin(date)) return;
         selection.checkin = date; selection.checkout = null;
       } else if(hasBlockedBetween(selection.checkin, date)){
         // Intervalul curent contine zile ocupate sau fara tarif -> pornim o noua selectie
         // doar daca noua zi e valida ca si check-in
-        if(!isDatePriced(date)) return;
+        if(!canCheckin(date)) return;
         selection.checkin = date; selection.checkout = null;
       } else {
         selection.checkout = date;
@@ -696,7 +727,8 @@
   });
 
   /* ---------- SMOOTH SCROLL NAV (evita navigarea de pagina la #hash) ---------- */
-  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+  // #footMail are href="#rezervare" doar ca rezerva fara JS; handlerul lui (mailto) nu trebuie blocat aici.
+  document.querySelectorAll('a[href^="#"]:not(#footMail)').forEach(function(a){
     a.addEventListener("click", function(e){
       var id = a.getAttribute("href").slice(1);
       var target = document.getElementById(id);

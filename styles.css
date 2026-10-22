@@ -643,6 +643,13 @@
   .cal-day.booked{
     background:#fbeaea;color:#c94545;text-decoration:line-through;cursor:not-allowed;
   }
+  /* prima zi a unei rezervari existente: jumatate libera (dimineata) / jumatate ocupata */
+  .cal-day.booked.checkout-only{
+    background:linear-gradient(135deg,var(--white) 50%,#fbeaea 50%);
+    color:#a83232;text-decoration:none;cursor:pointer;border:1px solid #f0c6c6;
+  }
+  .cal-day.booked.checkout-only:hover{border-color:var(--blue-mid);}
+  .cal-day.booked.checkout-only.selected{background:var(--blue-mid);color:var(--white);font-weight:700;border-color:transparent;}
   .cal-day.unpriced{
     background:#f2f2f2;color:#666666;
     border:1px dashed #d6d6d6;
@@ -658,6 +665,7 @@
   .swatch.bk{background:#fbeaea;border:1px solid #f0c6c6;}
   .swatch.sel{background:var(--blue-mid);}
   .swatch.np{background:#f2f2f2;border:1px dashed #d6d6d6;}
+  .swatch.co{background:linear-gradient(135deg,var(--white) 50%,#fbeaea 50%);border:1px solid #f0c6c6;}
   .calendar-wrap-inline{margin-top:4px;}
 
   /* PAȘII DE REZERVARE */
