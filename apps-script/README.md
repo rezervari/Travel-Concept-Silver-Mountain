@@ -30,12 +30,30 @@ Gratuit. Limita Gmail personal: ~100 de e-mailuri/zi (= ~50 solicitări/zi).
 ## Dacă modifici scriptul mai târziu
 
 Salvarea nu ajunge automat la URL-ul public. După orice modificare:
-**Implementare → Gestionează implementările → ✏️ Editează → Versiune: Versiune nouă → Implementează**.
+1. lipește noul cod în `Code.gs` și salvează;
+2. rulează o dată `testSolicitare` (▶ Run) — dacă Google cere o permisiune nouă (de ex. „conectare la un serviciu extern”, necesară pentru citirea `pricing.json` de pe site), acord-o;
+3. **Implementare → Gestionează implementările → ✏️ Editează → Versiune: Versiune nouă → Implementează**.
 URL-ul rămâne același.
+
+## Foaia „Solicitări”
+
+Coloane: Primită la, Nume, Telefon, Email, Check-in, Check-out, Nopți, Adulți, Copii, Preț bază, Reducere %,
+Total RON, Status, **Sursă**, **Referrer**, **Verificare**. La o foaie creată de versiunea veche, antetele noi se
+adaugă automat la prima solicitare.
+
+- **Sursă** — de unde a venit vizitatorul: parametrii UTM din link (ex. `google / organic · gbp · rezervare`),
+  altfel site-ul de proveniență (`referrer: www.facebook.com`) sau `direct`.
+- **Verificare** — `OK` sau ce nu corespunde (preț diferit de tarifele site-ului, zile ocupate, nopți fără tarif);
+  atunci Status = „De verificat”, iar subiectul e-mailului începe cu „[De verificat]”.
 
 ## Protecții incluse
 
 - câmp ascuns anti-roboți (honeypot);
-- max. 3 solicitări/oră de la aceeași adresă de e-mail și 30/oră în total;
-- validarea datelor (e-mail, date, capacitate max. 4 adulți + 2 copii);
+- max. 3 solicitări/oră de la aceeași adresă de e-mail și 10/oră în total;
+- validarea datelor (e-mail, date, sejur max. 60 de nopți, capacitate max. 4 adulți + 2 copii, nume fără linkuri);
+- prețul, nopțile și taxele se recalculează din `pricing.json` de pe site, iar perioada se verifică față de
+  `booked-dates.json` — un preț trimis greșit (sau falsificat) nu ajunge în e-mailul oaspetelui;
+- pentru date fără tarif publicat, oaspetele vede „Preț de confirmat”, nu o sumă;
+- textul care începe cu `=`, `+`, `-`, `@` nu e interpretat ca formulă în Sheet;
+- dacă se termină cota zilnică de e-mail, rândul se salvează în Sheet și site-ul trece pe varianta cu clientul de e-mail;
 - dacă trimiterea eșuează, site-ul deschide automat varianta veche (clientul de e-mail), ca să nu se piardă solicitarea.

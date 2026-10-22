@@ -4,7 +4,11 @@
  * Ce face, la fiecare solicitare trimisă din formularul de pe site:
  *   1. trimite un e-mail HTML către proprietar (contul Google care a publicat scriptul), cu Reply-To = oaspetele;
  *   2. trimite oaspetelui un e-mail HTML de confirmare a PRIMIRII solicitării (nu confirmă rezervarea);
- *   3. adaugă un rând în foaia „Solicitări” din Google Sheet-ul de care e legat scriptul.
+ *   3. adaugă un rând în foaia „Solicitări” din Google Sheet-ul de care e legat scriptul,
+ *      cu sursa vizitei (UTM / referrer) și rezultatul verificării.
+ *
+ * Prețul, nopțile și taxele se recalculează aici din pricing.json de pe site, iar perioada se verifică
+ * față de booked-dates.json: e-mailurile nu depind de ce trimite browserul.
  *
  * Adresa de e-mail a proprietarului NU apare nicăieri în cod: se ia din contul care rulează scriptul.
  * Instalare și actualizare: vezi apps-script/README.md (după orice modificare: Deploy → versiune nouă).
@@ -17,8 +21,14 @@ var PHONE_DISPLAY = "0744 332 234";
 var PHONE_TEL = "+40744332234";
 var WHATSAPP_URL = "https://wa.me/40744332234";
 var SHEET_NAME = "Solicitări";
+var SHEET_HEADERS = ["Primită la", "Nume", "Telefon", "Email", "Check-in", "Check-out", "Nopți",
+                     "Adulți", "Copii", "Preț bază", "Reducere %", "Total RON", "Status",
+                     "Sursă", "Referrer", "Verificare"];
 var MAX_PER_EMAIL_PER_HOUR = 3;   // anti-abuz: același oaspete
-var MAX_PER_HOUR_TOTAL = 30;      // anti-abuz: total
+var MAX_PER_HOUR_TOTAL = 10;      // anti-abuz: total
+var TAX_TOURIST = 7;              // RON / adult / noapte (la fel ca TAX_TOURIST din script.js)
+var TAX_SALVAMONT = 5;            // RON / adult / noapte (la fel ca TAX_SALVAMONT din script.js)
+var SITE_JSON_CACHE_SEC = 120;    // cât păstrăm în cache pricing.json / booked-dates.json
 
 // Cromatica site-ului (styles.css :root)
 var C = {
@@ -54,8 +64,17 @@ function doPost(e) {
       return json({ ok: false, error: "rate_limit" });
     }
 
+    r.notes = verifyStay(r);
+
+    // Fără cotă de e-mail: rândul rămâne în Sheet, iar site-ul trece pe varianta mailto
+    // (oaspetele îți trimite solicitarea din clientul lui de e-mail).
+    if (MailApp.getRemainingDailyQuota() < 2) {
+      logRow(r, "Fără e-mail (cotă)");
+      return json({ ok: false, error: "quota" });
+    }
+
     var owner = Session.getEffectiveUser().getEmail();
-    var sheetUrl = logRow(r);
+    var sheetUrl = logRow(r, r.notes.length ? "De verificat" : "Nouă");
 
     MailApp.sendEmail({
       to: owner,
@@ -66,14 +85,19 @@ function doPost(e) {
       name: "Site " + BRAND
     });
 
-    MailApp.sendEmail({
-      to: r.email,
-      replyTo: owner,
-      subject: guestSubject(r),
-      body: guestText(r),
-      htmlBody: guestHtml(r),
-      name: BRAND
-    });
+    // Confirmarea pentru oaspete nu blochează solicitarea: tu ai primit-o deja.
+    try {
+      MailApp.sendEmail({
+        to: r.email,
+        replyTo: owner,
+        subject: guestSubject(r),
+        body: guestText(r),
+        htmlBody: guestHtml(r),
+        name: BRAND
+      });
+    } catch (errGuest) {
+      console.error(errGuest);
+    }
 
     return json({ ok: true });
   } catch (err) {
@@ -104,14 +128,20 @@ function validate(d) {
     discountPct: num(d.discountPct, 0, 100) || 0,
     total: num(d.total, 0, 1000000),
     taxTourist: num(d.taxTourist, 0, 100000) || 0,
-    taxSalvamont: num(d.taxSalvamont, 0, 100000) || 0
+    taxSalvamont: num(d.taxSalvamont, 0, 100000) || 0,
+    source: str(d.source, 120),
+    referrer: str(d.referrer, 120)
   };
 
   if (!r.name || !r.phone) return { error: "missing" };
+  // Numele apare în e-mailul trimis oaspetelui: fără linkuri sau adrese în el.
+  if (/https?:|www\.|:\/\/|@/i.test(r.name)) return { error: "name" };
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email)) return { error: "email" };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(r.checkin) || !/^\d{4}-\d{2}-\d{2}$/.test(r.checkout) || r.checkout <= r.checkin) {
     return { error: "dates" };
   }
+  var span = Math.round((parseDay(r.checkout) - parseDay(r.checkin)) / 86400000);
+  if (span < 1 || span > 60) return { error: "dates" };
   if (r.nights === null || r.adults === null || r.children === null || r.total === null) return { error: "invalid" };
   return r;
 }
@@ -126,19 +156,116 @@ function rateLimitOk(email) {
   return true;
 }
 
-function logRow(r) {
+function logRow(r, status) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   if (!ss) return ""; // script nelegat de un Sheet → doar e-mailuri
   var sh = ss.getSheetByName(SHEET_NAME);
   if (!sh) {
     sh = ss.insertSheet(SHEET_NAME);
-    sh.appendRow(["Primită la", "Nume", "Telefon", "Email", "Check-in", "Check-out", "Nopți",
-                  "Adulți", "Copii", "Preț bază", "Reducere %", "Total RON", "Status"]);
+    sh.appendRow(SHEET_HEADERS);
     sh.setFrozenRows(1);
+  } else if (sh.getRange(1, SHEET_HEADERS.length).getValue() === "") {
+    // Foaie creată de versiunea veche (13 coloane): adaugă antetele noi la final.
+    sh.getRange(1, 14, 1, SHEET_HEADERS.length - 13).setValues([SHEET_HEADERS.slice(13)]);
   }
   sh.appendRow([new Date(), r.name, r.phone, r.email, r.checkin, r.checkout, r.nights,
-                r.adults, r.children, r.rawTotal, r.discountPct, r.total, "Nouă"]);
+                r.adults, r.children, r.rawTotal, r.discountPct, r.total, status,
+                r.source || "necunoscută", r.referrer, (r.notes || []).join("; ") || "OK"].map(safeCell));
   return ss.getUrl();
+}
+
+// Textul trimis de vizitator nu trebuie interpretat ca formulă (=, +, -, @ la început).
+function safeCell(v) {
+  return (typeof v === "string" && /^[=+\-@]/.test(v)) ? "'" + v : v;
+}
+
+/* ============================== VERIFICARE SEJUR ============================== */
+
+// Recalculează nopțile, prețul (aceeași logică ca computeStay din script.js) și taxele din fișierele
+// site-ului și verifică suprapunerea cu zilele ocupate. Valorile calculate aici le înlocuiesc pe cele
+// trimise de browser. Întoarce observațiile pentru proprietar (listă goală = totul corespunde).
+function verifyStay(r) {
+  var notes = [];
+  var nights = Math.round((parseDay(r.checkout) - parseDay(r.checkin)) / 86400000);
+  if (nights !== r.nights) notes.push("Nopți: site " + r.nights + ", calculat " + nights);
+  r.nights = nights;
+  r.taxTourist = TAX_TOURIST * r.adults * nights;
+  r.taxSalvamont = TAX_SALVAMONT * r.adults * nights;
+
+  var pricing = fetchSiteJson("pricing.json");
+  if (!pricing) {
+    notes.push("pricing.json indisponibil — prețul trimis de site nu a putut fi verificat");
+  } else {
+    var raw = 0, unpriced = [];
+    for (var i = 0; i < nights; i++) {
+      var day = addDays(r.checkin, i), s = seasonFor(pricing, day);
+      if (s && typeof s.price === "number") raw += s.price; else unpriced.push(day);
+    }
+    if (unpriced.length) {
+      notes.push("Nopți fără tarif definit: " + unpriced.join(", "));
+      r.priceUnconfirmed = true;
+    } else {
+      var first = seasonFor(pricing, r.checkin);
+      var tiers = (first && first.discountTiers && first.discountTiers.length) ? first.discountTiers : (pricing.defaultDiscountTiers || []);
+      var pct = 0;
+      tiers.forEach(function (t) { if (nights >= t.minNights && t.discount > pct) pct = t.discount; });
+      var total = Math.round(raw * (100 - pct) / 100);
+      if (total !== r.total) notes.push("Preț: site " + ron(r.total) + ", calculat " + ron(total));
+      r.rawTotal = raw;
+      r.discountPct = pct;
+      r.total = total;
+      var minNights = (first && typeof first.minNights === "number") ? first.minNights : (pricing.globalMinNights || 1);
+      if (nights < minNights) notes.push("Sejur sub minimul de " + minNights + " nopți");
+    }
+  }
+
+  var booked = fetchSiteJson("booked-dates.json");
+  if (!booked) {
+    notes.push("booked-dates.json indisponibil — disponibilitatea nu a putut fi verificată");
+  } else {
+    var busy = [];
+    for (var j = 0; j < nights; j++) {
+      var d = addDays(r.checkin, j);
+      var hit = (booked.ranges || []).some(function (b) {
+        return String(b.start).slice(0, 10) <= d && d < String(b.end).slice(0, 10);
+      });
+      if (hit) busy.push(d);
+    }
+    if (busy.length) notes.push("Suprapunere cu zile ocupate: " + busy.join(", "));
+  }
+  return notes;
+}
+
+function seasonFor(pricing, iso) {
+  var list = pricing.seasons || [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].start <= iso && iso <= list[i].end) return list[i];
+  }
+  return null;
+}
+
+function addDays(iso, n) {
+  var d = parseDay(iso);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// Fișier public al site-ului (pricing.json / booked-dates.json), cu cache scurt.
+function fetchSiteJson(name) {
+  var cache = CacheService.getScriptCache(), key = "site_" + name;
+  try {
+    var text = cache.get(key);
+    if (!text) {
+      var res = UrlFetchApp.fetch(SITE_URL + name + "?t=" + Date.now(), { muteHttpExceptions: true });
+      if (res.getResponseCode() !== 200) return null;
+      text = res.getContentText();
+      cache.put(key, text, SITE_JSON_CACHE_SEC);
+    }
+    return JSON.parse(text);
+  } catch (err) {
+    console.error(err);
+    return null;
+  }
 }
 
 function json(obj) {
@@ -201,15 +328,20 @@ function nowRo() {
 
 /* ============================== SUBIECTE + TEXT SIMPLU ============================== */
 
+// Prețul afișat: „preț de confirmat” când datele nu au tarif publicat pe site.
+function totalLabel(r) { return r.priceUnconfirmed ? "preț de confirmat" : ron(r.total); }
+
 function ownerSubject(r) {
-  return "Solicitare nouă · " + rangeShort(r.checkin, r.checkout) + " · " + plural(r.nights, "noapte", "nopți") +
-         " · " + r.name + " · " + ron(r.total);
+  return (r.notes && r.notes.length ? "[De verificat] " : "") +
+         "Solicitare nouă · " + rangeShort(r.checkin, r.checkout) + " · " + plural(r.nights, "noapte", "nopți") +
+         " · " + r.name + " · " + totalLabel(r);
 }
 function guestSubject(r) {
   return "Am primit solicitarea ta · " + BRAND + " · " + rangeShort(r.checkin, r.checkout);
 }
 
 function priceText(r) {
+  if (r.priceUnconfirmed) return "Preț: îl confirmăm în răspunsul la solicitare (datele nu au tarif publicat pe site).\n";
   var disc = r.rawTotal - r.total;
   return (
     "Preț " + plural(r.nights, "noapte", "nopți") + ": " + ron(r.rawTotal) + "\n" +
@@ -227,6 +359,8 @@ function ownerText(r) {
     "Check-out: " + cap(weekday(r.checkout)) + ", " + longDate(r.checkout) + " (până la 11:00)\n" +
     "Durată: " + plural(r.nights, "noapte", "nopți") + "\nOaspeți: " + guestsLabel(r) + "\n\n" +
     priceText(r) + "\n" +
+    "Sursa vizitei: " + (r.source || "necunoscută") + "\n" +
+    (r.notes && r.notes.length ? "DE VERIFICAT: " + r.notes.join("; ") + "\n" : "") + "\n" +
     "Răspunde direct la acest e-mail pentru a-i scrie oaspetelui.\n"
   );
 }
@@ -377,6 +511,10 @@ function stayCard(r) {
 
 // Tabel de preț: bază, reducere, total, taxe incluse
 function priceTable(r) {
+  if (r.priceUnconfirmed) {
+    return noteBox("<strong style=\"color:" + C.blueDark + ";\">Preț de confirmat.</strong> " +
+                   "Pentru aceste date nu există încă tarif publicat pe site; prețul îl comunicăm în răspunsul nostru.");
+  }
   var disc = r.rawTotal - r.total;
   var perNight = r.nights ? Math.round(r.total / r.nights) : r.total;
   function row(label, value, opts) {
@@ -442,6 +580,14 @@ function noteBox(html) {
   );
 }
 
+function warnBox(html) {
+  return (
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 22px;"><tr>' +
+      '<td bgcolor="' + C.yellowTint + '" style="background:' + C.yellowTint + ';border-left:4px solid ' + C.yellow + ';border-radius:0 8px 8px 0;padding:14px 16px;font-size:14px;line-height:21px;color:' + C.yellowInk + ';">' + html + '</td>' +
+    '</tr></table>'
+  );
+}
+
 function divider() {
   return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0;"><tr><td style="border-top:1px solid ' + C.line + ';font-size:0;line-height:0;">&nbsp;</td></tr></table>';
 }
@@ -502,7 +648,7 @@ function guestHtml(r) {
     );
 
   return layout(
-    "Am primit solicitarea ta pentru " + rangeShort(r.checkin, r.checkout) + " · " + plural(r.nights, "noapte", "nopți") + " · " + ron(r.total) + ". Revenim în cel mai scurt timp.",
+    "Am primit solicitarea ta pentru " + rangeShort(r.checkin, r.checkout) + " · " + plural(r.nights, "noapte", "nopți") + " · " + totalLabel(r) + ". Revenim în cel mai scurt timp.",
     inner
   );
 }
@@ -533,8 +679,11 @@ function ownerHtml(r, sheetUrl) {
       h1(esc(rangeShort(r.checkin, r.checkout))) +
       '<div style="font-size:15px;line-height:22px;color:' + C.gray + ';margin:-6px 0 22px;">' +
         plural(r.nights, "noapte", "nopți") + ' · ' + esc(guestsLabel(r)) + ' · ' +
-        '<strong style="color:' + C.blueDark + ';">' + esc(ron(r.total)) + '</strong>' +
+        '<strong style="color:' + C.blueDark + ';">' + esc(totalLabel(r)) + '</strong>' +
       '</div>' +
+      (r.notes && r.notes.length
+        ? warnBox('<strong>De verificat:</strong><br>' + r.notes.map(esc).join('<br>'))
+        : '') +
 
       sectionTitle("Oaspete") +
       '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ' + C.line + ';border-radius:10px;"><tr><td style="padding:14px 18px;">' +
@@ -554,14 +703,18 @@ function ownerHtml(r, sheetUrl) {
       stayCard(r) +
       spacer(28) +
 
-      sectionTitle("Preț calculat pe site") +
+      sectionTitle("Preț (recalculat din tarifele site-ului)") +
       priceTable(r) +
+      spacer(22) +
+
+      sectionTitle("Sursa vizitei") +
+      p(esc(r.source || "necunoscută"), "margin:0;") +
 
       divider() +
 
       sectionTitle("De făcut") +
       steps([
-        ["Verifică disponibilitatea", "Booking, Airbnb și Travelminit — calendarul site-ului se sincronizează din oră în oră."],
+        ["Verifică disponibilitatea", "Booking, Airbnb și Travelminit — calendarul site-ului se sincronizează automat de mai multe ori pe zi."],
         ["Confirmă oaspetelui", "Trimite confirmarea și detaliile de plată (plata integrală, nerambursabilă)."],
         ["Blochează datele", "După plată, închide perioada pe platforme ca să nu apară suprapuneri."]
       ]) +
@@ -576,20 +729,23 @@ function ownerHtml(r, sheetUrl) {
       '<a href="' + SITE_URL + '" target="_blank" style="color:' + C.yellow + ';text-decoration:none;font-weight:700;">site</a>.');
 
   return layout(
-    r.name + " · " + plural(r.nights, "noapte", "nopți") + " · " + guestsLabel(r) + " · " + ron(r.total),
+    r.name + " · " + plural(r.nights, "noapte", "nopți") + " · " + guestsLabel(r) + " · " + totalLabel(r),
     inner
   );
 }
 
 /* ============================== TEST ============================== */
 
-// Rulează o dată din editor (▶ Run) ca să acorzi permisiunile și să primești ambele e-mailuri de test.
+// Rulează o dată din editor (▶ Run) ca să acorzi permisiunile (inclusiv „conectare la un serviciu extern”,
+// pentru citirea pricing.json de pe site) și să primești ambele e-mailuri de test.
+// Valorile de mai jos corespund tarifului iarna-2026 (1250 RON/noapte, −15% la 3 nopți) → „Verificare: OK”.
 function testSolicitare() {
   var me = Session.getEffectiveUser().getEmail();
   var res = doPost({ postData: { contents: JSON.stringify({
     name: "Ana Popescu", phone: "0722 123 456", email: me,
     checkin: "2026-12-08", checkout: "2026-12-11", nights: 3, adults: 2, children: 1,
-    rawTotal: 3900, discountPct: 15, total: 3315, taxTourist: 42, taxSalvamont: 30
+    rawTotal: 3750, discountPct: 15, total: 3188, taxTourist: 42, taxSalvamont: 30,
+    source: "google / organic · gbp · rezervare", referrer: "www.google.com"
   }) } });
   console.log(res.getContent());
 }

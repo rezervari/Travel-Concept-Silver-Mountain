@@ -11,6 +11,34 @@
   var BOOKED_JSON = "booked-dates.json"; // generat periodic de update-calendar.js
   var PRICING_JSON = "pricing.json";     // tarife pe sezon + trepte de reducere
 
+  /* ---------- SURSA VIZITEI (UTM / referrer) — trimisă cu solicitarea, fără cookie-uri ---------- */
+  // Ex.: „google / organic · gbp · rezervare”, „referrer: www.facebook.com”, „direct”.
+  // Se păstrează în sessionStorage, ca o reîncărcare fără parametri să nu șteargă sursa.
+  var VISIT_SOURCE = captureVisitSource();
+
+  function captureVisitSource(){
+    var KEY = "a13_src";
+    function clean(v){ return String(v || "").replace(/[^\w.\-+ ]/g, "").trim().slice(0, 60); }
+    var q = new URLSearchParams(location.search);
+    var utm = ["utm_source","utm_medium","utm_campaign","utm_content"].map(function(k){ return clean(q.get(k)); });
+    var ref = "";
+    try{
+      var host = document.referrer ? new URL(document.referrer).hostname : "";
+      if(host && host !== location.hostname) ref = host;
+    }catch(e){}
+    var label = "direct";
+    if(utm[0]) label = utm[0] + (utm[1] ? " / " + utm[1] : "") + (utm[2] ? " · " + utm[2] : "") + (utm[3] ? " · " + utm[3] : "");
+    else if(q.get("gclid")) label = "google / cpc (gclid)";
+    else if(ref) label = "referrer: " + ref;
+    var current = { label: label, referrer: ref };
+    try{
+      if(label !== "direct"){ sessionStorage.setItem(KEY, JSON.stringify(current)); return current; }
+      var saved = JSON.parse(sessionStorage.getItem(KEY) || "null");
+      if(saved && saved.label) return saved;
+    }catch(e){}
+    return current;
+  }
+
   // Fallback defensiv daca pricing.json nu poate fi incarcat
   var FALLBACK_PRICING = {
     currency: "RON",
@@ -650,6 +678,7 @@
       adults: guests.adults, children: guests.children,
       rawTotal: stay.rawTotal, discountPct: stay.discountPct, total: stay.total,
       taxTourist: tx.tourist, taxSalvamont: tx.salvamont,
+      source: VISIT_SOURCE.label, referrer: VISIT_SOURCE.referrer,
       website: document.getElementById("fwebsite") ? document.getElementById("fwebsite").value : ""
     };
 
@@ -707,7 +736,8 @@
       "Total: " + p.total + " RON\n\n" +
       "Taxe incluse în total (doar adulți):\n" +
       "- Taxă turistică: " + TAX_TOURIST + " RON × " + p.adults + " × " + p.nights + " = " + p.taxTourist + " RON\n" +
-      "- Taxă Salvamont: " + TAX_SALVAMONT + " RON × " + p.adults + " × " + p.nights + " = " + p.taxSalvamont + " RON\n";
+      "- Taxă Salvamont: " + TAX_SALVAMONT + " RON × " + p.adults + " × " + p.nights + " = " + p.taxSalvamont + " RON\n\n" +
+      "Sursa vizitei: " + p.source + "\n";
 
     window.location.href = "mailto:" + CONTACT_EMAIL +
       "?subject=" + encodeURIComponent(subject) +
