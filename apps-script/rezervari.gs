@@ -168,7 +168,8 @@ function logRow(r, status) {
     // Foaie creată de versiunea veche (13 coloane): adaugă antetele noi la final.
     sh.getRange(1, 14, 1, SHEET_HEADERS.length - 13).setValues([SHEET_HEADERS.slice(13)]);
   }
-  sh.appendRow([new Date(), r.name, r.phone, r.email, r.checkin, r.checkout, r.nights,
+  // Telefonul se scrie ca text ("'"), altfel Sheets îl face număr și pierde 0-ul din față (0726… → 726…).
+  sh.appendRow([new Date(), r.name, "'" + r.phone, r.email, r.checkin, r.checkout, r.nights,
                 r.adults, r.children, r.rawTotal, r.discountPct, r.total, status,
                 r.source || "necunoscută", r.referrer, (r.notes || []).join("; ") || "OK"].map(safeCell));
   return ss.getUrl();
