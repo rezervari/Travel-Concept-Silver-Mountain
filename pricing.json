@@ -125,7 +125,7 @@
       "cancellation": "nerambursabil",
       "ota": {
         "booking": 1890,
-        "airbnb": 1700,
+        "airbnb": 1940,
         "travelminit": 1630
       }
     },
@@ -145,7 +145,7 @@
       "cancellation": "nerambursabil",
       "ota": {
         "booking": 2270,
-        "airbnb": 2040,
+        "airbnb": 2400,
         "travelminit": 1960
       }
     },
@@ -270,13 +270,15 @@
       }
     }
   ],
-  "generatedAt": "2026-10-22T11:15:24.586Z",
+  "generatedAt": "2026-10-22T12:43:32.559Z",
   "generatedFrom": "pricing/tarife.xlsx",
   "otaComparison": {
-    "checkedAt": "2026-10-21",
+    "checkedAt": "2026-10-22",
     "bookingMobileDiscount": 10,
     "bookingUsesSiteDiscounts": true,
-    "airbnbWeeklyDiscount": 33,
+    "airbnbUsesSiteDiscounts": true,
+    "travelminitUsesSiteDiscounts": true,
+    "airbnbWeeklyDiscount": 32,
     "airbnbMonthlyDiscount": 33
   }
 }
