@@ -10,6 +10,9 @@
   var BOOKING_ENDPOINT = "https://script.google.com/macros/s/AKfycbwdwQ-uHv0ZGgtc8yEBdIt-DV1OxBZg7Lu75PYILBTBHXUJ5E0dMIKL669JBf6p_c7L/exec";
   var BOOKED_JSON = "booked-dates.json"; // generat periodic de update-calendar.js
   var PRICING_JSON = "pricing.json";     // tarife pe sezon + trepte de reducere
+  // Statistici de trafic fără cookie-uri (Umami Cloud): Website ID din cloud.umami.is → Settings → Websites.
+  // Gol = fără statistici (scriptul Umami nu se încarcă, evenimentele se ignoră).
+  var UMAMI_WEBSITE_ID = "3cf7367d-db23-466c-81f8-e5c4e7942d28"; // cont Umami Cloud (regiune EU) al lui Mircea
 
   /* ---------- SURSA VIZITEI (UTM / referrer) — trimisă cu solicitarea, fără cookie-uri ---------- */
   // Ex.: „google / organic · gbp · rezervare”, „referrer: www.facebook.com”, „direct”.
@@ -38,6 +41,43 @@
     }catch(e){}
     return current;
   }
+
+  /* ---------- STATISTICI (Umami, fără cookie-uri) ---------- */
+  // Umami înregistrează singur vizitele și parametrii UTM; aici se adaugă doar evenimentele de conversie.
+  if(UMAMI_WEBSITE_ID){
+    var umamiScript = document.createElement("script");
+    umamiScript.src = "https://cloud.umami.is/script.js";
+    umamiScript.setAttribute("data-website-id", UMAMI_WEBSITE_ID);
+    umamiScript.setAttribute("data-domains", "rezervari.github.io"); // fără statistici din teste locale
+    document.head.appendChild(umamiScript);
+  }
+
+  // Fără date personale în evenimente: doar nopți, total, sursa vizitei, platforma, locul pe pagină.
+  function track(name, data){
+    try{
+      if(window.umami && typeof window.umami.track === "function") window.umami.track(name, data);
+    }catch(e){}
+  }
+
+  // Click-uri pe contact și pe linkurile spre platforme (inclusiv cele generate din JS, ex. recenziile).
+  // Faza de captură: rulează înaintea handlerelor care opresc propagarea (smooth-scroll, #footMail).
+  document.addEventListener("click", function(e){
+    var a = e.target.closest ? e.target.closest("a") : null;
+    if(!a) return;
+    var href = a.getAttribute("href") || "";
+    var loc = a.closest("footer") ? "footer" : a.closest("#recenzii") ? "recenzii" : a.closest("#harta") ? "harta" : "pagina";
+    if(a.id === "footMail") track("contact-email", { loc: loc });
+    else if(href.indexOf("tel:") === 0) track("contact-telefon", { loc: loc });
+    else if(href.indexOf("wa.me") >= 0) track("contact-whatsapp", { loc: loc });
+    else if(href.indexOf("writereview") >= 0) track("recenzie-google", { loc: loc });
+    else {
+      var platform = /booking\.com/.test(href) ? "booking"
+        : /airbnb\./.test(href) ? "airbnb"
+        : /travelminit\./.test(href) ? "travelminit"
+        : /maps\.app\.goo\.gl|google\.[a-z.]+\/maps/.test(href) ? "google-maps" : "";
+      if(platform) track("iesire-platforma", { platforma: platform, loc: loc });
+    }
+  }, true);
 
   // Fallback defensiv daca pricing.json nu poate fi incarcat
   var FALLBACK_PRICING = {
@@ -388,6 +428,10 @@
     renderCalendar();
 
     if(selection.checkin && selection.checkout){
+      var chosenNights = Math.round((selection.checkout - selection.checkin) / 86400000);
+      var minForStay = getMinNightsForDate(selection.checkin);
+      if(chosenNights < minForStay) track("sejur-minim-eroare", { nopti: chosenNights, minim: minForStay });
+      else track("date-alese", { nopti: chosenNights, total: computeStay(selection.checkin, selection.checkout).total });
       setTimeout(function(){
         closePopup();
         document.getElementById("rezervare").scrollIntoView({behavior:"smooth", block:"start"});
@@ -638,6 +682,7 @@
     if(!name || !phone || !email || !ciDate || !coDate){
       msgEl.textContent = "Completează toate câmpurile și alege datele din calendar pentru a trimite solicitarea.";
       msgEl.className = "form-msg show warn";
+      track("formular-incomplet", { faraDate: !ciDate || !coDate });
       return;
     }
     if(coDate <= ciDate){
@@ -702,9 +747,11 @@
           msgEl.textContent = "Mulțumim, " + name + "! Solicitarea a fost trimisă. Ți-am trimis o confirmare a primirii pe " + email + " și revenim cu un răspuns în cel mai scurt timp.";
           msgEl.className = "form-msg show ok";
           form.querySelectorAll("#fname, #fphone, #femail").forEach(function(el){ el.value = ""; });
+          track("solicitare-trimisa", { nopti: stay.nights, total: stay.total, sursa: VISIT_SOURCE.label });
         } else if(res && res.error === "rate_limit"){
           msgEl.textContent = "Am primit deja mai multe solicitări de la această adresă. Te rugăm să încerci din nou peste o oră sau să ne contactezi telefonic.";
           msgEl.className = "form-msg show warn";
+          track("solicitare-limita");
         } else {
           throw new Error((res && res.error) || "send_failed");
         }
@@ -720,6 +767,7 @@
   });
 
   function openMailto(p, msgEl, afterError){
+    track(afterError ? "solicitare-mailto-dupa-eroare" : "solicitare-mailto", { nopti: p.nights, total: p.total, sursa: p.source });
     var subject = "Solicitare rezervare A13 Travel Concept — " + p.checkin + " → " + p.checkout;
     var body =
       "Solicitare nouă de rezervare — A13 Travel Concept (Silver Mountain, Poiana Brașov)\n\n" +
