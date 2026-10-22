@@ -3,6 +3,12 @@
 # Apps Script-ul și scripturile de build rămân doar în repo (le folosesc workflow-urile).
 # Lista înlocuiește excluderile implicite Jekyll, de aceea node_modules/Gemfile/vendor sunt trecute explicit.
 # Orice fișier nou care NU e pentru vizitatori se adaugă aici.
+#
+# ATENȚIE: Jekyll compară intrările din `exclude` ca PREFIX: „pricing” exclude folderul pricing/
+# ȘI fișierul pricing.json. `include` are prioritate față de `exclude`, de aceea pricing.json
+# e trecut explicit acolo. Verifică după push: pricing.json trebuie să răspundă 200 pe live.
+include:
+  - pricing.json
 exclude:
   - CLAUDE.md
   - README.md
