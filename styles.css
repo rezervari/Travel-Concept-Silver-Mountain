@@ -662,7 +662,7 @@
   .cal-day.empty{visibility:hidden;cursor:default;}
   .cal-day.past{color:#707070;cursor:not-allowed;}
   .cal-day.booked{
-    background:#fbeaea;color:#c94545;text-decoration:line-through;cursor:not-allowed;
+    background:#fbeaea;color:#a83232;text-decoration:line-through;cursor:not-allowed;
   }
   /* prima zi a unei rezervari existente: jumatate libera (dimineata) / jumatate ocupata */
   .cal-day.booked.checkout-only{
@@ -1272,9 +1272,12 @@
   .reviews-tab.active{background:var(--blue-dark);border-color:var(--blue-dark);color:var(--white);}
 
   .reviews-slider-wrap{display:flex;align-items:stretch;gap:8px;}
+  /* scroll-padding = padding: primul card e deja aliniat, deci browserul nu derulează caruselul la încărcare.
+     Fără scroll-behavior:smooth aici (săgețile/punctele trimit behavior:"smooth" din JS): o derulare animată
+     la încărcare oprește măsurarea LCP în Chrome → PageSpeed mobil „NO_LCP”. */
   .reviews-track{
     display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;
-    scroll-behavior:smooth;padding:4px 4px 10px;flex:1;
+    scroll-padding-inline:4px;padding:4px 4px 10px;flex:1;
     -ms-overflow-style:none;scrollbar-width:none;
   }
   .reviews-track::-webkit-scrollbar{display:none;}

@@ -769,7 +769,8 @@
 
   function updateQuickContact(){
     var href = whatsappHref();
-    ["formWhatsApp", "mobileStickyWa"].forEach(function(id){
+    // Toate linkurile WhatsApp au același mesaj (și același nume accesibil) — Lighthouse: „Identical links have the same purpose”
+    ["formWhatsApp", "mobileStickyWa", "footWhatsApp"].forEach(function(id){
       var el = document.getElementById(id);
       if(el) el.href = href;
     });
@@ -1056,6 +1057,27 @@
       }
     }, true);
   });
+
+  /* ---------- FUNDALURI „ZONA” LA NEVOIE ----------
+   * Pozele de fundal din #zona (~270 KB, jumătate din pagină) sunt mult sub primul ecran:
+   * stilul din data-lazy-style se aplică abia când cardul se apropie de ecran. */
+  (function(){
+    var lazyBgs = document.querySelectorAll("[data-lazy-style]");
+    function applyBg(el){
+      el.setAttribute("style", el.getAttribute("data-lazy-style"));
+      el.removeAttribute("data-lazy-style");
+    }
+    if(!("IntersectionObserver" in window)){
+      Array.prototype.forEach.call(lazyBgs, applyBg);
+      return;
+    }
+    var bgObserver = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){ applyBg(entry.target); bgObserver.unobserve(entry.target); }
+      });
+    }, { rootMargin: "600px 0px" });
+    Array.prototype.forEach.call(lazyBgs, function(el){ bgObserver.observe(el); });
+  })();
 
   /* ---------- GALERIE FOTO ---------- */
   var GALLERY = [
