@@ -242,21 +242,31 @@
     return data.defaultPrice || FALLBACK_PRICING.defaultPrice;
   }
 
+  // Sezon cu reduceri pe durată. Cele de sărbători (Crăciun, Revelion) au toate pragurile 0%: nopțile lor rămân
+  // la preț întreg și când sejurul începe înainte (ca pe Booking și Travelminit). Aceeași regulă în rezervari.gs.
+  function seasonHasDiscounts(s){
+    return !s || !s.discountTiers || !s.discountTiers.length ||
+      s.discountTiers.some(function(t){ return t.discount > 0; });
+  }
+
   function computeStay(ciDate, coDate){
     var nights = Math.round((coDate - ciDate) / 86400000);
-    var rawTotal = 0;
+    var rawTotal = 0, discountable = 0, fullPriceNights = 0;
     var d = new Date(ciDate);
     while(d < coDate){
-      rawTotal += getNightPrice(d);
+      var price = getNightPrice(d);
+      rawTotal += price;
+      if(seasonHasDiscounts(getSeasonForDate(d))) discountable += price; else fullPriceNights++;
       d.setDate(d.getDate()+1);
     }
     var tiers = getDiscountTiers(ciDate);
     var pct = getDiscountPct(nights, tiers);
-    var total = Math.round(rawTotal * (100 - pct) / 100);
+    var total = Math.round(rawTotal - discountable + discountable * (100 - pct) / 100);
     return {
       nights: nights,
       rawTotal: rawTotal,
       discountPct: pct,
+      fullPriceNights: pct > 0 ? fullPriceNights : 0,
       total: total,
       avgPerNight: Math.round(rawTotal / nights),
       avgPerNightDiscounted: Math.round(total / nights)
@@ -265,29 +275,38 @@
 
   /* ---------- COMPARAȚIE CU PLATFORMELE (din pricing.json → otaComparison + seasons[].ota) ----------
    * Cel mai mic preț pentru același sejur pe platformele de rezervări, cu regulile lor:
-   * Booking = reducerile pe durată ale site-ului (dacă bookingUsesSiteDiscounts) + reducerea de mobil;
-   * Airbnb = reducere săptămânală (7+) / lunară (28+); Travelminit = fără reduceri.
+   * reducerile pe durată ale site-ului pe platformele care le aplică (…UsesSiteDiscounts, din foaia „Platforme”),
+   * fără nopțile de sărbători pe Booking/Travelminit; Booking + reducerea de mobil; Airbnb = reduceri globale.
    * null dacă lipsesc datele pentru vreo noapte. Pe site nu se numește nicio platformă în comparație. */
   function computeOtaMin(ci, co){
     var cfg = pricingData && pricingData.otaComparison;
     if(!cfg) return null;
     var nights = Math.round((co - ci) / 86400000);
-    var sums = { booking:0, airbnb:0, travelminit:0 };
+    var sums = { booking:{ all:0, disc:0 }, airbnb:{ all:0, disc:0 }, travelminit:{ all:0, disc:0 } };
     for(var d = new Date(ci); d < co; d.setDate(d.getDate() + 1)){
       var s = getSeasonForDate(d);
       if(!s || !s.ota) return null;
-      Object.keys(sums).forEach(function(k){ sums[k] += (typeof s.ota[k] === "number") ? s.ota[k] : NaN; });
+      var hasDisc = seasonHasDiscounts(s);
+      Object.keys(sums).forEach(function(k){
+        var v = (typeof s.ota[k] === "number") ? s.ota[k] : NaN;
+        sums[k].all += v;
+        if(hasDisc) sums[k].disc += v;
+      });
     }
+    var pct = getDiscountPct(nights, getDiscountTiers(ci));
+    function withLos(x, uses){ return uses ? x.all - x.disc + x.disc * (100 - pct) / 100 : x.all; }
     var candidates = [];
-    if(isFinite(sums.booking)){
-      var los = cfg.bookingUsesSiteDiscounts ? getDiscountPct(nights, getDiscountTiers(ci)) : 0;
-      candidates.push(sums.booking * (100 - los) / 100 * (100 - (cfg.bookingMobileDiscount || 0)) / 100);
+    if(isFinite(sums.booking.all)){
+      candidates.push(withLos(sums.booking, cfg.bookingUsesSiteDiscounts) * (100 - (cfg.bookingMobileDiscount || 0)) / 100);
     }
-    if(isFinite(sums.airbnb)){
-      var air = nights >= 28 ? (cfg.airbnbMonthlyDiscount || 0) : nights >= 7 ? (cfg.airbnbWeeklyDiscount || 0) : 0;
-      candidates.push(sums.airbnb * (100 - air) / 100);
+    if(isFinite(sums.airbnb.all)){
+      // Reducerile Airbnb sunt globale (și pe sărbători): săptămânal (7+) / lunar (28+), iar 2–6 nopți = „Trip length”
+      // cu scara implicită a site-ului (prețurile de sărbători de pe Airbnb sunt ridicate ca să compenseze).
+      var air = nights >= 28 ? (cfg.airbnbMonthlyDiscount || 0) : nights >= 7 ? (cfg.airbnbWeeklyDiscount || 0)
+        : cfg.airbnbUsesSiteDiscounts ? getDiscountPct(nights, (pricingData && pricingData.defaultDiscountTiers) || FALLBACK_PRICING.defaultDiscountTiers) : 0;
+      candidates.push(sums.airbnb.all * (100 - air) / 100);
     }
-    if(isFinite(sums.travelminit)) candidates.push(sums.travelminit);
+    if(isFinite(sums.travelminit.all)) candidates.push(withLos(sums.travelminit, cfg.travelminitUsesSiteDiscounts));
     return candidates.length ? Math.min.apply(null, candidates) : null;
   }
 
@@ -816,7 +835,8 @@
 
     if(stay.discountPct > 0){
       rows +=
-        '<div class="discount-badge">🎉 Reducere -' + stay.discountPct + '% pentru ' + stay.nights + ' nopți</div>' +
+        '<div class="discount-badge">🎉 Reducere -' + stay.discountPct + '% pentru ' + stay.nights + ' nopți' +
+          (stay.fullPriceNights ? ' (fără ' + (stay.fullPriceNights === 1 ? 'noaptea' : 'cele ' + stay.fullPriceNights + ' nopți') + ' de sărbători)' : '') + '</div>' +
         '<div class="summary-row"><span>' + stay.nights + ' nopți × ' + stay.avgPerNight + ' RON</span><span class="price-strike">' + stay.rawTotal + ' RON</span></div>' +
         '<div class="summary-row"><span>Preț cu reducere</span><span>' + stay.total + ' RON</span></div>';
     } else {

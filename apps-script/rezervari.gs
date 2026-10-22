@@ -205,10 +205,13 @@ function verifyStay(r) {
   if (!pricing) {
     notes.push("pricing.json indisponibil — prețul trimis de site nu a putut fi verificat");
   } else {
-    var raw = 0, unpriced = [];
+    var raw = 0, discountable = 0, unpriced = [];
     for (var i = 0; i < nights; i++) {
       var day = addDays(r.checkin, i), s = seasonFor(pricing, day);
-      if (s && typeof s.price === "number") raw += s.price; else unpriced.push(day);
+      if (s && typeof s.price === "number") {
+        raw += s.price;
+        if (seasonHasDiscounts(s)) discountable += s.price;
+      } else unpriced.push(day);
     }
     if (unpriced.length) {
       notes.push("Nopți fără tarif definit: " + unpriced.join(", "));
@@ -218,7 +221,7 @@ function verifyStay(r) {
       var tiers = (first && first.discountTiers && first.discountTiers.length) ? first.discountTiers : (pricing.defaultDiscountTiers || []);
       var pct = 0;
       tiers.forEach(function (t) { if (nights >= t.minNights && t.discount > pct) pct = t.discount; });
-      var total = Math.round(raw * (100 - pct) / 100);
+      var total = Math.round(raw - discountable + discountable * (100 - pct) / 100);
       r.baseTotal = total; // tariful nerambursabil
       if (r.rate === "flexibil") {
         if (flexAllowed(pricing, r.checkin, nights)) {
@@ -265,6 +268,13 @@ function flexAllowed(pricing, checkin, nights) {
     if (!s || !seasonIsFlexible(s)) return false;
   }
   return true;
+}
+
+// Nopțile din sezoanele fără reduceri pe durată (Crăciun, Revelion: toate pragurile 0%) rămân la preț întreg,
+// chiar dacă sejurul începe înainte de ele (aceeași regulă ca seasonHasDiscounts din script.js).
+function seasonHasDiscounts(s) {
+  return !s.discountTiers || !s.discountTiers.length ||
+    s.discountTiers.some(function (t) { return t.discount > 0; });
 }
 
 function seasonIsFlexible(s) {

@@ -238,7 +238,7 @@ function readOtaComparison(workbook, seasons){
   if(!matched) return null;
 
   // Reguli din foaia „Platforme” (coloanele: Setare | Site direct | Booking.com | Airbnb | Travelminit)
-  var rules = { bookingMobileDiscount: 0, bookingUsesSiteDiscounts: true, airbnbWeeklyDiscount: 0, airbnbMonthlyDiscount: 0 };
+  var rules = { bookingMobileDiscount: 0, bookingUsesSiteDiscounts: true, airbnbUsesSiteDiscounts: false, travelminitUsesSiteDiscounts: false, airbnbWeeklyDiscount: 0, airbnbMonthlyDiscount: 0 };
   var platSheet = findSheet(workbook, "Platforme");
   if(platSheet){
     var pr = XLSX.utils.sheet_to_json(platSheet, { header: 1, raw: true, defval: null });
@@ -246,7 +246,11 @@ function readOtaComparison(workbook, seasons){
     pr.forEach(function(r){
       var label = headerKey(r[0]);
       if(label.indexOf("reducere automata a platformei") === 0) rules.bookingMobileDiscount = pct(r[2]);
-      else if(label.indexOf("aplica reducerile pe durata") === 0) rules.bookingUsesSiteDiscounts = Number(r[2]) === 1;
+      else if(label.indexOf("aplica reducerile pe durata") === 0){
+        rules.bookingUsesSiteDiscounts = Number(r[2]) === 1;
+        rules.airbnbUsesSiteDiscounts = Number(r[3]) === 1;
+        rules.travelminitUsesSiteDiscounts = Number(r[4]) === 1;
+      }
       else if(label.indexOf("reducere saptamanala") === 0) rules.airbnbWeeklyDiscount = pct(r[1]);
       else if(label.indexOf("reducere lunara") === 0) rules.airbnbMonthlyDiscount = pct(r[1]);
     });
@@ -269,6 +273,8 @@ function readOtaComparison(workbook, seasons){
     checkedAt: checkedAt,
     bookingMobileDiscount: rules.bookingMobileDiscount,
     bookingUsesSiteDiscounts: rules.bookingUsesSiteDiscounts,
+    airbnbUsesSiteDiscounts: rules.airbnbUsesSiteDiscounts,
+    travelminitUsesSiteDiscounts: rules.travelminitUsesSiteDiscounts,
     airbnbWeeklyDiscount: rules.airbnbWeeklyDiscount,
     airbnbMonthlyDiscount: rules.airbnbMonthlyDiscount
   };
