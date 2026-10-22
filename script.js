@@ -274,11 +274,11 @@
   }
 
   /* ---------- COMPARAȚIE CU PLATFORMELE (din pricing.json → otaComparison + seasons[].ota) ----------
-   * Cel mai mic preț pentru același sejur pe platformele de rezervări, cu regulile lor:
+   * Cel mai mic și cel mai mare preț pentru același sejur pe platformele de rezervări, cu regulile lor:
    * reducerile pe durată ale site-ului pe platformele care le aplică (…UsesSiteDiscounts, din foaia „Platforme”),
    * fără nopțile de sărbători pe Booking/Travelminit; Booking + reducerea de mobil; Airbnb = reduceri globale.
-   * null dacă lipsesc datele pentru vreo noapte. Pe site nu se numește nicio platformă în comparație. */
-  function computeOtaMin(ci, co){
+   * { min, max } sau null dacă lipsesc datele pentru vreo noapte. Pe site nu se numește nicio platformă în comparație. */
+  function computeOtaRange(ci, co){
     var cfg = pricingData && pricingData.otaComparison;
     if(!cfg) return null;
     var nights = Math.round((co - ci) / 86400000);
@@ -307,21 +307,30 @@
       candidates.push(sums.airbnb.all * (100 - air) / 100);
     }
     if(isFinite(sums.travelminit.all)) candidates.push(withLos(sums.travelminit, cfg.travelminitUsesSiteDiscounts));
-    return candidates.length ? Math.min.apply(null, candidates) : null;
+    return candidates.length ? { min: Math.min.apply(null, candidates), max: Math.max.apply(null, candidates) } : null;
   }
 
-  // Economia afișată: rotunjită prudent (în jos, la 10 RON); afișată doar dacă e de cel puțin 50 RON.
+  // Economia afișată: față de cea mai ieftină și cea mai scumpă platformă, rotunjită prudent (în jos, la 10 RON);
+  // afișată doar dacă direct e mai ieftin decât TOATE platformele cu cel puțin 50 RON.
   function getDirectSaving(ci, co, siteTotal){
-    var ota = computeOtaMin(ci, co);
+    var ota = computeOtaRange(ci, co);
     if(ota === null) return null;
-    var saving = Math.floor((ota - siteTotal) / 10) * 10;
+    var saving = Math.floor((ota.min - siteTotal) / 10) * 10;
     if(saving < 50) return null;
+    var savingMax = Math.floor((ota.max - siteTotal) / 10) * 10;
     var checked = pricingData.otaComparison.checkedAt;
     return {
-      otaFrom: Math.round(ota / 10) * 10,
+      otaFrom: Math.round(ota.min / 10) * 10,
+      otaTo: Math.round(ota.max / 10) * 10,
       saving: saving,
+      savingMax: savingMax,
+      isRange: savingMax - saving >= 20,
       checkedAt: checked ? checked.split("-").reverse().join(".") : ""
     };
+  }
+  // „între 60 și 420 RON” sau „~60 RON” când platformele au practic același preț
+  function savingAmountText(direct){
+    return direct.isRange ? 'între ' + direct.saving + ' și ' + direct.savingMax + '\u00a0RON' : '~' + direct.saving + '\u00a0RON';
   }
 
   function renderTeaserPrice(){
@@ -780,7 +789,7 @@
                '<span class="form-total-sum">Total ' + validTotal + ' RON</span>' +
                '<span class="form-total-note">taxe locale incluse' + (stay.discountPct > 0 ? ' · reducere −' + stay.discountPct + '%' : '') +
                ' · tarif ' + (rate === "flexibil" ? 'flexibil' : 'nerambursabil') + '</span>' +
-               (direct ? '<span class="form-total-save">Direct economisești ~' + direct.saving + ' RON față de platformele de rezervări</span>' : '');
+               (direct ? '<span class="form-total-save"><span>Direct economisești</span> <strong>' + savingAmountText(direct) + '</strong> <span>față de platformele de rezervări</span></span>' : '');
       }
     }
     // Pe mobil rezumatul e sub formular: totalul apare și chiar deasupra politicii și a butonului.
@@ -854,8 +863,10 @@
     if(direct){
       rows +=
         '<div class="summary-save">' +
-          '<strong>Direct economisești ~' + direct.saving + ' RON</strong>' +
-          '<span>Pe platformele de rezervări online, același sejur costă de la ~' + direct.otaFrom + ' RON.</span>' +
+          '<span class="summary-save-label">Direct economisești</span>' +
+          '<strong>' + savingAmountText(direct) + '</strong>' +
+          '<span>față de platformele de rezervări online, unde același sejur costă ' +
+            (direct.isRange ? 'între ~' + direct.otaFrom + ' și ~' + direct.otaTo : 'de la ~' + direct.otaFrom) + '\u00a0RON.</span>' +
           '<small>Prețuri verificate' + (direct.checkedAt ? ' la ' + direct.checkedAt : '') + ', cu reducerile automate ale platformelor (inclusiv pentru mobil). ' +
           (rate === "flexibil"
             ? 'Tariful direct ales are anulare gratuită până pe ' + fmtDate(flexDeadline(ci)) + '.'
