@@ -1,0 +1,23 @@
+# Configurare GitHub Pages (Jekyll).
+# Publică doar fișierele site-ului. Documentația internă, Excel-ul de tarife,
+# Apps Script-ul și scripturile de build rămân doar în repo (le folosesc workflow-urile).
+# Lista înlocuiește excluderile implicite Jekyll, de aceea node_modules/Gemfile/vendor sunt trecute explicit.
+# Orice fișier nou care NU e pentru vizitatori se adaugă aici.
+exclude:
+  - CLAUDE.md
+  - README.md
+  - RECENZII-README.md
+  - apps-script
+  - pricing
+  - ask-gemini.js
+  - update-google-reviews.js
+  - optimize-images.cjs
+  - update-calendar.cjs
+  - update-pricing.cjs
+  - update-schema.cjs
+  - package.json
+  - package-lock.json
+  - node_modules
+  - Gemfile
+  - Gemfile.lock
+  - vendor
