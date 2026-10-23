@@ -34,7 +34,7 @@ var CI_ICS_PROPERTY = "ICS_BOOKING";
 var CI_PROCESSED_PROPERTY = "CI_PROCESSED_MESSAGES"; // ID-urile e-mailurilor Booking deja citite
 var CI_PROCESSED_MAX = 300;
 var CI_LOG_MAX_ROWS = 1000;
-var CI_REQUEST_STATUSES = ["Nouă", "De verificat", "Fără e-mail (cotă)", "Confirmată", "Anulată"];
+var CI_REQUEST_STATUSES = ["Nouă", "De verificat", "Fără e-mail (cotă)", "Așteaptă plata", "Confirmată", "Anulată"];
 var CI_LUNI = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie", "iulie", "august",
                "septembrie", "octombrie", "noiembrie", "decembrie"];
 
@@ -71,9 +71,13 @@ function checkinSync() {
     var ctx = ciOpen();
     ciProcessBookingEmails(ctx);
     ciSyncSiteRequests(ctx);
+    if (typeof calSync === "function") {   // calendar.gs: blocările temporare „Așteaptă plata” + suprapuneri
+      try { calSync(ctx); } catch (e) { ciStepError(ctx, "calendar", String(e && e.message || e).slice(0, 300)); }
+    }
     ciCheckBookingCalendar(ctx);
     ciArrivals(ctx);
     ciSave(ctx);
+    PropertiesService.getScriptProperties().setProperty("CI_LAST_RUN", String(ctx.now));   // pentru panou.gs
     console.log("Rezervări: " + ctx.active.rows.length + ", anulate: " + ctx.cancelled.rows.length +
                 ", evenimente noi: " + ctx.events.length);
   } finally {

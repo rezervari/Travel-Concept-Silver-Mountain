@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<base target="_blank">
+<meta charset="utf-8">
+<meta name="theme-color" content="#003580">
+<style>
+:root{
+  --bg:#f5f5f5;--card:#fff;--ink:#262626;--muted:#6b6b6b;--line:#e7e7e7;--soft:#f7f7f7;
+  --head:#003580;--blue:#0071c2;--blue-tint:#eef5fc;--yellow:#febb02;--yellow-tint:#fff6d9;--yellow-ink:#7a5800;
+  --green:#008009;--green-tint:#e9f6ea;--red:#b42318;--red-tint:#fdeceb;--gray-tint:#efefef;
+  --c-booking:#dce8f7;--c-booking-ink:#003580;--c-airbnb:#fde3e6;--c-airbnb-ink:#a3123a;--c-tm:#dff3ec;--c-tm-ink:#0b6b4f;
+  --c-site:#ffefb8;--c-site-ink:#6b4d00;--c-block:#d6d6d6;--c-block2:#ececec;--c-hold:#fff3d6;
+  --radius:12px;--font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0f1115;--card:#181b21;--ink:#e8e8e8;--muted:#a3a7ae;--line:#2b3038;--soft:#1f232a;
+    --head:#0b2a5c;--blue:#5aa9ff;--blue-tint:#15263d;--yellow-tint:#3a2f0c;--yellow-ink:#f5cf6b;
+    --green:#5fcf6a;--green-tint:#13301a;--red:#ff8a80;--red-tint:#3a1715;--gray-tint:#262a31;
+    --c-booking:#17325a;--c-booking-ink:#bcd6ff;--c-airbnb:#4a1823;--c-airbnb-ink:#ffc2cf;--c-tm:#123b30;--c-tm-ink:#a8ecd6;
+    --c-site:#4a3b0c;--c-site-ink:#ffe08a;--c-block:#3a3f47;--c-block2:#2c3037;--c-hold:#3d300c;color-scheme:dark}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 var(--font);-webkit-text-size-adjust:100%}
+a{color:var(--blue);text-decoration:none}
+button{font:inherit;color:inherit}
+svg.i{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
+.top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 16px;background:var(--head);color:#fff}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.mark{display:grid;place-items:center;width:36px;height:36px;border-radius:9px;background:var(--yellow);color:#003580;font-weight:700;font-size:13px}
+.brand b{display:block;font-size:16px}
+.brand small{display:block;color:#cfe0f5;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-actions{display:flex;gap:8px}
+.tbtn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:9px;border:1px solid rgba(255,255,255,.35);
+  background:transparent;color:#fff;cursor:pointer}
+.tbtn:hover{background:rgba(255,255,255,.12)}
+.tbtn[disabled]{opacity:.6;cursor:default}
+.tbtn.icon{width:36px;padding:0;justify-content:center}
+.spin svg.i{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+main{max-width:1440px;margin:0 auto;padding:16px 16px 96px}
+.now-bar{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line);margin-bottom:12px}
+.now-bar .dot{width:10px;height:10px;border-radius:50%;background:var(--green);flex:none}
+.now-bar.free .dot{background:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.kpi{display:block;text-align:left;padding:12px 14px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line);cursor:pointer}
+.kpi span{display:block;color:var(--muted);font-size:12.5px}
+.kpi b{display:block;font-size:24px;font-weight:600;line-height:1.25}
+.kpi.hot b{color:#b25e00}
+.kpi.bad b{color:var(--red)}
+@media (prefers-color-scheme:dark){.kpi.hot b{color:var(--yellow)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:16px}
+.card>h2{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:17px}
+.card h3.sub{margin:18px 0 8px;font-size:14px;color:var(--muted);font-weight:600}
+.count{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--gray-tint);color:var(--muted);font-size:12px;font-weight:600}
+.count.hot{background:var(--yellow);color:#003580}
+.empty{display:flex;align-items:center;gap:8px;color:var(--muted);padding:6px 2px}
+.empty svg.i{color:var(--green)}
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:6px 12px;border-radius:9px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);cursor:pointer;font-size:14px;white-space:nowrap}
+.btn:hover{border-color:var(--blue)}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.ghost{background:transparent}
+.btn.wa svg.i{color:#1f9e4f}
+.row-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+/* De făcut */
+.todo{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--card)}
+.todo.high{border-color:#f1c75a;background:var(--yellow-tint)}
+.todo.alert{border-color:#f0a9a3;background:var(--red-tint)}
+.todo-head{display:flex;gap:10px}
+.todo-head .ic{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:var(--card);flex:none;color:var(--blue)}
+.todo.high .ic{color:#b25e00}
+.todo.alert .ic{color:var(--red)}
+.todo h3{margin:0;font-size:15px}
+.todo p{margin:2px 0 0;color:var(--muted);font-size:13.5px}
+.copy{margin-top:10px;border:1px solid var(--line);border-radius:9px;background:var(--card);overflow:hidden}
+.copy-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 6px 6px 10px;border-bottom:1px solid var(--line)}
+.copy-head span{font-size:12.5px;color:var(--muted);font-weight:600}
+.copy-text{padding:10px;font-size:13.5px;white-space:pre-wrap;word-break:break-word;-webkit-user-select:all;user-select:all}
+.btn-copy{min-height:32px;padding:4px 10px;font-size:13px}
+.btn-copy.ok{border-color:var(--green);color:var(--green)}
+/* Sejururi */
+.stay{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.stay.arriving,.stay.inhouse,.stay.departing{border-color:var(--blue);box-shadow:inset 3px 0 0 var(--blue)}
+.stay-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:12.5px}
+.badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;background:var(--gray-tint);color:var(--muted)}
+.badge.booking{background:var(--blue-tint);color:var(--blue)}
+.badge.site{background:var(--yellow-tint);color:var(--yellow-ink)}
+.badge.phase{background:transparent;padding:0;color:var(--ink)}
+.badge.ok{background:var(--green-tint);color:var(--green)}
+.badge.warn{background:var(--yellow-tint);color:var(--yellow-ink)}
+.badge.bad{background:var(--red-tint);color:var(--red)}
+.stay .nr{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums}
+.stay-dates{margin:6px 0 2px;font-size:16px}
+.stay-dates b{font-weight:600}
+.stay-who{color:var(--muted);font-size:13.5px}
+.state-warn{margin-top:8px;padding:6px 10px;border-radius:8px;background:var(--yellow-tint);color:var(--yellow-ink);font-size:13px}
+.steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:12px 0 4px;padding:0;list-style:none}
+.step{position:relative;text-align:center;font-size:11.5px;color:var(--muted);padding:0 2px}
+.step::before{content:"";position:absolute;top:10px;left:-50%;width:100%;height:2px;background:var(--line);z-index:0}
+.step:first-child::before{display:none}
+.step .dt{position:relative;z-index:1;display:grid;place-items:center;width:22px;height:22px;margin:0 auto 4px;border-radius:50%;
+  border:2px solid var(--line);background:var(--card);font-size:11px;font-weight:700}
+.step.st-done .dt{background:var(--green);border-color:var(--green);color:#fff}
+.step.st-done::before{background:var(--green)}
+.step.st-warn .dt{background:var(--yellow);border-color:var(--yellow);color:#003580}
+.step.st-done,.step.st-warn{color:var(--ink)}
+.step small{display:block;color:var(--muted);font-size:10.5px}
+.code-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:9px;background:var(--soft);font-size:13.5px}
+.code-line b{font-size:16px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
+.notes{margin-top:8px;color:var(--muted);font-size:12.5px}
+details.past{margin-top:6px}
+details.past summary{cursor:pointer;color:var(--muted);font-size:13.5px;padding:6px 0}
+/* Solicitări */
+.req{border-top:1px solid var(--line);padding:12px 0}
+.req:first-child{border-top:0;padding-top:0}
+.req-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.req-top b{font-size:15px}
+.req-top time{margin-left:auto;color:var(--muted);font-size:12.5px}
+.req .meta{color:var(--muted);font-size:13.5px;margin-top:2px}
+.mini{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13.5px}
+.mini:first-child{border-top:0}
+.mini span{color:var(--muted)}
+/* Jurnal */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip{height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:13px}
+.chip.on{background:var(--head);border-color:var(--head);color:#fff}
+.ev{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.ev:first-child{border-top:0}
+.ev .cat{width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--blue)}
+.ev .cat.site{background:var(--yellow)}
+.ev .cat.form{background:#7c5cd6}
+.ev .cat.code{background:var(--green)}
+.ev .cat.err{background:var(--red)}
+.ev-top{display:flex;gap:8px;align-items:baseline}
+.ev-top b{font-weight:600;font-size:14px}
+.ev-top time{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+.ev .det{color:var(--muted);font-size:13px;word-break:break-word}
+.ev .nrlink{border:0;background:none;padding:0;color:var(--blue);cursor:pointer;font-size:12.5px}
+.more{width:100%;margin-top:8px;justify-content:center}
+/* Sistem */
+.sys{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.sys:first-child{border-top:0;padding-top:0}
+.sys .dot{width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--green)}
+.sys .dot.warn{background:var(--yellow)}
+.sys .dot.bad{background:var(--red)}
+.sys .dot.off{background:var(--muted)}
+.sys b{display:block;font-size:14px}
+.sys span{display:block;color:var(--muted);font-size:13px}
+.codes{margin-top:6px;font-size:13px}
+.codes div{display:flex;justify-content:space-between;gap:8px;padding:3px 0}
+.codes code{font:600 13px/1.4 ui-monospace,Consolas,monospace;letter-spacing:.05em}
+.links{display:flex;flex-wrap:wrap;gap:8px}
+/* Calendar */
+.cal-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px}
+.cal-bar .grow{flex:1}
+.cal-hint{padding:8px 12px;border-radius:9px;background:var(--blue-tint);color:var(--blue);font-size:13.5px;margin-bottom:10px}
+.months{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
+.month h3{margin:0 0 8px;font-size:15px}
+.grid7{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.wd{text-align:center;font-size:11px;color:var(--muted);padding-bottom:2px}
+.night{position:relative;min-height:46px;padding:3px 4px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+  text-align:left;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;font-size:12.5px;line-height:1.15}
+.night .n{font-weight:600}
+.night .p{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden}
+.night .t{font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden}
+.night.past{opacity:.45}
+.night.today{outline:2px solid var(--blue);outline-offset:-2px}
+.night.nos .p{color:var(--red)}
+.c-booking{background:var(--c-booking);border-color:transparent;color:var(--c-booking-ink)}
+.c-airbnb{background:var(--c-airbnb);border-color:transparent;color:var(--c-airbnb-ink)}
+.c-travelminit{background:var(--c-tm);border-color:transparent;color:var(--c-tm-ink)}
+.c-site{background:var(--c-site);border-color:transparent;color:var(--c-site-ink)}
+.c-block{background:repeating-linear-gradient(135deg,var(--c-block) 0 6px,var(--c-block2) 6px 12px);border-color:transparent}
+.c-hold{background:var(--c-hold);border:1px dashed #c98a00;color:var(--yellow-ink)}
+.c-closed{background:var(--gray-tint);border-color:transparent;color:var(--muted)}
+.night.c-booking,.night.c-airbnb,.night.c-travelminit,.night.c-site,.night.c-closed{border-color:transparent}
+.night.first{box-shadow:inset 3px 0 0 rgba(0,0,0,.35)}
+.night.clash{outline:2px solid var(--red);outline-offset:-2px}
+.night.sel{outline:3px solid var(--blue);outline-offset:-3px}
+.night.pick{outline:2px solid var(--ink);outline-offset:-2px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:12px;font-size:12px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:4px;border:1px solid var(--line)}
+.cal-detail{margin-top:14px;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--soft)}
+.cal-detail h4{margin:0 0 4px;font-size:15px}
+.cal-detail .meta{color:var(--muted);font-size:13px}
+.cal-ev{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}
+.cal-ev:first-of-type{border-top:0}
+.cal-ev .dot{width:12px;height:12px;border-radius:3px;flex:none}
+.cal-ev .grow{flex:1;min-width:140px}
+.cal-ev small{display:block;color:var(--muted)}
+.cal-warn{margin:8px 0;padding:8px 10px;border-radius:8px;background:var(--red-tint);color:var(--red);font-size:13px}
+.field{width:100%;height:40px;margin:8px 0;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:16px}
+.btn.arm{background:var(--red);border-color:var(--red);color:#fff}
+.btn.st-confirm{border-color:var(--green);color:var(--green)}
+/* Bara de jos (telefon) */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);
+  background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 10px;border:0;background:none;color:var(--muted);font-size:11.5px;cursor:pointer}
+.tab svg.i{width:22px;height:22px}
+.tab.on{color:var(--blue)}
+.tab .count{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;font-size:11px;background:var(--yellow);color:#003580}
+body[data-tab="home"] [data-tab]:not([data-tab~="home"]),
+body[data-tab="req"] [data-tab]:not([data-tab~="req"]),
+body[data-tab="log"] [data-tab]:not([data-tab~="log"]),
+body[data-tab="sys"] [data-tab]:not([data-tab~="sys"]),
+body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:30;max-width:calc(100% - 32px);padding:10px 16px;border-radius:10px;
+  background:#262626;color:#fff;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.on{opacity:1}
+@media (max-width:420px){.top-actions .tbtn span{display:none}.tbtn.sync{width:36px;padding:0;justify-content:center}}
+/* Laptop: două coloane, fără bara de jos */
+@media (min-width:1000px){
+  html,body{font-size:14.5px}
+  main{padding:20px 24px 32px}
+  .tabs{display:none}
+  body[data-tab] [data-tab]{display:block!important}
+  body[data-tab] .kpis[data-tab]{display:grid!important}
+  body[data-tab] .now-bar[data-tab]{display:flex!important}
+  .kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .months{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .night{min-height:52px}
+  .cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px;align-items:start}
+  .side{position:sticky;top:76px;max-height:calc(100vh - 92px);overflow:auto;padding-right:2px}
+  .toast{bottom:24px}
+}
+</style>
+</head>
+<body data-tab="home">
+<header class="top">
+  <div class="brand"><span class="mark">A13</span><div><b>Panou</b><small id="updated">…</small></div></div>
+  <div class="top-actions">
+    <button class="tbtn icon" id="btnRefresh" type="button" aria-label="Reîncarcă datele" title="Reîncarcă datele"></button>
+    <button class="tbtn sync" id="btnSync" type="button" title="Rulează acum sincronizarea (Booking, site, fișe, coduri)"></button>
+  </div>
+</header>
+
+<main>
+  <div class="now-bar" id="nowBar" data-tab="home"></div>
+  <div class="kpis" id="kpis" data-tab="home"></div>
+  <div class="cols">
+    <div class="primary">
+      <section class="card" data-tab="home" id="secTodo"><h2>De făcut <span class="count" id="todoCount"></span></h2><div id="todo"></div></section>
+      <section class="card" data-tab="cal" id="secCal"><h2>Calendar</h2><div id="cal"></div></section>
+      <section class="card" data-tab="home" id="secStays"><h2>Sejururi</h2><div id="stays"></div></section>
+      <section class="card" data-tab="req" id="secReq"><h2>Solicitări de pe site</h2><div id="requests"></div>
+        <h3 class="sub">Anulate recent</h3><div id="cancelled"></div></section>
+    </div>
+    <div class="side">
+      <section class="card" data-tab="sys" id="secSys"><h2>Sistem</h2><div id="system"></div></section>
+      <section class="card" data-tab="log" id="secLog"><h2>Jurnal</h2><div class="chips" id="logChips"></div><div id="log"></div></section>
+    </div>
+  </div>
+</main>
+
+<nav class="tabs" id="tabs"></nav>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>var INITIAL = <?!= data ?>;</script>
+<script>
+(function () {
+  "use strict";
+  var TZ = "Europe/Bucharest";
+  var LUNI = ["ian.", "feb.", "mar.", "apr.", "mai", "iun.", "iul.", "aug.", "sept.", "oct.", "nov.", "dec."];
+  var ZILE = ["dum.", "lun.", "mar.", "mie.", "joi", "vin.", "sâm."];
+  var P = {
+    refresh: '<path d="M20 11a8.1 8.1 0 0 0-15.5-2m-.5-4v4h4"/><path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>',
+    sync: '<path d="M7 10h14l-4-4"/><path d="M17 14H3l4 4"/>',
+    check: '<path d="M5 12l5 5l10-10"/>',
+    copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>',
+    alert: '<path d="M12 9v4"/><path d="M10.4 3.6l-8.1 13.5a1.9 1.9 0 0 0 1.6 2.9h16.2a1.9 1.9 0 0 0 1.6-2.9l-8.1-13.5a1.9 1.9 0 0 0-3.2 0z"/><path d="M12 16h.01"/>',
+    chat: '<path d="M8 9h8"/><path d="M8 13h6"/><path d="M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3h12z"/>',
+    site: '<circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8M3.6 15h16.8"/><path d="M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18"/>',
+    key: '<circle cx="8" cy="15" r="4"/><path d="M10.85 12.15L19 4"/><path d="M18 5l2 2"/><path d="M15 8l2 2"/>',
+    home: '<path d="M5 12H3l9-9l9 9h-2"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/><path d="M9 21v-6a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v6"/>',
+    inbox: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 13h3l3 3h4l3-3h3"/>',
+    list: '<path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01"/>',
+    pulse: '<path d="M3 12h4l3 8l4-16l3 8h4"/>',
+    phone: '<path d="M5 4h4l2 5l-2.5 1.5a11 11 0 0 0 5 5l1.5-2.5l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+    wa: '<path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21"/><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6l9-6"/>',
+    ext: '<path d="M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/><path d="M11 13l9-9"/><path d="M15 4h5v5"/>',
+    history: '<path d="M12 8v4l2 2"/><path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5"/>',
+    sheet: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M4 15h16M10 3v18"/>',
+    eye: '<path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0-4 0"/><path d="M21 12c-2.4 4-5.4 6-9 6s-6.6-2-9-6c2.4-4 5.4-6 9-6s6.6 2 9 6"/>',
+    door: '<path d="M14 12v.01"/><path d="M3 21h18"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/>',
+    cal: '<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16"/>',
+    lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/>',
+    unlock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/>',
+    left: '<path d="M15 6l-6 6l6 6"/>',
+    right: '<path d="M9 6l6 6l-6 6"/>',
+    x: '<path d="M18 6L6 18M6 6l12 12"/>'
+  };
+  function ic(name) { return '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' + (P[name] || "") + "</svg>"; }
+
+  var S = { data: INITIAL, tab: "home", logCat: "all", logNr: "", logLimit: 40, busy: false, showCodes: false, loadedAt: Date.now(),
+            calMonth: "", calMode: "", calFirst: "", calLast: "", calPick: "", calReason: "" };
+  try { S.tab = sessionStorage.getItem("pn-tab") || "home"; } catch (e) {}
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function dayKey(ms) { return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(ms)); }
+  function hm(ms) { return new Intl.DateTimeFormat("ro-RO", { timeZone: TZ, hour: "2-digit", minute: "2-digit" }).format(new Date(ms)); }
+  function isoParts(iso) { var p = String(iso).split("-").map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])); }
+  function dShort(iso) { if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return "—"; var d = isoParts(iso); return ZILE[d.getUTCDay()] + " " + d.getUTCDate() + " " + LUNI[d.getUTCMonth()]; }
+  function dRange(a, b) { return dShort(a) + (b ? " → " + dShort(b) : ""); }
+  function addDaysIso(iso, n) { var d = isoParts(iso); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  function when(ms) {
+    if (!ms) return "";
+    var diff = Date.now() - ms, k = dayKey(ms), today = dayKey(Date.now());
+    if (diff >= 0 && diff < 60000) return "acum";
+    if (diff >= 0 && diff < 3600000) return "acum " + Math.round(diff / 60000) + " min";
+    if (k === today) return "azi, " + hm(ms);
+    if (k === addDaysIso(today, -1)) return "ieri, " + hm(ms);
+    if (k === addDaysIso(today, 1)) return "mâine, " + hm(ms);
+    return dShort(k) + ", " + hm(ms);
+  }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+  function ron(n) { return Number(n || 0).toLocaleString("ro-RO") + " RON"; }
+
+  /* ---------- randare ---------- */
+
+  function render() {
+    var d = S.data;
+    document.body.setAttribute("data-tab", S.tab);
+    $("updated").textContent = "actualizat " + when(S.loadedAt);
+    $("btnRefresh").innerHTML = ic("refresh");
+    $("btnSync").innerHTML = ic("sync") + "<span>Sincronizează</span>";
+    renderNow(d); renderKpis(d); renderTodo(d); renderCal(d); renderStays(d); renderRequests(d); renderSystem(d); renderLog(d); renderTabs(d);
+  }
+
+  function renderNow(d) {
+    var bar = $("nowBar"), inHouse = d.stays.filter(function (s) { return s.phase === "inhouse" || s.phase === "departing" || s.phase === "arriving"; })[0];
+    if (inHouse) {
+      bar.className = "now-bar";
+      var what = inHouse.phase === "arriving" ? "Sosește azi" : inHouse.phase === "departing" ? "Pleacă azi" : "În apartament";
+      bar.innerHTML = '<span class="dot"></span><div><b>' + what + ":</b> " + esc(inHouse.name || inHouse.nr) +
+        ' <span style="color:var(--muted)">· ' + esc(dRange(inHouse.checkin, inHouse.checkout)) + "</span></div>";
+      return;
+    }
+    var next = d.stays.filter(function (s) { return s.phase === "upcoming"; })[0];
+    bar.className = "now-bar free";
+    bar.innerHTML = '<span class="dot"></span><div><b>Apartament liber.</b> ' +
+      (next ? "Următoarea sosire: " + esc(dShort(next.checkin)) + " (" + (next.days === 1 ? "mâine" : "peste " + next.days + " zile") + ")" : "Nicio sosire în evidență.") + "</div>";
+  }
+
+  function renderKpis(d) {
+    var k = d.kpi, h = d.health;
+    var lockBad = !h.lock.ok || (h.lock.battery != null && h.lock.battery < 30) || h.lock.gatewayOnline === false;
+    var tiles = [
+      { label: "De făcut", value: k.todo, cls: k.todoHigh ? "hot" : "", go: "secTodo", tab: "home" },
+      { label: "Sosiri în 7 zile", value: k.arrivals7, cls: "", go: "secStays", tab: "home" },
+      { label: "Solicitări noi", value: k.requestsOpen, cls: k.requestsOpen ? "hot" : "", go: "secReq", tab: "req" },
+      { label: "Yală · baterie", value: h.lock.ok && h.lock.battery != null ? h.lock.battery + "%" : "—", cls: lockBad ? "bad" : "", go: "secSys", tab: "sys" }
+    ];
+    $("kpis").innerHTML = tiles.map(function (t, i) {
+      return '<button type="button" class="kpi ' + t.cls + '" data-go="' + t.go + '" data-gotab="' + t.tab + '"><span>' + t.label + "</span><b>" + esc(t.value) + "</b></button>";
+    }).join("");
+  }
+
+  function renderTodo(d) {
+    var c = $("todoCount");
+    c.textContent = d.todo.length;
+    c.className = "count" + (d.kpi.todoHigh ? " hot" : "");
+    if (!d.todo.length) { $("todo").innerHTML = '<div class="empty">' + ic("check") + "Nimic de făcut acum.</div>"; return; }
+    $("todo").innerHTML = d.todo.map(function (t) {
+      var cls = t.kind === "alert" ? "alert" : t.level === "high" ? "high" : "";
+      var icon = t.kind === "request" ? "site" : t.kind === "booking-chat" ? "chat" : t.kind === "alert" ? "alert" : "history";
+      var texts = t.texts.map(function (x) {
+        return '<div class="copy"><div class="copy-head"><span>' + esc(x.label) + '</span><button type="button" class="btn btn-copy" data-copy="' +
+          esc(x.text) + '">' + ic("copy") + "Copiază</button></div><div class=\"copy-text\">" + esc(x.text) + "</div></div>";
+      }).join("");
+      var links = t.links.map(linkBtn).join("");
+      var acts = t.actions ? '<div class="row-actions">' + statusButtons(t.at, t.actions) + "</div>" : "";
+      return '<article class="todo ' + cls + '"><div class="todo-head"><span class="ic">' + ic(icon) + "</span><div><h3>" + esc(t.title) +
+        "</h3><p>" + esc(t.detail) + "</p></div></div>" + texts + acts +
+        '<div class="row-actions">' + links + '<button type="button" class="btn ghost" data-dismiss="' + esc(t.id) + '">' + ic("check") + "Gata</button></div></article>";
+    }).join("");
+  }
+
+  var STATUS_BTN = { "Așteaptă plata": ["Aștept plata", "lock", ""], "Confirmată": ["Plătit · confirmă", "check", "st-confirm"], "Anulată": ["Anulează", "x", ""] };
+  function statusButtons(at, list) {
+    return list.map(function (st) {
+      var b = STATUS_BTN[st];
+      return '<button type="button" class="btn ' + b[2] + '" data-confirm data-status="' + esc(st) + '" data-at="' + esc(at) + '">' + ic(b[1]) + b[0] + "</button>";
+    }).join("");
+  }
+
+  function linkBtn(l) {
+    var icon = l.kind === "wa" ? "wa" : l.kind === "tel" ? "phone" : l.kind === "mail" ? "mail" : /Sheet/.test(l.label) ? "sheet" : "ext";
+    return '<a class="btn ' + (l.kind || "") + '" href="' + esc(l.href) + '">' + ic(icon) + esc(l.label) + "</a>";
+  }
+
+  var PHASE = { upcoming: "", arriving: "Sosește azi", inhouse: "În apartament", departing: "Pleacă azi", past: "Încheiat", unknown: "Fără dată" };
+
+  function stayCard(s) {
+    var src = /booking/i.test(s.source) ? "booking" : /site/i.test(s.source) ? "site" : "";
+    var phase = s.phase === "upcoming" ? (s.days === 1 ? "mâine" : "peste " + s.days + " zile") : PHASE[s.phase];
+    var steps = s.steps.map(function (st) {
+      var mark = st.st === "done" ? "✓" : st.st === "warn" ? "!" : "";
+      var sub = st.at ? when(st.at) : st.info ? (/Booking/.test(st.info) ? "mesaj Booking" : st.info) : "";
+      return '<li class="step st-' + st.st + '"><span class="dt">' + mark + "</span>" + esc(st.label) + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</li>";
+    }).join("");
+    var stateWarn = s.state && s.state !== "Confirmată" ? '<div class="state-warn">' + esc(s.state) + "</div>" : "";
+    var code = s.code ? '<div class="code-line">' + ic("key") + (s.backup ? "Cod de rezervă " : "Cod ") + "<b>" + esc(s.code) + "#</b>" +
+      '<span style="color:var(--muted)">' + esc(s.window) + '</span><button type="button" class="btn btn-copy" style="margin-left:auto" data-copy="' + esc(s.code) + '">' + ic("copy") + "Copiază</button></div>" : "";
+    var links = [];
+    if (s.link) links.push({ label: "Extranet", href: s.link });
+    if (s.wa) links.push({ label: "WhatsApp", href: s.wa, kind: "wa" });
+    if (s.tel) links.push({ label: "Sună", href: s.tel, kind: "tel" });
+    if (s.email && !/guest\.booking\.com$/i.test(s.email)) links.push({ label: "E-mail", href: "mailto:" + s.email, kind: "mail" });
+    return '<article class="stay ' + s.phase + '"><div class="stay-top"><span class="badge ' + src + '">' + esc(s.source || "—") + "</span>" +
+      '<span class="badge phase">' + esc(phase) + '</span><span class="nr">' + esc(s.nr) + "</span></div>" +
+      '<div class="stay-dates"><b>' + esc(dShort(s.checkin)) + "</b> → <b>" + esc(dShort(s.checkout)) + "</b>" +
+      (s.nights ? ' <span style="color:var(--muted);font-size:14px">· ' + plural(Number(s.nights), "noapte", "nopți") + "</span>" : "") + "</div>" +
+      '<div class="stay-who">' + esc(s.name || "Numele vine din fișa de cazare") + (s.guests ? " · " + esc(s.guests) : "") + "</div>" +
+      stateWarn + '<ol class="steps">' + steps + "</ol>" + code +
+      (s.notes ? '<div class="notes">' + esc(s.notes) + "</div>" : "") +
+      '<div class="row-actions">' + links.map(linkBtn).join("") +
+      '<button type="button" class="btn ghost" data-history="' + esc(s.nr) + '">' + ic("history") + "Istoric</button></div></article>";
+  }
+
+  function renderStays(d) {
+    var html = d.stays.length ? d.stays.map(stayCard).join("") : '<div class="empty">Nicio rezervare activă în foaia „Rezervări”.</div>';
+    if (d.past.length) html += '<details class="past"><summary>Încheiate recent (' + d.past.length + ")</summary>" + d.past.map(stayCard).join("") + "</details>";
+    $("stays").innerHTML = html;
+  }
+
+  function statusBadge(st) {
+    var s = (st || "Nouă").toLowerCase();
+    var cls = /^confirm|^plătit|^platit/.test(s) ? "ok" : /^anulat/.test(s) ? "bad" : "warn";
+    return '<span class="badge ' + cls + '">' + esc(st || "Nouă") + "</span>";
+  }
+
+  function renderRequests(d) {
+    $("requests").innerHTML = d.requests.length ? d.requests.map(function (q) {
+      var meta = [dRange(q.checkin, q.checkout), q.nights ? plural(Number(q.nights), "noapte", "nopți") : "", q.guests, q.total ? ron(q.total) : "", q.rate].filter(Boolean).join(" · ");
+      return '<div class="req"><div class="req-top"><b>' + esc(q.name || "—") + "</b>" + statusBadge(q.status) + "<time>" + esc(when(q.at)) + "</time></div>" +
+        '<div class="meta">' + esc(meta) + "</div>" +
+        '<div class="meta">' + esc(q.source || "") + (q.verify && q.verify !== "OK" ? " · <b style=\"color:var(--red)\">" + esc(q.verify) + "</b>" : "") + "</div>" +
+        (q.open ? '<div class="row-actions">' + statusButtons(q.at, /^așteaptă plata$/i.test(q.status) ? ["Confirmată", "Anulată"] : ["Așteaptă plata", "Confirmată", "Anulată"]) + "</div>" : "") +
+        '<div class="row-actions">' + q.links.map(linkBtn).join("") + linkBtn({ label: "Rândul din Sheet", href: q.sheet }) + "</div></div>";
+    }).join("") : '<div class="empty">Nicio solicitare în ultimele 60 de zile.</div>';
+    $("cancelled").innerHTML = d.cancelled.length ? d.cancelled.map(function (c) {
+      return '<div class="mini"><div>' + esc(c.name || c.nr) + " <span>· " + esc(c.source) + " · " + esc(dRange(c.checkin, c.checkout)) + "</span></div><span>" + esc(when(c.at)) + "</span></div>";
+    }).join("") : '<div class="empty">Nicio anulare.</div>';
+  }
+
+  function renderSystem(d) {
+    var h = d.health, now = Date.now(), rows = [];
+    var age = h.lastRun ? now - h.lastRun : null;
+    rows.push(sys(!h.trigger ? "bad" : age == null || age > 25 * 60000 ? "warn" : "", "Sincronizare automată (la 10 minute)",
+      (h.trigger ? "Pornită" : "OPRITĂ — rulează checkinInstall din editor") + (h.lastRun ? " · ultima rulare " + when(h.lastRun) : " · încă nicio rulare înregistrată")));
+    rows.push(sys(h.testMode ? "warn" : "", h.testMode ? "Mod TEST" : "Mod real",
+      h.testMode ? "E-mailurile pentru oaspeți vin doar la tine." : "Fișa și codul pleacă direct la oaspeți."));
+    var L = h.lock;
+    if (L.ok) {
+      var lockState = (L.battery != null && L.battery < 30) || L.gatewayOnline === false ? "bad" : L.battery != null && L.battery < 50 ? "warn" : "";
+      var codes = S.showCodes ? '<div class="codes">' + (L.codes.length ? L.codes.map(function (c) {
+        return "<div><span>" + esc(c.name || "fără nume") + "<br><small style=\"color:var(--muted)\">" + esc(c.start ? when(c.start) : "") + " → " + esc(c.end ? when(c.end) : "permanent") +
+          "</small></span><code>" + esc(c.code) + "#</code></div>";
+      }).join("") : "Niciun cod valabil.") + "</div>" : "";
+      rows.push(sys(lockState, "Yală" + (L.name ? " · " + L.name : ""),
+        "Baterie " + (L.battery != null ? L.battery + "%" : "necunoscută") + " · gateway " +
+        (L.gatewayOnline === true ? "online" : L.gatewayOnline === false ? "OFFLINE" : L.gateway ? "da" : "NU") +
+        " · " + plural(L.codes.length, "cod valabil", "coduri valabile") + " · verificat " + when(L.at),
+        '<button type="button" class="btn" style="margin-top:6px" data-toggle-codes>' + ic("eye") + (S.showCodes ? "Ascunde codurile" : "Arată codurile") + "</button>" + codes));
+    } else {
+      rows.push(sys("bad", "Yală: TTLock nu răspunde", L.error || ""));
+    }
+    if (h.tokenExpires) {
+      var days = Math.floor((h.tokenExpires - now) / 86400000);
+      rows.push(sys(days < 3 ? "warn" : "", "Acces TTLock", "Tokenul expiră în " + plural(days, "zi", "zile") + " (se reînnoiește singur cu 7 zile înainte)."));
+    }
+    var C = h.calendar;
+    if (C.ok) {
+      var src = Object.keys(C.sources || {}).map(function (k) { var v = C.sources[k]; return k + " " + (v && v.events != null ? v.events : "?"); }).join(" · ");
+      var old = C.updatedAt && now - C.updatedAt > 3 * 3600000;
+      rows.push(sys(old ? "warn" : "", "Calendarul de pe site",
+        "Actualizat " + when(C.updatedAt) + (src ? " · evenimente: " + src : ""),
+        C.next.length ? '<div class="codes">' + C.next.map(function (r) { return "<div><span>Ocupat</span><span>" + esc(dRange(r.start, r.end)) + "</span></div>"; }).join("") + "</div>" : ""));
+    } else {
+      rows.push(sys("bad", "Calendarul de pe site nu se poate citi", C.error || ""));
+    }
+    if (d.cal) {
+      var F = d.cal.feed;
+      rows.push(sys(F.url ? "" : "warn", "Calendarul „A13 Direct”",
+        F.url ? plural(F.count, "perioadă", "perioade") + " acum (blocările tale, rezervările confirmate de pe site, plățile așteptate). Linkul se pune o singură dată ca import în Booking, Airbnb, Travelminit și ca secret ICS_DIRECT în GitHub."
+              : "Lipsește implementarea „Calendar” (Script Property CAL_FEED_BASE): perioadele închise apar deocamdată doar în panou.",
+        F.url ? '<button type="button" class="btn" style="margin-top:6px" data-copy="' + esc(F.url) + '">' + ic("copy") + "Copiază linkul</button>" : ""));
+      var srcs = Object.keys(d.cal.sources).map(function (k) {
+        var x = d.cal.sources[k];
+        return k + ": " + (x.missing ? "lipsește linkul (ICS_" + k.toUpperCase() + " în Script Properties)" : x.ok ? plural(x.count, "eveniment", "evenimente") : "eroare: " + x.error);
+      });
+      var anyBad = Object.keys(d.cal.sources).some(function (k) { return !d.cal.sources[k].ok; });
+      rows.push(sys(anyBad ? "warn" : "", "Calendarele platformelor (citite de panou)", srcs.join("\n")));
+    }
+    rows.push(sys(h.mailQuota < 10 ? "bad" : h.mailQuota < 30 ? "warn" : "", "E-mailuri rămase azi", String(h.mailQuota)));
+    rows.push(sys(h.errors.length ? "bad" : "", h.errors.length ? "Erori în ultimele 24 de ore" : "Fără erori în ultimele 24 de ore",
+      h.errors.map(function (e) { return when(e.at) + " · " + e.text; }).join("\n")));
+    var sheetLinks = Object.keys(d.sheets).map(function (k) { return { label: "Sheet · " + k, href: d.sheets[k] }; });
+    $("system").innerHTML = rows.join("") +
+      '<h3 class="sub">Linkuri</h3><div class="links">' + sheetLinks.concat(d.links).map(linkBtn).join("") + "</div>";
+  }
+
+  function sys(state, title, text, extra) {
+    return '<div class="sys"><span class="dot ' + (state || "") + '"></span><div><b>' + esc(title) + "</b>" +
+      (text ? '<span style="white-space:pre-line">' + esc(text) + "</span>" : "") + (extra || "") + "</div></div>";
+  }
+
+  var CATS = [["all", "Toate"], ["site", "Site"], ["booking", "Rezervări"], ["form", "Fișe"], ["code", "Coduri"], ["err", "Erori"]];
+
+  function renderLog(d) {
+    var chips = CATS.map(function (c) {
+      return '<button type="button" class="chip' + (S.logCat === c[0] && !S.logNr ? " on" : "") + '" data-cat="' + c[0] + '">' + c[1] + "</button>";
+    });
+    if (S.logNr) chips.push('<button type="button" class="chip on" data-cat="all">Rezervarea ' + esc(S.logNr) + " ✕</button>");
+    $("logChips").innerHTML = chips.join("");
+    var list = d.log.filter(function (e) {
+      if (S.logNr) return e.nr === S.logNr;
+      return S.logCat === "all" || e.cat === S.logCat;
+    });
+    var shown = list.slice(0, S.logLimit);
+    $("log").innerHTML = shown.length ? shown.map(function (e) {
+      return '<div class="ev"><span class="cat ' + e.cat + '"></span><div><div class="ev-top"><b>' + esc(e.ev) + "</b><time>" + esc(when(e.at)) + "</time></div>" +
+        (e.nr ? '<button type="button" class="nrlink" data-history="' + esc(e.nr) + '">' + esc(e.nr) + "</button> " : "") +
+        '<span class="det">' + esc(e.det) + "</span></div></div>";
+    }).join("") + (list.length > shown.length ? '<button type="button" class="btn more" data-more>Arată mai multe (' + (list.length - shown.length) + ")</button>" : "")
+      : '<div class="empty">Niciun eveniment.</div>';
+  }
+
+  function renderTabs(d) {
+    var tabs = [["home", "Acasă", "home", d.kpi.todo], ["cal", "Calendar", "cal", 0], ["req", "Solicitări", "inbox", d.kpi.requestsOpen],
+                ["log", "Jurnal", "list", 0], ["sys", "Sistem", "pulse", d.kpi.errors]];
+    $("tabs").innerHTML = tabs.map(function (t) {
+      return '<button type="button" class="tab' + (S.tab === t[0] ? " on" : "") + '" data-tab-btn="' + t[0] + '">' + ic(t[2]) + t[1] +
+        (t[3] ? '<span class="count">' + t[3] + "</span>" : "") + "</button>";
+    }).join("");
+  }
+
+  /* ---------- acțiuni ---------- */
+
+  function setTab(tab) {
+    S.tab = tab;
+    try { sessionStorage.setItem("pn-tab", tab); } catch (e) {}
+    render();
+    window.scrollTo(0, 0);
+  }
+
+  function go(id, tab) {
+    if (window.innerWidth < 1000 && tab && tab !== S.tab) setTab(tab);
+    var el = $(id);
+    if (el) el.scrollIntoView({ block: "start" });
+  }
+
+  var toastTimer;
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove("on"); }, 2600);
+  }
+
+  function copy(text, btn) {
+    function done(ok) {
+      if (!btn) return;
+      var old = btn.innerHTML;
+      btn.classList.toggle("ok", ok);
+      btn.innerHTML = ic(ok ? "check" : "copy") + (ok ? "Copiat" : "Selectează textul");
+      setTimeout(function () { btn.innerHTML = old; btn.classList.remove("ok"); }, 1800);
+    }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.cssText = "position:fixed;top:0;left:0;opacity:0;font-size:16px";
+      document.body.appendChild(ta);
+      ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) {}
+      document.body.removeChild(ta);
+      done(ok);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+    else fallback();
+  }
+
+  function call(fn, args, okMsg, after) {
+    if (!(window.google && google.script && google.script.run)) { toast("Funcționează doar în pagina publicată din Apps Script."); return; }
+    setBusy(true, fn === "pnSyncNow");
+    var run = google.script.run
+      .withSuccessHandler(function (json) {
+        S.data = JSON.parse(json); S.loadedAt = Date.now(); setBusy(false); if (after) after(); render(); if (okMsg) toast(okMsg);
+      })
+      .withFailureHandler(function (err) {
+        setBusy(false); toast("Nu s-a putut: " + (err && err.message ? err.message : err));
+      });
+    run[fn].apply(run, args || []);
+  }
+
+  function setBusy(on, sync) {
+    S.busy = on;
+    $("btnRefresh").disabled = on; $("btnSync").disabled = on;
+    $("btnRefresh").classList.toggle("spin", on && !sync);
+    $("btnSync").classList.toggle("spin", on && !!sync);
+  }
+
+  document.addEventListener("click", function (ev) {
+    var t = ev.target.closest ? ev.target.closest("button") : null;
+    if (!t) return;
+    if (t.hasAttribute("data-confirm") && !t.classList.contains("arm")) return arm(t);
+    if (t.id === "btnRefresh") return call("pnData", [true], "Date reîncărcate");
+    if (t.id === "btnSync") return call("pnSyncNow", [], "Sincronizare făcută");
+    if (t.hasAttribute("data-status")) {
+      return call("pnSetRequestStatus", [Number(t.getAttribute("data-at")), t.getAttribute("data-status")], "Status: " + t.getAttribute("data-status"));
+    }
+    if (t.hasAttribute("data-night")) return pickNight(t.getAttribute("data-night"));
+    if (t.hasAttribute("data-calnav")) return calNav(t.getAttribute("data-calnav"));
+    if (t.hasAttribute("data-calblock")) {
+      S.calMode = "block"; S.calFirst = S.calPick && S.calPick >= S.data.today ? S.calPick : ""; S.calLast = ""; S.calPick = "";
+      return renderCal(S.data);
+    }
+    if (t.hasAttribute("data-calcancel")) { S.calMode = ""; S.calFirst = S.calLast = ""; return renderCal(S.data); }
+    if (t.hasAttribute("data-calsave")) {
+      return call("pnBlock", [S.calFirst, S.calLast, S.calReason], "Perioadă închisă",
+                  function () { S.calMode = ""; S.calPick = S.calFirst; S.calFirst = S.calLast = S.calReason = ""; });
+    }
+    if (t.hasAttribute("data-unblock")) return call("pnUnblock", [t.getAttribute("data-unblock")], "Perioadă redeschisă");
+    if (t.hasAttribute("data-copy")) return copy(t.getAttribute("data-copy"), t);
+    if (t.hasAttribute("data-dismiss")) {
+      var id = t.getAttribute("data-dismiss");
+      S.data.todo = S.data.todo.filter(function (x) { return x.id !== id; });
+      S.data.kpi.todo = S.data.todo.length;
+      render();
+      return call("pnDismiss", [id], "Marcat ca rezolvat");
+    }
+    if (t.hasAttribute("data-history")) { S.logNr = t.getAttribute("data-history"); S.logLimit = 40; return go2log(); }
+    if (t.hasAttribute("data-cat")) { S.logCat = t.getAttribute("data-cat"); S.logNr = ""; S.logLimit = 40; return renderLog(S.data); }
+    if (t.hasAttribute("data-more")) { S.logLimit += 60; return renderLog(S.data); }
+    if (t.hasAttribute("data-toggle-codes")) { S.showCodes = !S.showCodes; return renderSystem(S.data); }
+    if (t.hasAttribute("data-tab-btn")) return setTab(t.getAttribute("data-tab-btn"));
+    if (t.hasAttribute("data-go")) return go(t.getAttribute("data-go"), t.getAttribute("data-gotab"));
+  });
+
+  // Acțiunile cu efect (status, redeschidere) cer o a doua apăsare în 4 secunde.
+  function arm(btn) {
+    var old = btn.innerHTML;
+    btn.classList.add("arm");
+    btn.innerHTML = ic("alert") + "Sigur? Apasă din nou";
+    setTimeout(function () { if (btn.isConnected) { btn.classList.remove("arm"); btn.innerHTML = old; } }, 4000);
+  }
+
+  /* ---------- calendar ---------- */
+
+  var LUNI_LUNGI = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie", "iulie", "august", "septembrie", "octombrie", "noiembrie", "decembrie"];
+  // sursă → [clasa, eticheta scurtă din celulă]
+  var SRC = { Booking: ["c-booking", "BK"], Airbnb: ["c-airbnb", "AB"], Travelminit: ["c-travelminit", "TM"], Site: ["c-site", "Site"],
+              "Blocat": ["c-block", "Închis"], "Plată": ["c-hold", "Plată"] };
+  var RANK = { res: 0, block: 1, hold: 2, closed: 3 };
+
+  function monthKey(iso) { return iso.slice(0, 7) + "-01"; }
+  function addMonths(iso, n) { var d = isoParts(iso); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n); return d.toISOString().slice(0, 10); }
+  function nightsBetween(a, b) { return Math.round((isoParts(b) - isoParts(a)) / 86400000); }
+  function seasonOf(d, iso) { return (d.cal.seasons || []).filter(function (s) { return s.start <= iso && iso <= s.end; })[0] || null; }
+  function eventsOn(d, iso, all) {
+    return (d.cal.events || []).filter(function (e) { return e.start <= iso && iso < e.end && (all || !(e.kind === "hold" && !e.active)); })
+      .sort(function (a, b) { return RANK[a.kind] - RANK[b.kind]; });
+  }
+  function evClass(e) { return e.kind === "closed" ? "c-closed" : (SRC[e.src] || ["c-closed"])[0]; }
+  function evTitle(e) {
+    if (e.kind === "block") return "Închis de tine" + (e.label ? " · " + e.label : "");
+    if (e.kind === "hold") return "Aștept plata · " + (e.label || "");
+    if (e.kind === "closed") return e.src + " · indisponibil" + (e.label ? " (" + e.label + ")" : "");
+    return e.src + (e.label ? " · " + e.label : "") + (e.nr && e.nr !== e.label ? " · " + e.nr : "");
+  }
+
+  function renderCal(d) {
+    var box = $("cal");
+    if (!d.cal) { box.innerHTML = '<div class="empty">Calendarul apare după instalarea calendar.gs.</div>'; return; }
+    if (!S.calMonth) S.calMonth = monthKey(d.today);
+    var two = window.innerWidth >= 1000;
+    var html = '<div class="cal-bar"><button type="button" class="btn" data-calnav="-1" aria-label="Luna anterioară">' + ic("left") + "</button>" +
+      '<button type="button" class="btn" data-calnav="0">Azi</button>' +
+      '<button type="button" class="btn" data-calnav="1" aria-label="Luna următoare">' + ic("right") + "</button><span class=\"grow\"></span>" +
+      (S.calMode ? "" : '<button type="button" class="btn primary" data-calblock>' + ic("lock") + "Închide o perioadă</button>") + "</div>";
+    if (S.calMode) {
+      html += '<div class="cal-hint">' + (S.calFirst && S.calLast ? "Perioada e aleasă: verifică mai jos și apasă „Închide perioada”."
+        : S.calFirst ? "Atinge ultima noapte (aceeași zi = o singură noapte)." : "Atinge prima noapte pe care vrei s-o închizi.") + "</div>";
+    }
+    html += '<div class="months">' + monthGrid(d, S.calMonth) + (two ? monthGrid(d, addMonths(S.calMonth, 1)) : "") + "</div>";
+    html += '<div class="legend">' + [["c-booking", "Booking"], ["c-airbnb", "Airbnb"], ["c-site", "Site"], ["c-block", "Închis de tine"],
+      ["c-hold", "Aștept plata"], ["c-closed", "Indisponibil pe o platformă"]]
+      .map(function (l) { return '<span><i class="' + l[0] + '"></i>' + l[1] + "</span>"; }).join("") + "</div>";
+    if (S.calMode) html += S.calFirst && S.calLast ? blockForm(d) : '<div class="row-actions"><button type="button" class="btn ghost" data-calcancel>Renunță</button></div>';
+    else if (S.calPick) html += nightDetail(d, S.calPick);
+    box.innerHTML = html;
+  }
+
+  function monthGrid(d, first) {
+    var start = isoParts(first), y = start.getUTCFullYear(), m = start.getUTCMonth();
+    var days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(), lead = (start.getUTCDay() + 6) % 7;
+    var cells = ["L", "Ma", "Mi", "J", "V", "S", "D"].map(function (w) { return '<div class="wd">' + w + "</div>"; });
+    for (var i = 0; i < lead; i++) cells.push("<div></div>");
+    var selA = S.calFirst, selB = S.calLast || S.calFirst;
+    for (var day = 1; day <= days; day++) {
+      var iso = first.slice(0, 8) + ("0" + day).slice(-2);
+      var evs = eventsOn(d, iso), top = evs[0], season = seasonOf(d, iso), past = iso < d.today;
+      var cls = ["night"];
+      if (top) cls.push(evClass(top));
+      if (top && top.start === iso) cls.push("first");
+      if (evs.filter(function (e) { return e.kind === "res" || e.kind === "hold"; }).length > 1) cls.push("clash");
+      if (past) cls.push("past");
+      if (iso === d.today) cls.push("today");
+      if (!season && !top) cls.push("nos");
+      if (S.calMode && selA && iso >= selA && iso <= selB) cls.push("sel");
+      if (!S.calMode && iso === S.calPick) cls.push("pick");
+      var tag = top && top.start === iso ? '<span class="t">' + esc((SRC[top.src] || ["", top.src])[1]) + "</span>" : "";
+      var price = !top && !past ? (season ? Number(season.price).toLocaleString("ro-RO") : "—") : "";
+      cells.push('<button type="button" class="' + cls.join(" ") + '" data-night="' + iso + '" title="' +
+        esc(top ? evTitle(top) : season ? season.price + " RON/noapte" : "fără tarif") + '"><span class="n">' + day + "</span>" +
+        (tag || '<span class="p">' + price + "</span>") + "</button>");
+    }
+    return '<div class="month"><h3>' + LUNI_LUNGI[m] + " " + y + '</h3><div class="grid7">' + cells.join("") + "</div></div>";
+  }
+
+  function calNav(dir) {
+    S.calMonth = dir === "0" ? monthKey(S.data.today) : addMonths(S.calMonth, Number(dir));
+    renderCal(S.data);
+  }
+
+  function pickNight(iso) {
+    if (S.calMode) {
+      if (iso < S.data.today) return toast("Nopțile trecute nu se pot închide.");
+      if (!S.calFirst || S.calLast) { S.calFirst = iso; S.calLast = ""; }
+      else if (iso < S.calFirst) { S.calLast = S.calFirst; S.calFirst = iso; }
+      else S.calLast = iso;
+    } else {
+      S.calPick = S.calPick === iso ? "" : iso;
+    }
+    renderCal(S.data);
+    var target = document.querySelector(".cal-detail");
+    if (target && window.innerWidth < 1000) target.scrollIntoView({ block: "nearest" });
+  }
+
+  function blockForm(d) {
+    var a = S.calFirst, b = S.calLast, n = nightsBetween(a, b) + 1, conflicts = [], seen = {};
+    for (var iso = a; iso <= b; iso = addDaysIso(iso, 1)) {
+      eventsOn(d, iso).forEach(function (e) { var k = e.src + e.start + e.end; if (!seen[k]) { seen[k] = 1; conflicts.push(e); } });
+    }
+    return '<div class="cal-detail"><h4>Închizi ' + plural(n, "noapte", "nopți") + ": " + esc(dShort(a)) + (n > 1 ? " → " + esc(dShort(b)) : "") + "</h4>" +
+      '<div class="meta">Se redeschide ' + esc(dShort(addDaysIso(b, 1))) + " (ziua aceea rămâne liberă pentru sosiri).</div>" +
+      (conflicts.length ? '<div class="cal-warn">În perioada aleasă există deja: ' + conflicts.map(function (e) {
+        return esc(evTitle(e)) + " (" + esc(dRange(e.start, e.end)) + ")"; }).join("; ") + "</div>" : "") +
+      '<input class="field" id="calReason" maxlength="120" placeholder="Motiv (opțional): renovare, folosit de noi…" value="' + esc(S.calReason) + '">' +
+      '<div class="meta">' + (d.cal.feed.url
+        ? "Ajunge pe Booking, Airbnb și Travelminit la următoarea lor sincronizare (de obicei în câteva ore), iar pe site în cel mult o oră. Pentru azi sau mâine, închide și manual pe Booking."
+        : "Atenție: „A13 Direct” nu e încă legat de platforme, deci perioada apare deocamdată doar aici.") + "</div>" +
+      '<div class="row-actions"><button type="button" class="btn primary" data-calsave>' + ic("lock") + "Închide perioada</button>" +
+      '<button type="button" class="btn ghost" data-calcancel>Renunță</button></div></div>';
+  }
+
+  function nightDetail(d, iso) {
+    var season = seasonOf(d, iso), evs = eventsOn(d, iso, true);
+    var head = "<h4>" + esc(dShort(iso)) + " " + iso.slice(0, 4) + "</h4>" +
+      '<div class="meta">' + (season ? esc(season.label) + " · " + Number(season.price).toLocaleString("ro-RO") + " RON/noapte · min. " + plural(Number(season.min), "noapte", "nopți")
+        : "Fără tarif pe site: rezervările directe sunt închise în această perioadă.") + "</div>";
+    var list = evs.map(function (e) {
+      var extra = "";
+      if (e.kind === "block") extra = '<button type="button" class="btn" data-confirm data-unblock="' + esc(e.id) + '">' + ic("unlock") + "Redeschide</button>";
+      if (e.kind === "hold") extra = '<span class="meta">' + (e.active ? (e.until ? "blocat până " + esc(when(e.until)) : "blocat 24 h de la confirmarea statusului") : "blocarea a expirat") + "</span>";
+      if (e.nr) extra = '<button type="button" class="btn ghost" data-history="' + esc(e.nr) + '">' + ic("history") + "Istoric</button>";
+      return '<div class="cal-ev"><span class="dot ' + evClass(e) + '"></span><div class="grow">' + esc(evTitle(e)) +
+        "<small>" + (e.kind === "block" ? "nopțile " + esc(dShort(e.start)) + " → " + esc(dShort(addDaysIso(e.end, -1))) : esc(dRange(e.start, e.end))) +
+        " · " + plural(nightsBetween(e.start, e.end), "noapte", "nopți") + "</small></div>" + extra + "</div>";
+    }).join("");
+    var free = !evs.length && iso >= d.today ? '<div class="row-actions"><button type="button" class="btn" data-calblock>' + ic("lock") + "Închide de aici</button></div>" : "";
+    return '<div class="cal-detail">' + head + (list || '<div class="meta" style="margin-top:6px">Noapte liberă.</div>') + free + "</div>";
+  }
+
+  function go2log() {
+    if (window.innerWidth < 1000) setTab("log"); else render();
+    $("secLog").scrollIntoView({ block: "start" });
+  }
+
+  // Reîncărcare automată la 2 minute (doar cât pagina e vizibilă) și la revenirea în pagină.
+  setInterval(function () {
+    if (!document.hidden && !S.busy && !S.calMode) call("pnData", [false]);
+    else $("updated").textContent = "actualizat " + when(S.loadedAt);
+  }, 120000);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && !S.busy && !S.calMode && Date.now() - S.loadedAt > 60000) call("pnData", [false]);
+  });
+  setInterval(function () { $("updated").textContent = "actualizat " + when(S.loadedAt); }, 30000);
+
+  var resizeTimer, wasTwo = window.innerWidth >= 1000;
+  window.addEventListener("resize", function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function () { var two = window.innerWidth >= 1000; if (two !== wasTwo) { wasTwo = two; renderCal(S.data); } }, 200);
+  });
+  document.addEventListener("input", function (ev) { if (ev.target && ev.target.id === "calReason") S.calReason = ev.target.value; });
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -111,7 +111,11 @@ function doPost(e) {
 }
 
 // Verificare rapidă că web app-ul e publicat (deschide URL-ul în browser).
-function doGet() {
+// ?cal=<cheie>: calendarul iCal „A13 Direct” (calendar.gs), pentru platforme și site.
+// Proprietarul, autentificat cu contul lui, vede în schimb panoul de control (panou.gs).
+function doGet(e) {
+  if (e && e.parameter && e.parameter.cal && typeof calServeFeed === "function") return calServeFeed(e.parameter.cal);
+  if (typeof pnAllowed === "function" && pnAllowed()) return pnServe();
   return json({ ok: true, service: BRAND + " rezervari" });
 }
 

@@ -147,3 +147,95 @@ Test fără oaspete real: `checkinTestRezervare` (creează un rând cu sosirea a
 rularea următoare vezi codul pe yală și e-mailul; curăță cu `checkinStergeTest`.
 
 După o modificare a `checkin.gs`: lipești codul nou în editor și salvezi — atât (fără „Deploy → versiune nouă”).
+
+# Panoul de control (`panou.gs` + `Panou.html`)
+
+O pagină doar pentru tine, gândită pentru **laptop** (două coloane) și **telefon** (bara de jos: Acasă / Solicitări /
+Jurnal / Sistem), care citește același Sheet:
+
+- **De făcut** — solicitările noi de pe site (WhatsApp / Sună / E-mail / rândul din Sheet), textele de lipit în
+  chatul Booking (reminderul de fișă de la 13:00 și codul de rezervă de la 16:00, RO + EN, cu buton **Copiază**),
+  alertele încă de actualitate (cod nepus, cod neșters, telefon lipsă …), rezervările „De verificat”. **Gata** ascunde
+  un element (Script Property `PN_DISMISSED`).
+- **Sejururi** — fiecare rezervare cu pașii: link fișă → fișă → cod pe yală → cod trimis → cod șters, codul și
+  linkurile (Extranet, WhatsApp, telefon), **Istoric** = jurnalul acelei rezervări.
+- **Jurnal** — foaia „Jurnal” + solicitările de pe site, cu filtre (Site, Rezervări, Fișe, Coduri, Erori).
+- **Sistem** — ultima sincronizare (`CI_LAST_RUN`, scris de `checkinSync`), mod test/real, yala (baterie, gateway,
+  codurile valabile — ascunse până apeși „Arată codurile”), tokenul TTLock, calendarul de pe site, cota de e-mail,
+  erorile din ultimele 24 h, linkuri utile.
+
+Butonul ⟳ reîncarcă datele (yala și calendarul se cer din nou), **Sincronizează** rulează acum `checkinSync`.
+Pagina se reîncarcă singură la 2 minute cât e deschisă.
+
+**Cine o vede:** doar contul proprietarului. `doGet` (în `rezervari.gs`) servește panoul numai dacă cel autentificat
+e contul sub care rulează scriptul; oricine altcineva (inclusiv web app-ul public al formularului) primește în continuare
+`{"ok":true,…}`. Toate funcțiile panoului verifică din nou contul.
+
+## Instalare (o singură dată)
+
+1. În editorul Apps Script (același proiect): **➕ → Script** → numele `panou` → conținutul [`panou.gs`](panou.gs);
+   **➕ → HTML** → numele `Panou` → conținutul [`Panou.html`](Panou.html). În `Cod.gs` (rezervari.gs) și `checkin`
+   pune versiunile noi (`doGet` și linia `CI_LAST_RUN`). Salvează.
+2. **Deploy → New deployment → Web app**: Description „Panou”, **Execute as: Me**, **Who has access: Only myself**
+   → Deploy → copiază URL-ul (`…/exec`). Implementarea publică a formularului NU se atinge.
+3. Deschide URL-ul pe laptop și pe telefon (contul mircea.george.vulcanescu@gmail.com) → pe telefon:
+   **Adaugă pe ecranul de pornire**.
+
+Dacă pagina arată `{"ok":true,…}` în loc de panou: Google nu a dat adresa contului → la implementarea „Panou” pune
+**Execute as: User accessing the web app** (rămâne „Only myself”). Dacă apare „Nu se poate deschide fișierul”:
+browserul are mai multe conturi Google și l-a ales pe altul → deschide linkul într-un profil/fereastră doar cu contul tău.
+
+## După o modificare a panoului
+
+Salvează în editor, apoi **Deploy → Manage deployments → „Panou” → ✏️ → Version: New version → Deploy**
+(URL-ul rămâne același). Implementarea publică a formularului rămâne pe versiunea ei până o actualizezi separat.
+
+# Calendarul și blocările (`calendar.gs`) — „A13 Direct”
+
+În panou, tab-ul **Calendar** (pe laptop două luni, pe telefon una): fiecare noapte colorată după sursă — Booking,
+Airbnb (rezervare), Site, **închis de tine**, **aștept plata**, indisponibil pe o platformă — cu prețul și sejurul minim
+de pe site pe nopțile libere. Atingi o noapte → detaliile (și „Redeschide” pentru perioadele închise de tine).
+
+**Închide o perioadă:** butonul „Închide o perioadă” → atingi prima și ultima noapte → motiv (opțional) → „Închide
+perioada”. Se salvează în foaia **„Blocări”** (Id, Prima noapte, Ultima noapte, Motiv, Creată la) și intră în
+calendarul iCal **„A13 Direct”**, pe care îl importă Booking, Airbnb, Travelminit și site-ul. Platformele recitesc
+calendarele importate după programul lor (de obicei în câteva ore) → pentru azi/mâine închide și manual pe Booking.
+
+**Ce intră în „A13 Direct”** (doar surse proprii):
+- perioadele închise din panou;
+- rezervările de pe site confirmate (Status „Confirmată” după plată → rând „Site” în „Rezervări”);
+- solicitările cu Status **„Așteaptă plata”**, ca blocare temporară de 24 h de la momentul în care scriptul vede statusul
+  (termenul de plată). După 24 h blocarea se ridică singură și primești un e-mail; confirmi sau anulezi din panou.
+
+**REGULA (incidentul din 23.10.2026):** în „A13 Direct” NU intră niciodată rezervările sau blocările venite de la
+Booking/Airbnb/Travelminit — Booking și-ar importa propriile rezervări și le-ar scoate din export. Codul citește
+doar foaia „Blocări”, rândurile „Site” cu număr `SITE-…` și solicitările „Așteaptă plata”.
+
+**Butoanele solicitărilor** (în „De făcut” și în tab-ul Solicitări): **Aștept plata** / **Plătit · confirmă** /
+**Anulează** (a doua apăsare confirmă). Scriu Status-ul în foaia „Solicitări” și rulează imediat sincronizarea:
+confirmarea creează rezervarea (fișa cu o zi înainte, codul, „A13 Direct”).
+
+**Suprapuneri:** la fiecare sincronizare (10 min) se compară rezervările reale — Booking și site din „Rezervări”,
+Airbnb „Reserved” din iCal-ul Airbnb, solicitările „Așteaptă plata” active. O suprapunere → e-mail „SUPRAPUNERE” (o
+singură dată pe pereche) + alertă în „De făcut”. Blocările („Not available”, „CLOSED”) nu declanșează alarma.
+
+## Instalare (o singură dată, după panou)
+
+1. Editor: **➕ → Script** `calendar` → conținutul [`calendar.gs`](calendar.gs); actualizează și `Cod.gs` (doGet cu `?cal=`),
+   `checkin` (pasul `calSync`), `panou`, `Panou`. Salvează.
+2. **Deploy → New deployment → Web app**: Description „Calendar”, **Execute as: Me**, **Who has access: Anyone** →
+   Deploy → copiază URL-ul `…/exec`.
+3. **⚙️ Project Settings → Script Properties**: `CAL_FEED_BASE` = URL-ul de la pasul 2; `ICS_AIRBNB` și `ICS_TRAVELMINIT` =
+   linkurile de export iCal ale platformelor (aceleași ca secretele GitHub) — pentru culorile din calendar și alarma de
+   suprapunere. Cheia secretă `CAL_FEED_TOKEN` se creează singură la prima deschidere a panoului.
+4. Panou → Sistem → „Calendarul A13 Direct” → **Copiază linkul** și pune-l ca **import**:
+   Booking (Extranet → Tarife și disponibilitate → Sincronizați calendarele → Adăugați o conexiune → import),
+   Airbnb (calendarul anunțului → setările de disponibilitate → importul de calendar), Travelminit (importul iCal din admin) și în
+   GitHub ca secret **`ICS_DIRECT`** (site-ul îl citește din oră în oră; dacă nu răspunde, site-ul păstrează zilele ocupate
+   și rularea apare ca eșuată, fără să oprească celelalte surse).
+5. Test: închide din panou o noapte liberă de peste câteva săptămâni → după sincronizarea platformelor apare
+   indisponibilă pe Booking, Airbnb, Travelminit și pe site → „Redeschide”.
+
+Linkul conține cheia secretă: nu se pune în cod sau în repo. Dacă ajunge unde nu trebuie: șterge `CAL_FEED_TOKEN`
+(se creează alta) și pune linkul nou pe platforme. După o modificare a `calendar.gs`: salvează + **Manage deployments →
+„Calendar” și „Panou” → New version** (feed-ul vine din implementarea „Calendar”).

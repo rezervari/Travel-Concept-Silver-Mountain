@@ -14,6 +14,10 @@
 // cand tine ultimul ("until"). Calendarul gol e suspect doar daca "until" e inca in viitor (o rezervare care s-a
 // terminat normal nu declanseaza alarma).
 // Fisierul se rescrie doar cand se schimba intervalele ocupate sau aceste date (fara commit-uri inutile).
+//
+// ICS_DIRECT = calendarul nostru „A13 Direct” (apps-script/calendar.gs): perioadele inchise din panou, rezervarile
+// confirmate de pe site si platile asteptate. Pentru el un calendar gol e normal (nicio blocare), iar daca nu raspunde
+// nu oprim restul: pastram intervalele viitoare existente si rularea apare ca esuata (notificare).
 
 const fs = require("fs");
 const path = require("path");
@@ -27,6 +31,7 @@ const PLATFORM_SOURCES = [
   { name: "Airbnb", env: "ICS_AIRBNB" },
   { name: "Travelminit", env: "ICS_TRAVELMINIT" }
 ];
+const OWN_SOURCE = { name: "Direct", env: "ICS_DIRECT", own: true };
 
 // Data calendaristica (fara ora) -> miezul noptii UTC. Orele de check-in/out nu conteaza pentru calendar.
 function parseICSDate(raw) {
@@ -97,6 +102,9 @@ async function main() {
     console.log("::warning::Niciun secret ICS_* setat — folosesc calendarul Google.");
     sources = [{ name: "Google Calendar", url: GOOGLE_ICS_URL }];
   }
+  if (process.env[OWN_SOURCE.env] && process.env[OWN_SOURCE.env].trim()) {
+    sources.push({ name: OWN_SOURCE.name, url: process.env[OWN_SOURCE.env].trim(), own: true });
+  }
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -118,6 +126,13 @@ async function main() {
       events = parseICS(await fetchICS(s.url));
     } catch (err) {
       // URL-ul nu se afiseaza niciodata in log (e secret)
+      if (s.own) {
+        console.error("::error title=Calendar " + s.name + "::" + s.name + " nu raspunde (" + err.message +
+          ") — pastrez intervalele viitoare existente; celelalte surse se actualizeaza.");
+        emptied.push(s.name);
+        if (previousSources[s.name]) state[s.name] = previousSources[s.name];
+        continue;
+      }
       console.error("::error title=Calendar " + s.name + "::Eroare la " + s.name + ": " + err.message + " — booked-dates.json ramane neschimbat.");
       process.exit(1);
     }
@@ -135,7 +150,7 @@ async function main() {
     const lastEnd = future.reduce((m, e) => (!m || e.end > m ? e.end : m), null);
     state[s.name] = { events: future.length, until: lastEnd ? lastEnd.toISOString().slice(0, 10) : null };
     const before = previousSources[s.name] || {};
-    if (!future.length && before.until && before.until > todayIso && allowEmpty.indexOf(s.name.toLowerCase()) < 0) {
+    if (!s.own && !future.length && before.until && before.until > todayIso && allowEmpty.indexOf(s.name.toLowerCase()) < 0) {
       emptied.push(s.name);
       state[s.name] = before; // protectia ramane activa pana cand sursa trimite iar evenimente
       console.error("::error title=Calendar " + s.name + " gol::" + s.name + " a trimis un calendar fara evenimente (avea " +

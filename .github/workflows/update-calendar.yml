@@ -37,6 +37,7 @@ jobs:
           ICS_BOOKING: ${{ secrets.ICS_BOOKING }}
           ICS_AIRBNB: ${{ secrets.ICS_AIRBNB }}
           ICS_TRAVELMINIT: ${{ secrets.ICS_TRAVELMINIT }}
+          ICS_DIRECT: ${{ secrets.ICS_DIRECT }}
           CALENDAR_ALLOW_EMPTY: ${{ github.event.inputs.allow_empty }}
         run: node update-calendar.cjs
 
