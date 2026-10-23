@@ -613,6 +613,9 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
   document.addEventListener("click", function (ev) {
     var t = ev.target.closest ? ev.target.closest("button") : null;
     if (!t) return;
+    // Cât o acțiune e în curs, butoanele cu efect nu mai pornesc alta (ex. „Închide perioada” apăsat de două ori).
+    if (S.busy && (t.id === "btnRefresh" || t.id === "btnSync" ||
+        t.matches("[data-calsave],[data-status],[data-unblock],[data-dismiss]"))) return toast("Se salvează…");
     if (t.hasAttribute("data-confirm") && !t.classList.contains("arm")) return arm(t);
     if (t.id === "btnRefresh") return call("pnData", [true], "Date reîncărcate");
     if (t.id === "btnSync") return call("pnSyncNow", [], "Sincronizare făcută");

@@ -97,6 +97,7 @@ function calBlocks(ss) {
 }
 
 // Închide nopțile first … last (inclusiv). Se propagă pe platforme prin „A13 Direct”, la următoarea lor sincronizare.
+// O perioadă identică cu una deja închisă nu se mai adaugă (ex. butonul apăsat de două ori).
 function calAddBlock(first, last, reason) {
   first = ciIso(first); last = ciIso(last);
   if (!calIsIso(first) || !calIsIso(last)) throw new Error("Datele perioadei nu sunt valide.");
@@ -106,6 +107,7 @@ function calAddBlock(first, last, reason) {
   if (last < Utilities.formatDate(new Date(), CI_TZ, "yyyy-MM-dd")) throw new Error("Perioada e în trecut.");
   reason = String(reason || "").replace(/[\r\n]+/g, " ").trim().slice(0, 120);
   calWithLock(function (ss) {
+    if (calBlocks(ss).some(function (b) { return b.start === first && b.last === last; })) return;
     var sh = ciEnsureSheet(ss, CAL_SHEET, CAL_HEADERS);
     var header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
     var id = Utilities.formatDate(new Date(), CI_TZ, "yyyyMMdd-HHmmss") + "-" + Math.floor(10 + Math.random() * 90);

@@ -197,7 +197,8 @@ Airbnb (rezervare), Site, **închis de tine**, **aștept plata**, indisponibil p
 de pe site pe nopțile libere. Atingi o noapte → detaliile (și „Redeschide” pentru perioadele închise de tine).
 
 **Închide o perioadă:** butonul „Închide o perioadă” → atingi prima și ultima noapte → motiv (opțional) → „Închide
-perioada”. Se salvează în foaia **„Blocări”** (Id, Prima noapte, Ultima noapte, Motiv, Creată la) și intră în
+perioada”. Se salvează în foaia **„Blocări”** (Id, Prima noapte, Ultima noapte, Motiv, Creată la; o perioadă identică
+cu una deja închisă nu se mai adaugă) și intră în
 calendarul iCal **„A13 Direct”**, pe care îl importă Booking, Airbnb, Travelminit și site-ul. Platformele recitesc
 calendarele importate după programul lor (de obicei în câteva ore) → pentru azi/mâine închide și manual pe Booking.
 

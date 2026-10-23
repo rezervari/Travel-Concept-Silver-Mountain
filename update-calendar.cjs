@@ -25,6 +25,7 @@ const path = require("path");
 const GOOGLE_CALENDAR_ID = "ch4cifvuu7agfajplgrccculheveu7g6@import.calendar.google.com";
 const GOOGLE_ICS_URL = "https://calendar.google.com/calendar/ical/" + encodeURIComponent(GOOGLE_CALENDAR_ID) + "/public/basic.ics";
 const OUT_FILE = path.join(__dirname, "booked-dates.json");
+const RETRY_DELAY_MS = Number(process.env.CALENDAR_RETRY_DELAY_MS || 5000);
 
 const PLATFORM_SOURCES = [
   { name: "Booking", env: "ICS_BOOKING" },
@@ -86,12 +87,23 @@ function mergeRanges(events) {
   return out.map(r => ({ start: r.start.toISOString(), end: r.end.toISOString() }));
 }
 
-async function fetchICS(url) {
+async function fetchICSOnce(url) {
   const res = await fetch(url, { headers: { "User-Agent": "A13-Travel-Concept-calendar-sync" } });
   if (!res.ok) throw new Error("HTTP " + res.status);
   const text = await res.text();
   if (text.indexOf("BEGIN:VCALENDAR") === -1) throw new Error("raspunsul nu este un calendar iCal");
   return text;
+}
+
+// O singura reincercare: Apps Script („A13 Direct”) a raspuns o data cu un 404 trecator (23.10.2026).
+async function fetchICS(url, name) {
+  try {
+    return await fetchICSOnce(url);
+  } catch (err) {
+    console.log(name + ": " + err.message + " — reincerc peste " + RETRY_DELAY_MS / 1000 + " s");
+    await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+    return fetchICSOnce(url);
+  }
 }
 
 async function main() {
@@ -123,7 +135,7 @@ async function main() {
   for (const s of sources) {
     let events;
     try {
-      events = parseICS(await fetchICS(s.url));
+      events = parseICS(await fetchICS(s.url, s.name));
     } catch (err) {
       // URL-ul nu se afiseaza niciodata in log (e secret)
       if (s.own) {
