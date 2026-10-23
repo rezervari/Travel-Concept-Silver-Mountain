@@ -26,6 +26,7 @@ const GOOGLE_CALENDAR_ID = "ch4cifvuu7agfajplgrccculheveu7g6@import.calendar.goo
 const GOOGLE_ICS_URL = "https://calendar.google.com/calendar/ical/" + encodeURIComponent(GOOGLE_CALENDAR_ID) + "/public/basic.ics";
 const OUT_FILE = path.join(__dirname, "booked-dates.json");
 const RETRY_DELAY_MS = Number(process.env.CALENDAR_RETRY_DELAY_MS || 5000);
+const FETCH_TIMEOUT_MS = Number(process.env.CALENDAR_FETCH_TIMEOUT_MS || 30000);
 
 const PLATFORM_SOURCES = [
   { name: "Booking", env: "ICS_BOOKING" },
@@ -88,7 +89,9 @@ function mergeRanges(events) {
 }
 
 async function fetchICSOnce(url) {
-  const res = await fetch(url, { headers: { "User-Agent": "A13-Travel-Concept-calendar-sync" } });
+  // Fara limita, o cerere blocata (s-a intamplat cu Apps Script) ar tine rularea agatata ore intregi.
+  const res = await fetch(url, { headers: { "User-Agent": "A13-Travel-Concept-calendar-sync" },
+                                 signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!res.ok) throw new Error("HTTP " + res.status);
   const text = await res.text();
   if (text.indexOf("BEGIN:VCALENDAR") === -1) throw new Error("raspunsul nu este un calendar iCal");
