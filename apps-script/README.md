@@ -57,3 +57,50 @@ adaugă automat la prima solicitare.
 - textul care începe cu `=`, `+`, `-`, `@` nu e interpretat ca formulă în Sheet;
 - dacă se termină cota zilnică de e-mail, rândul se salvează în Sheet și site-ul trece pe varianta cu clientul de e-mail;
 - dacă trimiterea eșuează, site-ul deschide automat varianta veche (clientul de e-mail), ca să nu se piardă solicitarea.
+
+# Evidența rezervărilor pentru check-in (`checkin.gs`) — Faza 1
+
+Din 10 în 10 minute, scriptul ține la zi foaia **„Rezervări”** din același Sheet:
+
+- **Booking** — citește din Gmail e-mailurile „Booking.com - Rezervare nouă! / Rezervare anulată!”. E-mailul are
+  doar numărul rezervării și data sosirii; **data plecării** se ia din calendarul iCal Booking (rezervarea care
+  începe în ziua sosirii). E-mailurile citite primesc eticheta **A13-procesat** în Gmail.
+- **Site** — solicitările din foaia „Solicitări” la care pui în coloana **Status** „Confirmată” (după plată) sau
+  „Anulată”. Coloana are acum o listă de alegere; datele corectate în „Solicitări” se preiau și în „Rezervări”.
+- **Anulările** se mută în foaia **„Anulate”**. Tot ce face scriptul se notează în foaia **„Jurnal”**.
+
+Faza 1 **nu** trimite mesaje oaspeților și nu atinge yala (coloanele „Fișă…” / „Cod…” rămân goale).
+
+## Instalare (o singură dată)
+
+1. În Sheet-ul „Rezervări site A13”: **Extensii → Apps Script** (același proiect cu `rezervari.gs`).
+2. **➕ (Adaugă fișier) → Script** → numele `checkin` → lipește conținutul fișierului [`checkin.gs`](checkin.gs) → salvează.
+3. **⚙️ Project Settings → Script Properties → Add script property**: cheia `ICS_BOOKING`, valoarea = linkul de
+   export iCal din Booking (Extranet → Tarife și disponibilitate → Sincronizare calendare → Export; e același link ca
+   secretul GitHub `ICS_BOOKING`). Linkul e secret: nu se pune în cod.
+4. Alege funcția `checkinSync` → **▶ Run**. Google cere permisiuni noi (citirea Gmail și etichete, Sheet,
+   conectare la un serviciu extern): **Avansat → Accesează (nesigur) → Permite**. Apar foile „Rezervări”,
+   „Anulate”, „Jurnal”.
+5. Alege funcția `checkinInstall` → **▶ Run**: pornește rularea automată din 10 în 10 minute și pune lista pe
+   coloana Status din „Solicitări”.
+
+**Verificare calendar:** funcția `checkinVerificaCalendar` → **▶ Run** arată în Execution log câte evenimente vede
+scriptul în calendarul Booking (doar datele, fără link). Trebuie să apară rezervările viitoare; „0 evenimente” =
+linkul din `ICS_BOOKING` nu e cel bun (e același link ca la GitHub, din Sincronizare calendare a apartamentului).
+
+**Nu** e nevoie de „Implementare → versiune nouă”: declanșatorul rulează mereu codul salvat, iar formularul de pe
+site (web app-ul din `rezervari.gs`) nu e afectat. Oprire: rulează `checkinUninstall` (foile rămân).
+După o modificare a `checkin.gs`: lipești codul nou și salvezi — atât.
+
+## Foaia „Rezervări”
+
+- **Nr. rezervare** — numărul Booking sau `SITE-AAAALLZZ-hhmmss` (din „Primită la” al solicitării).
+- **Stare** — o scrie scriptul:
+  - `Confirmată`;
+  - `Fără dată de plecare (aștept calendarul Booking)` — rezervare nouă care încă nu apare în iCal (se completează singură);
+  - `De verificat: nu mai apare în calendarul Booking` — datele s-au schimbat sau rezervarea a dispărut din calendar;
+    scriptul NU o anulează singur;
+  - `De verificat` — a venit alt tip de e-mail Booking despre rezervare (de ex. o modificare); rămâne așa până îl
+    schimbi tu în `Confirmată`.
+- **Note** și coloanele adăugate de tine se păstrează (coloanele proprii nu se mută în „Anulate”).
+- Rezervările cu sosirea trecută nu se mai importă; cele deja în foaie rămân.

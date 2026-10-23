@@ -6,7 +6,14 @@
 //   ICS_BOOKING, ICS_AIRBNB, ICS_TRAVELMINIT
 // Daca niciun secret nu e setat, se foloseste calendarul Google public (sursa veche, mai lenta).
 // Daca o sursa configurata nu raspunde, fisierul NU se modifica (mai bine date vechi decat zile ocupate afisate libere).
-// Fisierul se rescrie doar cand se schimba intervalele ocupate (fara commit-uri inutile).
+// Daca o sursa care avea evenimente viitoare trimite brusc un calendar GOL (raspuns valid, 0 evenimente — s-a
+// intamplat cu Booking pe 23.10.2026), nu se sterge nimic: intervalele vechi raman, cele noi se adauga, iar rularea
+// iese cu eroare pe GitHub (prin pasul final din workflow). Golirea reala (ex. toate rezervarile anulate) se accepta
+// ruland manual workflow-ul cu allow_empty = numele sursei (ex. Booking) sau local cu CALENDAR_ALLOW_EMPTY=Booking.
+// In booked-dates.json, "sources" = pentru fiecare sursa: cate evenimente viitoare a avut la ultima rulare si pana
+// cand tine ultimul ("until"). Calendarul gol e suspect doar daca "until" e inca in viitor (o rezervare care s-a
+// terminat normal nu declanseaza alarma).
+// Fisierul se rescrie doar cand se schimba intervalele ocupate sau aceste date (fara commit-uri inutile).
 
 const fs = require("fs");
 const path = require("path");
@@ -93,7 +100,18 @@ async function main() {
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
+
+  let previousFile = null;
+  try { previousFile = JSON.parse(fs.readFileSync(OUT_FILE, "utf8")); } catch (_) {}
+  const previous = previousFile && Array.isArray(previousFile.ranges) ? previousFile.ranges : null;
+  const previousFuture = (previous || []).filter(r => new Date(r.end) > today);
+  const previousSources = (previousFile && previousFile.sources) || {};
+  const allowEmpty = (process.env.CALENDAR_ALLOW_EMPTY || "").split(",").map(x => x.trim().toLowerCase()).filter(Boolean);
+  const todayIso = today.toISOString().slice(0, 10);
+
   const all = [];
+  const state = {};
+  const emptied = []; // surse care aveau evenimente inca viitoare si acum trimit un calendar gol
   for (const s of sources) {
     let events;
     try {
@@ -114,20 +132,42 @@ async function main() {
       }
     }
     all.push(...future);
+    const lastEnd = future.reduce((m, e) => (!m || e.end > m ? e.end : m), null);
+    state[s.name] = { events: future.length, until: lastEnd ? lastEnd.toISOString().slice(0, 10) : null };
+    const before = previousSources[s.name] || {};
+    if (!future.length && before.until && before.until > todayIso && allowEmpty.indexOf(s.name.toLowerCase()) < 0) {
+      emptied.push(s.name);
+      state[s.name] = before; // protectia ramane activa pana cand sursa trimite iar evenimente
+      console.error("::error title=Calendar " + s.name + " gol::" + s.name + " a trimis un calendar fara evenimente (avea " +
+        before.events + " viitoare, pana la " + before.until + "). Zilele ocupate se pastreaza. Daca golirea e reala, " +
+        "ruleaza workflow-ul manual cu allow_empty=" + s.name + ".");
+    }
+  }
+  // Fisier vechi, fara "sources": toate sursele goale, dar existau zile ocupate viitoare -> tot calendar gol suspect.
+  if (!all.length && previousFuture.length && !Object.keys(previousSources).length &&
+      !sources.every(s => allowEmpty.indexOf(s.name.toLowerCase()) >= 0)) {
+    sources.forEach(s => { if (emptied.indexOf(s.name) < 0) emptied.push(s.name); });
+    console.error("::error title=Calendare goale::Toate calendarele au venit fara evenimente, dar existau " +
+      previousFuture.length + " intervale ocupate viitoare. Zilele ocupate se pastreaza.");
+  }
+
+  if (emptied.length) {
+    // Nimic nu se sterge: intervalele viitoare existente + cele primite acum.
+    all.push(...previousFuture.map(r => ({ start: new Date(r.start), end: new Date(r.end) })));
+    if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, "suspicious=1\n");
   }
 
   const ranges = mergeRanges(all);
-
-  let previous = null;
-  try { previous = JSON.parse(fs.readFileSync(OUT_FILE, "utf8")).ranges; } catch (_) {}
-  if (previous && JSON.stringify(previous) === JSON.stringify(ranges)) {
+  const sourcesChanged = JSON.stringify(previousSources) !== JSON.stringify(state);
+  if (previous && JSON.stringify(previous) === JSON.stringify(ranges) && !sourcesChanged) {
     console.log("Fara modificari (" + ranges.length + " intervale) — fisierul nu se rescrie.");
     return;
   }
 
-  const out = { updatedAt: new Date().toISOString(), ranges };
+  const out = { updatedAt: new Date().toISOString(), ranges, sources: state };
   fs.writeFileSync(OUT_FILE, JSON.stringify(out, null, 2));
-  console.log("OK — " + ranges.length + " intervale scrise in " + OUT_FILE);
+  console.log("OK — " + ranges.length + " intervale scrise in " + OUT_FILE +
+    (emptied.length ? " (pastrate cele vechi: calendar gol la " + emptied.join(", ") + ")" : ""));
 }
 
 main().catch(err => {

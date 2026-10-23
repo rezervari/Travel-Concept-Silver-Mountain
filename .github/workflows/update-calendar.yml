@@ -5,6 +5,11 @@ on:
     # din ora in ora, la minutul 17 (ora fixa e aglomerata pe GitHub si rularile se amana)
     - cron: "17 * * * *"
   workflow_dispatch:
+    inputs:
+      allow_empty:
+        description: "Surse acceptate cu calendar gol (ex. Booking) — doar daca golirea e reala"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -27,10 +32,12 @@ jobs:
           node-version: 24
 
       - name: Update calendar
+        id: calendar
         env:
           ICS_BOOKING: ${{ secrets.ICS_BOOKING }}
           ICS_AIRBNB: ${{ secrets.ICS_AIRBNB }}
           ICS_TRAVELMINIT: ${{ secrets.ICS_TRAVELMINIT }}
+          CALENDAR_ALLOW_EMPTY: ${{ github.event.inputs.allow_empty }}
         run: node update-calendar.cjs
 
       - name: Save updated calendar
@@ -45,3 +52,11 @@ jobs:
           git commit -m "update calendar"
           git pull --rebase
           git push
+
+      # Calendar gol suspect: zilele ocupate au fost pastrate (si salvate mai sus), dar rularea apare ca esuata,
+      # ca sa vina notificarea de la GitHub. Vezi Annotations pentru sursa.
+      - name: Fail if a calendar came back empty
+        if: steps.calendar.outputs.suspicious == '1'
+        run: |
+          echo "::error::Un calendar a venit gol; zilele ocupate au fost pastrate. Verifica sincronizarea pe platforma (vezi mesajele de mai sus)."
+          exit 1
