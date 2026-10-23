@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-10-23T08:57:45.913Z",
+  "updatedAt": "2026-10-23T13:30:04.784Z",
   "ranges": [
     {
       "start": "2026-10-28T00:00:00.000Z",
@@ -20,7 +20,7 @@
   ],
   "sources": {
     "Booking": {
-      "events": 4,
+      "events": 1,
       "until": "2028-04-23"
     },
     "Airbnb": {
