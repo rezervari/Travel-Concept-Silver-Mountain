@@ -1,3 +1,6 @@
 node_modules/
 
 Claude outputs/
+
+# Ghidul StayBook (copii locale; conține date operaționale: loc parcare, imagini Wi-Fi)
+ghid-staybook/

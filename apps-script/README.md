@@ -104,3 +104,46 @@ După o modificare a `checkin.gs`: lipești codul nou și salvezi — atât.
     schimbi tu în `Confirmată`.
 - **Note** și coloanele adăugate de tine se păstrează (coloanele proprii nu se mută în „Anulate”).
 - Rezervările cu sosirea trecută nu se mai importă; cele deja în foaie rămân.
+
+# Yala TTLock (`ttlock.gs`) — Faza 2, pasul 1: legătura (doar citire)
+
+Verifică legătura cu TTLock Open Platform (serverul EU, `euapi.ttlock.com`): token + lista yalelor, gateway,
+versiunea de coduri, bateria, câte coduri există. **Nu** creează, nu modifică și nu șterge nimic pe yală.
+
+1. În același proiect Apps Script: **➕ → Script** → numele `ttlock` → lipește [`ttlock.gs`](ttlock.gs) → salvează.
+2. **⚙️ Project Settings → Script Properties** — adaugă (le completezi tu, nu se pun în cod):
+   - `TTLOCK_CLIENT_ID`, `TTLOCK_CLIENT_SECRET` — de la aplicația aprobată pe [euopen.ttlock.com](https://euopen.ttlock.com) → Management;
+   - `TTLOCK_USERNAME` — contul cu care intri în aplicația TTLock (telefonul sau e-mailul);
+   - `TTLOCK_PASSWORD` — parola acelui cont (după primul pas rămâne doar ca MD5, în `TTLOCK_PASSWORD_MD5`).
+3. Alege funcția `ttlockSetup` → **▶ Run** (permisiunea „serviciu extern” există deja). În Execution log trebuie să
+   apară yala: `lockId …, gateway: da, versiune coduri: …, coduri: N`. Mai târziu, pentru o verificare: `ttlockTest`.
+
+Codurile și numele lor nu se afișează în log; tokenul (90 de zile) se reînnoiește singur.
+
+# Sosirea automată (`checkin.gs`) — Faza 2: fișă → cod pe yală → e-mail
+
+După Faza 1 și legătura TTLock, `checkinSync` (același declanșator, la 10 min) duce și sosirea, în pași izolați:
+
+- **Linkul spre fișă** — rezervările de pe site (avem e-mail): cu o zi înainte, de la **10:00**, un e-mail cu
+  fișa fisacazare precompletată doar cu datele sejurului. Booking (fără e-mail): linkul pleacă prin **mesajul
+  programat din Extranet**; scriptul doar notează asta.
+- **Fișa completată** → codul = **ultimele 6 cifre ale telefonului**, pus pe yală prin gateway, valabil din ziua
+  sosirii **16:00** până în ziua plecării **11:00**; oaspetele primește pe e-mail codul + ghidul (Booking: codul
+  pleacă pe e-mailul trecut în fișă).
+- **Reminder la 13:00** (ziua sosirii, fișă necompletată): site = e-mail de reminder către oaspete; Booking = un
+  e-mail la tine cu textul (RO + EN) gata de lipit în chatul Booking.
+- **Cod de rezervă la 16:00** (fișă tot necompletată): un cod aleator de 6 cifre pe yală (16:00 → 11:00), etichetat
+  „· REZERVĂ”. Site = e-mail cu codul la oaspete; Booking/fără e-mail = e-mail la tine cu textul de lipit. Dacă fișa
+  vine mai târziu, codul rămâne cel de rezervă (nu se mai face altul).
+- **După plecare (12:00)** sau **la anulare** → codul se șterge de pe yală; la anulare primești și nopțile de
+  deblocat pe Airbnb/Travelminit.
+
+Erorile (ex. gateway offline) se notează în foaia „Jurnal” și îți vin pe e-mail cel mult o dată la 6 h; scriptul
+reîncearcă la fiecare rulare.
+
+**Mod test (implicit):** Script Property `CHECKIN_TEST_MODE` lipsă sau ≠ `0` → e-mailurile pentru oaspeți vin la
+tine, cu `[TEST → adresă]` în subiect; **codurile se pun totuși pe yală**. Pentru funcționare reală: `CHECKIN_TEST_MODE` = `0`.
+Test fără oaspete real: `checkinTestRezervare` (creează un rând cu sosirea azi) → completezi fișa de test → la
+rularea următoare vezi codul pe yală și e-mailul; curăță cu `checkinStergeTest`.
+
+După o modificare a `checkin.gs`: lipești codul nou în editor și salvezi — atât (fără „Deploy → versiune nouă”).
