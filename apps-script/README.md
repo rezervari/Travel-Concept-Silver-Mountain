@@ -120,6 +120,30 @@ versiunea de coduri, bateria, câte coduri există. **Nu** creează, nu modific�
 
 Codurile și numele lor nu se afișează în log; tokenul (90 de zile) se reînnoiește singur.
 
+# Termostatele Salus iT600 (`salus.gs`) — pasul 1: legătura (doar citire)
+
+Salus nu are API public. `salus.gs` folosește drumul aplicației Salus Smart Home, descoperit de binding-ul openHAB
+„salus-aws-bridge”: login Amazon Cognito (SRP, parola nu pleacă spre server), chei AWS temporare, lista dispozitivelor
+de la `eu.salusconnect.io` și starea fiecărui termostat din AWS IoT. API-ul e neoficial, deci Salus îl poate schimba
+fără anunț. **Nu** trimite nicio comandă termostatelor: citește temperatura din cameră, temperatura setată, modul
+(program / manual temporar / manual permanent / oprit) și reglajele raportate (limite, anti-îngheț, blocarea tastelor).
+
+1. În același proiect Apps Script: **➕ → Script** → numele `salus` → lipește [`salus.gs`](salus.gs) → salvează.
+2. Alege funcția `salusViteza` → **▶ Run** (nu cere cont și nu folosește rețeaua). În log trebuie să apară
+   `Calcul cu numere mari: corect · … calculul unui login SRP X s`. Dacă apare „GREȘIT”, te oprești aici.
+3. **⚙️ Project Settings → Script Properties** — adaugă (le completezi tu, nu se pun în cod):
+   - `SALUS_USERNAME` — e-mailul cu care intri în aplicația Salus Smart Home;
+   - `SALUS_PASSWORD` — parola acelui cont. După primul login reușit rămâne doar ca hash (`SALUS_PASSWORD_HASH` +
+     `SALUS_SRP_USER`), iar cea în clar se șterge. Dacă schimbi parola în aplicație, o pui din nou aici.
+4. Alege `salusSetup` → **▶ Run**. În log apar gateway-ul și termostatele, de exemplu
+   `— „Living” · model: … · ep9: cameră 21,6 °C · setat 21,0 °C · mod: manual permanent`.
+   Mai târziu, pentru o verificare: `salusTest`. La o eroare: `salusDiagnoza`, care arată pasul care nu merge
+   (date lipsă, login, gateway, dispozitive, stare) și verifică dacă nu cumva contul e încă pe cloud-ul vechi Salus.
+
+Parola, tokenurile și cheile AWS nu apar în log; din ID-urile dispozitivelor apar doar ultimele 4 caractere. Sesiunea
+(refresh token) stă în `SALUS_REFRESH_TOKEN`, tokenurile de o oră doar în cache. Un cont cu verificare în doi pași nu
+merge: scriptul spune asta clar, iar soluția e un cont separat fără ea, dacă aplicația permite partajarea.
+
 # Sosirea automată (`checkin.gs`) — Faza 2: fișă → cod pe yală → e-mail
 
 După Faza 1 și legătura TTLock, `checkinSync` (același declanșator, la 10 min) duce și sosirea, în pași izolați:
