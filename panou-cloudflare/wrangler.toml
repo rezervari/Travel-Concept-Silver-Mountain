@@ -1,0 +1,34 @@
+# Panoul A13 pe Cloudflare (vezi README.md). Publicare, din acest folder: npx wrangler@4 deploy
+name = "a13-panou"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+preview_urls = false
+
+# Pagina e chiar apps-script/Panou.html (o singură sursă pentru ambele panouri), importată ca text.
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
+
+# Fișierele aplicației (manifest, iconițe, service worker): fără date, servite direct; restul trece prin Worker.
+[assets]
+directory = "public"
+binding = "ASSETS"
+
+# Ultimele date ale panoului (cheia „snapshot”).
+[[kv_namespaces]]
+binding = "PANOU_KV"
+id = "ee272291ddc944b592de1f67b2f04cfd"   # „a13-panou-kv”
+
+# Datele panoului se reîmprospătează la 5 minute.
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+# Implementarea „Calendar” din Apps Script (Execute as: Me, Who has access: Anyone); cererile au nevoie de PN_API_TOKEN.
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxn5QWCQN1V3KffutRxYELFtSHtE7m6I8bmdZvNRzAtEw2PqJrJW0FxDDZ8asHBIgKn/exec"
+# Cloudflare Access (Worker → Access → „Application values”): echipa și tag-ul aplicației (AUD). Politica:
+# „A13 Panou - doar Mircea” (Emails = proprietarul, sesiune 1 lună), pe „All traffic”.
+ACCESS_TEAM_DOMAIN = "spatiu123.cloudflareaccess.com"
+ACCESS_AUD = "1bf87485fee47bdf3b94bbe89ad0b75cb0c63b6e2b1167bb02b4888139c54ef9"

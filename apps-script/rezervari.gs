@@ -58,6 +58,9 @@ function doPost(e) {
   try {
     var data = JSON.parse((e && e.postData && e.postData.contents) || "{}");
 
+    // Panoul de pe Cloudflare (panou.gs → pnApi): aceleași acțiuni ca pagina din Apps Script, cu cheia PN_API_TOKEN.
+    if (data.api && typeof pnApi === "function") return pnApi(data);
+
     // Honeypot: câmp invizibil pe site, completat doar de roboți → răspundem „ok” și ignorăm.
     if (data.website) return json({ ok: true });
 

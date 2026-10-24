@@ -13,6 +13,10 @@
  * Panoul citește foile. Scrie doar: „Gata” (Script Property PN_DISMISSED), perioadele închise / redeschise din calendar
  * (foaia „Blocări”, calendar.gs), Status-ul solicitărilor de pe site (butoanele Aștept plata / Plătit · confirmă /
  * Anulează) și pornește, la cerere, aceeași sincronizare ca declanșatorul de 10 minute (checkinSync).
+ *
+ * Aceeași pagină rulează și pe Cloudflare (panou-cloudflare/, aplicație instalabilă, în spatele Cloudflare Access).
+ * Worker-ul cheamă funcțiile de mai jos prin doPost → pnApi, cu cheia secretă PN_API_TOKEN (Script Properties și
+ * secretul Worker-ului) în locul contului Google.
  */
 
 var PN_TITLE = "Panou A13";
@@ -27,6 +31,8 @@ var PN_DISMISSED_PROPERTY = "PN_DISMISSED";  // „De făcut” marcate cu „Ga
 var PN_DISMISSED_DAYS = 45;
 var PN_LAST_RUN_PROPERTY = "CI_LAST_RUN";    // scris de checkinSync la fiecare rulare reușită
 var PN_OPEN_STATUSES = ["", "nouă", "de verificat", "fără e-mail (cotă)", "așteaptă plata"];
+var PN_API_TOKEN_PROPERTY = "PN_API_TOKEN";   // cheia panoului de pe Cloudflare (aceeași în secretul Worker-ului)
+var PN_API_CALL = false;                      // true doar pe durata unei cereri pnApi cu cheia corectă
 
 /* ============================== PUNCTE DE INTRARE ============================== */
 
@@ -40,7 +46,38 @@ function pnAllowed() {
 }
 
 function pnCheck() {
+  if (PN_API_CALL) return;
   if (!pnAllowed()) throw new Error("Acces refuzat.");
+}
+
+// Din doPost (rezervari.gs), pentru Worker-ul de pe Cloudflare: { api: "<funcție>", token, args: [...] }.
+// Cheia greșită sau lipsă → „auth”; doar funcțiile panoului de mai jos. Răspuns: același JSON ca google.script.run.
+function pnApi(req) {
+  var expected = String(PropertiesService.getScriptProperties().getProperty(PN_API_TOKEN_PROPERTY) || "");
+  if (expected.length < 32 || String(req.token || "") !== expected) return json({ ok: false, error: "auth" });
+  var fns = { pnData: pnData, pnSyncNow: pnSyncNow, pnDismiss: pnDismiss, pnBlock: pnBlock, pnUnblock: pnUnblock,
+              pnSetRequestStatus: pnSetRequestStatus };
+  var fn = fns.hasOwnProperty(String(req.api)) ? fns[String(req.api)] : null;
+  if (!fn) return json({ ok: false, error: "fn" });
+  var args = Object.prototype.toString.call(req.args) === "[object Array]" ? req.args.slice(0, 3) : [];
+  PN_API_CALL = true;
+  try {
+    return ContentService.createTextOutput(fn.apply(null, args)).setMimeType(ContentService.MimeType.JSON);
+  } catch (e) {
+    return json({ ok: false, error: String(e && e.message || e).slice(0, 300) });
+  } finally {
+    PN_API_CALL = false;
+  }
+}
+
+// O singură dată, din editor: creează cheia panoului de pe Cloudflare (dacă nu există). Cheia o pui și în Worker:
+// npx wrangler secret put PN_API_TOKEN (vezi panou-cloudflare/README.md). Nu se scrie în log.
+function pnApiToken() {
+  var p = PropertiesService.getScriptProperties();
+  if (!p.getProperty(PN_API_TOKEN_PROPERTY)) {
+    p.setProperty(PN_API_TOKEN_PROPERTY, (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, ""));
+  }
+  console.log("PN_API_TOKEN există în Script Properties (" + p.getProperty(PN_API_TOKEN_PROPERTY).length + " caractere).");
 }
 
 // Apelată din doGet (rezervari.gs), după pnAllowed. Datele vin deja în pagină, fără o a doua cerere.

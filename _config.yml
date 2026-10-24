@@ -14,6 +14,7 @@ exclude:
   - README.md
   - RECENZII-README.md
   - apps-script
+  - panou-cloudflare
   - pricing
   - ask-gemini.js
   - update-google-reviews.js

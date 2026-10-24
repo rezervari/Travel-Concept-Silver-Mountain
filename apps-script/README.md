@@ -190,6 +190,16 @@ browserul are mai multe conturi Google și l-a ales pe altul → deschide linkul
 Salvează în editor, apoi **Deploy → Manage deployments → „Panou” → ✏️ → Version: New version → Deploy**
 (URL-ul rămâne același). Implementarea publică a formularului rămâne pe versiunea ei până o actualizezi separat.
 
+## Panoul ca aplicație, pe Cloudflare
+
+Aceeași pagină rulează și pe Cloudflare, ca aplicație instalabilă, mai rapidă, fără problema conturilor Google
+(vezi [`panou-cloudflare/README.md`](../panou-cloudflare/README.md)). Worker-ul cheamă funcțiile panoului prin
+`doPost` → `pnApi` (în `panou.gs`), prin implementarea **„Calendar”** (Anyone), cu cheia **`PN_API_TOKEN`** din Script
+Properties (aceeași în secretul Worker-ului). Fără cheia corectă: `{"ok":false,"error":"auth"}`; doar funcțiile
+panoului (`pnData`, `pnSyncNow`, `pnDismiss`, `pnBlock`, `pnUnblock`, `pnSetRequestStatus`). La o modificare în
+`panou.gs` / `rezervari.gs`: implementarea „Calendar” pe versiune nouă; la o modificare în `Panou.html`: și
+`npx wrangler@4 deploy` din `panou-cloudflare/`.
+
 # Calendarul și blocările (`calendar.gs`) — „A13 Direct”
 
 În panou, tab-ul **Calendar** (pe laptop două luni, pe telefon una): fiecare noapte colorată după sursă — Booking,

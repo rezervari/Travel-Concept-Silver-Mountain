@@ -4,6 +4,7 @@
 <base target="_blank">
 <meta charset="utf-8">
 <meta name="theme-color" content="#003580">
+<!--A13_HEAD-->
 <style>
 :root{
   --bg:#f5f5f5;--card:#fff;--ink:#262626;--muted:#6b6b6b;--line:#e7e7e7;--soft:#f7f7f7;
@@ -296,7 +297,7 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
   };
   function ic(name) { return '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' + (P[name] || "") + "</svg>"; }
 
-  var S = { data: INITIAL, tab: "home", logCat: "all", logNr: "", logLimit: 40, busy: false, showCodes: false, loadedAt: Date.now(),
+  var S = { data: INITIAL, tab: "home", logCat: "all", logNr: "", logLimit: 40, busy: false, showCodes: false, loadedAt: INITIAL.now || Date.now(),
             calMonth: "", calMode: "", calFirst: "", calLast: "", calPick: "", calReason: "" };
   try { S.tab = sessionStorage.getItem("pn-tab") || "home"; } catch (e) {}
 
@@ -590,16 +591,27 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     else fallback();
   }
 
+  // În Apps Script: google.script.run. Pe Cloudflare (A13_API pus de Worker): POST la Worker, care cheamă Apps Script.
   function call(fn, args, okMsg, after) {
-    if (!(window.google && google.script && google.script.run)) { toast("Funcționează doar în pagina publicată din Apps Script."); return; }
+    var api = window.A13_API;
+    if (!api && !(window.google && google.script && google.script.run)) { toast("Funcționează doar în pagina publicată a panoului."); return; }
     setBusy(true, fn === "pnSyncNow");
-    var run = google.script.run
-      .withSuccessHandler(function (json) {
-        S.data = JSON.parse(json); S.loadedAt = Date.now(); setBusy(false); if (after) after(); render(); if (okMsg) toast(okMsg);
-      })
-      .withFailureHandler(function (err) {
-        setBusy(false); toast("Nu s-a putut: " + (err && err.message ? err.message : err));
-      });
+    function ok(json) {
+      S.data = JSON.parse(json); S.loadedAt = S.data.now || Date.now(); setBusy(false); if (after) after(); render(); if (okMsg) toast(okMsg);
+    }
+    function fail(err) { setBusy(false); toast("Nu s-a putut: " + (err && err.message ? err.message : err)); }
+    if (api) {
+      fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", redirect: "manual",
+                   body: JSON.stringify({ fn: fn, args: args || [] }) })
+        .then(function (r) {
+          // Sesiunea Cloudflare Access a expirat → pagina se reîncarcă și cere din nou autentificarea.
+          if (r.type === "opaqueredirect" || r.status === 401 || r.status === 403) { location.reload(); throw new Error("autentificare"); }
+          return r.text().then(function (t) { if (!r.ok) throw new Error(t || "HTTP " + r.status); return t; });
+        })
+        .then(ok, fail);
+      return;
+    }
+    var run = google.script.run.withSuccessHandler(ok).withFailureHandler(fail);
     run[fn].apply(run, args || []);
   }
 
@@ -808,6 +820,8 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
   document.addEventListener("input", function (ev) { if (ev.target && ev.target.id === "calReason") S.calReason = ev.target.value; });
 
   render();
+  // Pe Cloudflare pagina pornește cu ultimele date păstrate (cel mult câteva minute); mai vechi de 2 minute → reîncărcare.
+  if (Date.now() - S.loadedAt > 120000) call("pnData", [false]);
 })();
 </script>
 </body>
