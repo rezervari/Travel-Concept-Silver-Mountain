@@ -376,6 +376,7 @@ function calWithLock(fn) {
 function calLog(ss, event, nr, details) {
   var sh = ciEnsureSheet(ss, CI_SHEET_LOG, CI_LOG_HEADERS);
   sh.appendRow([new Date(), event, nr ? "'" + nr : "", safeCell(details || "")]);
+  if (typeof tgEvents === "function") tgEvents([[new Date(), event, nr || "", details || ""]]);   // telegram.gs
 }
 
 // „AAAA-LL-ZZ” și o zi care există (fără 2026-13-01 sau 2026-02-30).

@@ -240,3 +240,36 @@ singură dată pe pereche) + alertă în „De făcut”. Blocările („Not ava
 Linkul conține cheia secretă: nu se pune în cod sau în repo. Dacă ajunge unde nu trebuie: șterge `CAL_FEED_TOKEN`
 (se creează alta) și pune linkul nou pe platforme. După o modificare a `calendar.gs`: salvează + **Manage deployments →
 „Calendar” și „Panou” → New version** (feed-ul vine din implementarea „Calendar”).
+
+# Notificări pe telefon prin Telegram (`telegram.gs`)
+
+Botul A13 îți trimite pe Telegram (telefon + calculator) tot ce se întâmplă:
+
+- **cu sunet:** solicitare nouă de pe site (cu WhatsApp, telefonul copiabil, rândul din Sheet), rezervare nouă pe
+  Booking (buton Extranet), date / plecare modificate, toate alertele de pe e-mail — textele de lipit în chatul Booking
+  (reminder 13:00, cod de rezervă 16:00) apar ca **blocuri gri: atingi textul și se copiază**, RO și EN separat —,
+  anulări, erori, suprapuneri, plată neîncasată în 24 h, rezumatul zilnic de la 08:00;
+- **fără sunet** (grupate într-un singur mesaj pe rulare): fișă primită, link fișă trimis, cod trimis / șters, plecare
+  din calendar, perioade închise / redeschise și status-uri schimbate din panou;
+- **niciodată:** evenimentele care se repetă la fiecare 10 minute cât durează o eroare (pentru ele pleacă o singură
+  alertă) și cele dublate de o alertă.
+
+Mesajul pleacă înaintea e-mailului; dacă Telegram nu răspunde, e-mailurile pleacă la fel ca înainte. GitHub Actions
+trimite și el un mesaj la orice rulare eșuată (calendar, prețuri, imagini, recenzii). `TG_ENABLED` = `0` în Script
+Properties oprește temporar notificările.
+
+## Instalare (o singură dată)
+
+1. **Tu, în Telegram:** caută **@BotFather** (are bifă albastră) → `/newbot` → nume: `A13 Notificări` → username
+   (unic, se termină în `bot`, ex. `A13TravelConceptBot`). BotFather îți dă o **cheie** (`123456789:AA…`). Deschide
+   botul nou (linkul `t.me/<username>`) și apasă **Start**.
+2. **Tu, în Apps Script:** ⚙️ Project Settings → Script Properties → `TG_BOT_TOKEN` = cheia. Cheia e secretă: nu o
+   pune în cod, în repo sau în e-mailuri.
+3. Editor: **➕ → Script** `telegram` → conținutul [`telegram.gs`](telegram.gs); actualizează `Cod.gs`, `checkin`,
+   `calendar`; salvează. Script Property `PANOU_URL` = linkul implementării „Panou” (butonul „Panou” din mesaje).
+4. Rulează **`tgSetup`** (▶ Run): găsește chatul tău, pornește rezumatul de la 08:00 și îți trimite „Notificările A13
+   sunt conectate”. **`tgTest`** trimite câte un exemplu din fiecare fel de mesaj.
+5. **Deploy → Manage deployments**: „Panou”, „Calendar” **și implementarea formularului** (pentru solicitările de pe
+   site) → New version.
+6. GitHub → Settings → Secrets → Actions: `TELEGRAM_BOT_TOKEN` (aceeași cheie) și `TELEGRAM_CHAT_ID` (din Script
+   Property `TG_CHAT_ID`).

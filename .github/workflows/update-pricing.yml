@@ -36,3 +36,17 @@ jobs:
           git add pricing.json
           git commit -m "update pricing" || echo "no changes"
           git push
+
+      # Rulare esuata -> mesaj pe Telegram (botul A13). Fara secretele TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID nu face nimic.
+      - name: Notify Telegram on failure
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          WORKFLOW: ${{ github.workflow }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || exit 0
+          curl -s -o /dev/null --max-time 20 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=⚠️ GitHub: „${WORKFLOW}” a eșuat. Detalii: ${RUN_URL}" || true

@@ -73,12 +73,15 @@ function doPost(e) {
     // Fără cotă de e-mail: rândul rămâne în Sheet, iar site-ul trece pe varianta mailto
     // (oaspetele îți trimite solicitarea din clientul lui de e-mail).
     if (MailApp.getRemainingDailyQuota() < 2) {
-      logRow(r, "Fără e-mail (cotă)");
+      var quotaSheet = logRow(r, "Fără e-mail (cotă)");
+      if (typeof tgNewRequest === "function") tgNewRequest(r, "Fără e-mail (cotă)", quotaSheet);   // telegram.gs
       return json({ ok: false, error: "quota" });
     }
 
     var owner = Session.getEffectiveUser().getEmail();
-    var sheetUrl = logRow(r, r.notes.length ? "De verificat" : "Nouă");
+    var status = r.notes.length ? "De verificat" : "Nouă";
+    var sheetUrl = logRow(r, status);
+    if (typeof tgNewRequest === "function") tgNewRequest(r, status, sheetUrl);   // telegram.gs: întâi pe telefon
 
     MailApp.sendEmail({
       to: owner,

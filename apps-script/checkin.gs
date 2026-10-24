@@ -838,6 +838,7 @@ function ciMailGuest(to, subject, text, html) {
 }
 
 function ciAlertOwner(subject, text) {
+  if (typeof tgAlert === "function") tgAlert(subject, text);   // telegram.gs: întâi pe telefon (nu aruncă erori)
   MailApp.sendEmail(Session.getEffectiveUser().getEmail(), "[Check-in A13] " + subject, text, { name: "Check-in " + BRAND });
 }
 
@@ -1113,6 +1114,7 @@ function ciAppendLog(ctx) {
   sh.getRange(sh.getLastRow() + 1, 1, rows.length, CI_LOG_HEADERS.length).setValues(rows);
   var extra = sh.getLastRow() - 1 - CI_LOG_MAX_ROWS;
   if (extra > 0) sh.deleteRows(2, extra);
+  if (typeof tgEvents === "function") tgEvents(ctx.events);   // telegram.gs
 }
 
 function ciLog(ctx, event, nr, details) {
