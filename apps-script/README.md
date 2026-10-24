@@ -272,4 +272,6 @@ Properties oprește temporar notificările.
 5. **Deploy → Manage deployments**: „Panou”, „Calendar” **și implementarea formularului** (pentru solicitările de pe
    site) → New version.
 6. GitHub → Settings → Secrets → Actions: `TELEGRAM_BOT_TOKEN` (aceeași cheie) și `TELEGRAM_CHAT_ID` (din Script
-   Property `TG_CHAT_ID`).
+   Property `TG_CHAT_ID`). Verificare: Actions → **Test Telegram** → Run workflow — trebuie să vină pe Telegram
+   „✅ GitHub: alertele pentru rulările eșuate ajung aici”; dacă rularea e roșie, mesajul de eroare spune de ce
+   (401 = cheie greșită, 400 „chat not found” = chat greșit).
