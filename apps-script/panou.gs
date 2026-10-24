@@ -116,8 +116,8 @@ function pnBuild(force) {
 
   var requests = pnRequests(ss, ctx);
   var cal = typeof calPanelData === "function" ? calPanelData(ss, ctx, force, live) : null;
-  var todo = pnTodo(ctx, current, requests.open, cal ? cal.overlaps : []);
   var lock = pnLockStatus(force);
+  var todo = pnLockTodo(ctx, lock).concat(pnTodo(ctx, current, requests.open, cal ? cal.overlaps : []));
   var errors = pnErrors(props, now);
   var stays = current.map(function (r) { return pnStay(ctx, r); });
   var inHouse = stays.filter(function (s) { return s.phase === "inhouse" || s.phase === "departing"; })[0];
@@ -304,6 +304,29 @@ function pnTodo(ctx, rows, openRequests, overlaps) {
     });
   });
 
+  return out.filter(function (t) { return !ctx.dismissed[t.id]; });
+}
+
+// Problemele yalei pentru care ciLockHealth (checkin.gs) a trimis deja alerta; dispar când trec. „Gata” ascunde
+// incidentul curent, nu și pe următorul.
+function pnLockTodo(ctx, lock) {
+  var h = ciLockHealthState(), out = [];
+  var base = { nr: "", texts: [], links: [] };
+  if (h.gateway && h.gateway.alerted) {
+    out.push(pnItem(base, "yala|gateway|" + h.gateway.since, "alert", "high", "Yala: gateway-ul e offline",
+      "Offline " + pnHm(h.gateway.since) + ". Codurile nu se pot pune, muta sau șterge de la distanță. Verifică curentul și " +
+      "Wi-Fi-ul din apartament (repornește gateway-ul din priză); lângă ușă, codul se poate pune din aplicația TTLock prin Bluetooth."));
+  }
+  if (h.ttlock && h.ttlock.alerted) {
+    out.push(pnItem(base, "yala|ttlock|" + h.ttlock.since, "alert", "high", "Yala: TTLock nu răspunde",
+      "Fără răspuns " + pnHm(h.ttlock.since) + ". Codurile nu se pot pune automat. Verifică aplicația TTLock și secțiunea Sistem."));
+  }
+  if (h.battery && h.battery.alerted) {
+    var pct = lock.ok && lock.battery != null ? lock.battery + "%" : "sub " + h.battery.level + "%";
+    out.push(pnItem(base, "yala|baterie|" + h.battery.since + "|" + h.battery.level, "alert",
+      h.battery.level <= CI_BATTERY_CRITICAL ? "high" : "normal", "Yala: baterie slabă (" + pct + ")",
+      "Schimbă bateriile yalei" + (h.battery.level <= CI_BATTERY_CRITICAL ? " cât mai repede." : " la următoarea vizită în apartament.")));
+  }
   return out.filter(function (t) { return !ctx.dismissed[t.id]; });
 }
 

@@ -54,12 +54,15 @@ jobs:
           git pull --rebase
           git push
 
-      # Calendar gol suspect: zilele ocupate au fost pastrate (si salvate mai sus), dar rularea apare ca esuata,
-      # ca sa vina notificarea de la GitHub. Vezi Annotations pentru sursa.
-      - name: Fail if a calendar came back empty
+      # Calendar gol suspect (zilele ocupate au fost pastrate si salvate mai sus) sau automatizarea din Apps Script
+      # oprita (X-A13-LAST-SYNC prea vechi in „A13 Direct”): rularea apare ca esuata, ca sa vina notificarea.
+      # Vezi Annotations pentru detalii.
+      - name: Fail if a calendar came back empty or the automation stopped
         if: steps.calendar.outputs.suspicious == '1'
+        env:
+          REASON: ${{ steps.calendar.outputs.reason }}
         run: |
-          echo "::error::Un calendar a venit gol; zilele ocupate au fost pastrate. Verifica sincronizarea pe platforma (vezi mesajele de mai sus)."
+          echo "::error::${REASON:-Un calendar a venit gol; zilele ocupate au fost pastrate.}"
           exit 1
 
       # Rulare esuata -> mesaj pe Telegram (botul A13). Fara secretele TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID nu face nimic.
@@ -70,8 +73,13 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           WORKFLOW: ${{ github.workflow }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          REASON: ${{ steps.calendar.outputs.reason }}
+          QUIET: ${{ steps.calendar.outputs.quiet }}
         run: |
           [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || exit 0
+          text="⚠️ GitHub: „${WORKFLOW}” a eșuat."
+          if [ -n "$REASON" ]; then text="${text}"$'\n'"${REASON}"; fi
           curl -s -o /dev/null --max-time 20 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
-            --data-urlencode "text=⚠️ GitHub: „${WORKFLOW}” a eșuat. Detalii: ${RUN_URL}" || true
+            --data-urlencode "disable_notification=${QUIET:-false}" \
+            --data-urlencode "text=${text}"$'\n'"Detalii: ${RUN_URL}" || true

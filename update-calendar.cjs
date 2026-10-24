@@ -18,6 +18,12 @@
 // ICS_DIRECT = calendarul nostru „A13 Direct” (apps-script/calendar.gs): perioadele inchise din panou, rezervarile
 // confirmate de pe site si platile asteptate. Pentru el un calendar gol e normal (nicio blocare), iar daca nu raspunde
 // nu oprim restul: pastram intervalele viitoare existente si rularea apare ca esuata (notificare).
+//
+// Supraveghere din afara: „A13 Direct” contine X-A13-LAST-SYNC = ultima rulare reusita a automatizarii din Apps Script
+// (checkinSync, la 10 minute: e-mailuri Booking, fise, coduri pe yala, alerte, Telegram). Daca e mai veche de
+// CALENDAR_SYNC_MAX_AGE_MIN (60) minute, automatizarea s-a oprit fara sa poata anunta singura -> rularea apare ca esuata,
+// iar mesajul pleaca pe Telegram din GitHub. Prima data cu sunet, apoi din ora in ora fara sunet, pana se rezolva.
+// Calendarul nu e afectat (zilele ocupate se scriu normal).
 
 const fs = require("fs");
 const path = require("path");
@@ -27,6 +33,8 @@ const GOOGLE_ICS_URL = "https://calendar.google.com/calendar/ical/" + encodeURIC
 const OUT_FILE = path.join(__dirname, "booked-dates.json");
 const RETRY_DELAY_MS = Number(process.env.CALENDAR_RETRY_DELAY_MS || 5000);
 const FETCH_TIMEOUT_MS = Number(process.env.CALENDAR_FETCH_TIMEOUT_MS || 30000);
+const SYNC_MAX_AGE_MIN = Number(process.env.CALENDAR_SYNC_MAX_AGE_MIN || 60);
+const SYNC_LOUD_MIN = 90; // cat timp dupa prag alerta are sunet (GitHub poate intarzia rularile orare)
 
 const PLATFORM_SOURCES = [
   { name: "Booking", env: "ICS_BOOKING" },
@@ -71,6 +79,16 @@ function parseICS(text) {
     else if (line.indexOf("STATUS:CANCELLED") === 0) cur.cancelled = true;
   }
   return events;
+}
+
+// X-A13-LAST-SYNC:20261024T053000Z (doar in „A13 Direct”) -> Date, sau null daca lipseste.
+function parseLastSync(text) {
+  const m = text.match(/^X-A13-LAST-SYNC:(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z/m);
+  return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6])) : null;
+}
+
+function roTime(d) {
+  return d.toLocaleString("ro-RO", { timeZone: "Europe/Bucharest", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 // Uneste intervalele suprapuse sau lipite (end exclusiv).
@@ -135,10 +153,13 @@ async function main() {
   const all = [];
   const state = {};
   const emptied = []; // surse care aveau evenimente inca viitoare si acum trimit un calendar gol
+  let lastSync = null, ownRead = false;
   for (const s of sources) {
     let events;
     try {
-      events = parseICS(await fetchICS(s.url, s.name));
+      const text = await fetchICS(s.url, s.name);
+      events = parseICS(text);
+      if (s.own) { ownRead = true; lastSync = parseLastSync(text); }
     } catch (err) {
       // URL-ul nu se afiseaza niciodata in log (e secret)
       if (s.own) {
@@ -181,10 +202,35 @@ async function main() {
       previousFuture.length + " intervale ocupate viitoare. Zilele ocupate se pastreaza.");
   }
 
+  const reasons = []; // pentru mesajul de pe Telegram (o linie)
   if (emptied.length) {
     // Nimic nu se sterge: intervalele viitoare existente + cele primite acum.
     all.push(...previousFuture.map(r => ({ start: new Date(r.start), end: new Date(r.end) })));
-    if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, "suspicious=1\n");
+    reasons.push("Calendar gol sau fara raspuns: " + emptied.join(", ") + " (zilele ocupate se pastreaza).");
+  }
+
+  // Automatizarea din Apps Script (vezi antetul): ora ultimei rulari reusite, venita in „A13 Direct”.
+  let staleAge = 0;
+  if (lastSync) {
+    const age = Math.round((Date.now() - lastSync.getTime()) / 60000);
+    if (age > SYNC_MAX_AGE_MIN) {
+      staleAge = age;
+      console.error("::error title=Automatizare A13 oprita::Ultima rulare reusita a automatizarii din Apps Script (checkinSync): " +
+        roTime(lastSync) + ", acum " + age + " min. Verifica in Apps Script: Triggers (declansatorul de 10 minute) si Executions (erori).");
+      reasons.push("Automatizarea A13 din Apps Script nu a mai rulat din " + roTime(lastSync) + " (acum " + age + " min): " +
+        "e-mailurile Booking, fisele, codurile pe yala si alertele sunt oprite. Verifica Apps Script: Triggers si Executions.");
+    } else {
+      console.log("Automatizare Apps Script: ultima rulare acum " + age + " min");
+    }
+  } else if (ownRead) {
+    console.log("Direct: fara X-A13-LAST-SYNC (implementarea „Calendar” e veche?) — verificarea automatizarii e sarita.");
+  }
+
+  if (reasons.length && process.env.GITHUB_OUTPUT) {
+    // Doar automatizarea oprita, de mult timp: mesajele urmatoare pleaca fara sunet (aceeasi problema, din ora in ora).
+    const quiet = !emptied.length && staleAge > SYNC_MAX_AGE_MIN + SYNC_LOUD_MIN;
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, "suspicious=1\nreason=" + reasons.join(" ").replace(/[\r\n]+/g, " ") + "\n" +
+      (quiet ? "quiet=true\n" : ""));
   }
 
   const ranges = mergeRanges(all);

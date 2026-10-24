@@ -22,7 +22,7 @@ var TG_MAX_CHARS = 3900;   // limita Telegram e 4096 de caractere pe mesaj
 // Evenimentele din „Jurnal” trimise pe Telegram: [tipar, nivel, simbol]. „alert” = cu sunet, „info” = fără sunet
 // (cele „info” dintr-o rulare pleacă împreună, într-un singur mesaj). Lipsesc intenționat: cele care se repetă la
 // fiecare rulare cât durează o eroare (pentru ele pleacă o singură alertă prin ciAlertOwner) și cele dublate de o
-// alertă (anulări, suprapuneri, plată neîncasată, fișă fără rezervare, cod trimis).
+// alertă (anulări, suprapuneri, plată neîncasată, fișă fără rezervare, cod trimis, gateway offline / baterie / TTLock).
 var TG_EVENT_RULES = [
   [/^Rezervare nouă$/, "alert", "🛎️"],
   [/^(Date modificate|Plecare modificată|Lipsește din calendarul Booking|E-mail Booking necunoscut)$/, "alert", "⚠️"],
@@ -32,6 +32,7 @@ var TG_EVENT_RULES = [
   [/^(Cod șters de pe yală|Valabilitate cod mutată)$/, "info", "🔑"],
   [/^(Plecare din calendar|Perioadă blocată|Perioadă redeschisă|Blocare temporară \(aștept plata\))$/, "info", "📅"],
   [/^Status solicitare: /, "info", "📋"],
+  [/^(Gateway yală din nou online|TTLock răspunde din nou|Baterii yală schimbate)$/, "info", "✅"],
   [/^Rezervare de test/, "info", "🧪"]
 ];
 

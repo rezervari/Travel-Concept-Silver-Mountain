@@ -33,7 +33,8 @@ function calServeFeed(token) {
   var expected = PropertiesService.getScriptProperties().getProperty(CAL_TOKEN_PROPERTY);
   if (!expected || String(token) !== expected) return ContentService.createTextOutput("Not found");
   var events = calFeedEvents(SpreadsheetApp.getActiveSpreadsheet(), new Date().getTime());
-  return ContentService.createTextOutput(calIcs(events)).setMimeType(ContentService.MimeType.ICAL);
+  var lastRun = Number(PropertiesService.getScriptProperties().getProperty("CI_LAST_RUN") || 0);
+  return ContentService.createTextOutput(calIcs(events, lastRun)).setMimeType(ContentService.MimeType.ICAL);
 }
 
 // Ce intră în feed. Doar surse proprii — vezi REGULA din antet.
@@ -54,10 +55,13 @@ function calFeedEvents(ss, now) {
   return out;
 }
 
-function calIcs(events) {
-  var stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
+// lastRun = ultima rulare reușită a checkinSync (CI_LAST_RUN). Apare ca X-A13-LAST-SYNC (platformele ignoră
+// proprietățile X-), iar GitHub (update-calendar.cjs) dă alarmă dacă e prea veche: automatizarea s-a oprit.
+function calIcs(events, lastRun) {
+  var stamp = calIcsStamp(new Date());
   var lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//A13 Travel Concept//A13 Direct//RO", "CALSCALE:GREGORIAN",
                "METHOD:PUBLISH", "X-WR-CALNAME:A13 Direct"];
+  if (lastRun) lines.push("X-A13-LAST-SYNC:" + calIcsStamp(new Date(lastRun)));
   events.forEach(function (e) {
     lines.push("BEGIN:VEVENT", "UID:" + e.uid + "@a13-travel-concept", "DTSTAMP:" + stamp,
                "DTSTART;VALUE=DATE:" + e.start.replace(/-/g, ""), "DTEND;VALUE=DATE:" + e.end.replace(/-/g, ""),
@@ -66,6 +70,8 @@ function calIcs(events) {
   lines.push("END:VCALENDAR");
   return lines.join("\r\n") + "\r\n";
 }
+
+function calIcsStamp(d) { return d.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, ""); }
 
 function calToken() {
   var p = PropertiesService.getScriptProperties();

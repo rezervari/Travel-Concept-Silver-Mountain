@@ -54,6 +54,14 @@ var CI_DELETE_HOUR = 12;      // în ziua plecării, de la 12:00, codul se șter
 var CI_REMIND_HOUR = 13;      // în ziua sosirii, de la 13:00: reminder pentru fișă (oaspete sau text de lipit în chat Booking)
                               // dacă fișa tot lipsește, codul de rezervă se pune la CI_CHECKIN_HOUR = 16:00
 
+// Starea yalei (ciLockHealth): o alertă pe incident, apoi un mesaj când trece.
+var CI_LOCK_HEALTH_PROPERTY = "CI_LOCK_HEALTH"; // incidentele în curs: gateway / ttlock / battery → { since, alerted, … }
+var CI_GATEWAY_GRACE_MIN = 10;  // gateway offline la două citiri la rând (citirile sunt la 15 min) → alertă
+var CI_TTLOCK_GRACE_MIN = 120;  // TTLock nu răspunde de 2 ore → alertă (scurtele căderi ale serverului nu)
+var CI_BATTERY_LOW = 30;        // % — alertă o dată; încă o dată sub CI_BATTERY_CRITICAL
+var CI_BATTERY_CRITICAL = 15;
+var CI_BATTERY_OK = 50;         // peste atât (baterii schimbate) incidentul se închide
+
 // Valorile coloanei „Stare” (o completează scriptul).
 var CI_STATE_OK = "Confirmată";
 var CI_STATE_NO_CHECKOUT = "Fără dată de plecare (aștept calendarul Booking)";
@@ -76,6 +84,7 @@ function checkinSync() {
     }
     ciCheckBookingCalendar(ctx);
     ciArrivals(ctx);
+    try { ciLockHealth(ctx); } catch (e) { ciStepError(ctx, "yală", String(e && e.message || e).slice(0, 300)); }
     ciSave(ctx);
     PropertiesService.getScriptProperties().setProperty("CI_LAST_RUN", String(ctx.now));   // pentru panou.gs
     console.log("Rezervări: " + ctx.active.rows.length + ", anulate: " + ctx.cancelled.rows.length +
@@ -489,6 +498,92 @@ function ciStepError(ctx, step, msg) {
   ciLog(ctx, "Eroare (" + step + ")", "", msg);
   ciAlertOwner("Eroare la check-in automat (" + step + ")", msg + "\n\nReîncerc la fiecare 10 minute; vezi foaia „Jurnal”.");
 }
+
+/* ============================== YALA: GATEWAY, BATERIE, TTLOCK ============================== */
+
+// La fiecare rulare, din cache-ul panoului (pnLockStatus: TTLock e întrebat cel mult o dată la 15 minute).
+// Gateway offline = codurile nu se mai pot pune, muta sau șterge de la distanță. O alertă pe incident (Telegram cu sunet
+// + e-mail), apoi un mesaj în Jurnal / pe Telegram când trece. Incidentele în curs: Script Property CI_LOCK_HEALTH.
+function ciLockHealth(ctx) {
+  if (typeof pnLockStatus !== "function" || !PropertiesService.getScriptProperties().getProperty("TTLOCK_CLIENT_ID")) return;
+  var st = pnLockStatus(false);
+  var h = ciLockHealthState(), before = JSON.stringify(h);
+
+  if (!st.ok) {
+    // Fără răspuns de la TTLock nu știm nimic despre gateway și baterie: rămân cum erau.
+    if (!h.ttlock) h.ttlock = { since: ctx.now };
+    if (!h.ttlock.alerted && ctx.now - h.ttlock.since >= CI_TTLOCK_GRACE_MIN * 60000) {
+      h.ttlock.alerted = ctx.now;
+      ciLog(ctx, "TTLock nu răspunde", "", st.error || "");
+      ciAlertOwner("Yala: TTLock nu răspunde de " + ciAgo(ctx.now - h.ttlock.since),
+        "Nu pot citi yala din contul TTLock: " + (st.error || "eroare necunoscută") + ".\n" +
+        "Cât durează, codurile nu se pot pune, muta sau șterge automat." + ciArrivalsSoon(ctx) +
+        "\n\nVerifică dacă merge aplicația TTLock și secțiunea Sistem din panou. Reîncerc la fiecare 10 minute.");
+    }
+  } else {
+    if (h.ttlock) {
+      if (h.ttlock.alerted) ciLog(ctx, "TTLock răspunde din nou", "", "după " + ciAgo(ctx.now - h.ttlock.since));
+      delete h.ttlock;
+    }
+
+    // Gateway: data citirii (st.at), nu ora rulării — aceeași citire din cache nu numără de două ori.
+    if (st.gatewayOnline === false) {
+      if (!h.gateway) h.gateway = { since: st.at };
+      if (!h.gateway.alerted && st.at - h.gateway.since >= CI_GATEWAY_GRACE_MIN * 60000) {
+        h.gateway.alerted = ctx.now;
+        ciLog(ctx, "Gateway yală offline", "", "din " + ciClock(h.gateway.since));
+        ciAlertOwner("Yala: gateway-ul e offline",
+          "Gateway-ul yalei (cutia Wi-Fi din apartament) nu mai e conectat din " + ciClock(h.gateway.since) + ".\n" +
+          "Cât e offline, codurile nu se pot pune, muta sau șterge de la distanță; codurile puse deja merg în continuare." +
+          ciArrivalsSoon(ctx) +
+          "\n\nCe poți face: verifică curentul și Wi-Fi-ul din apartament (repornește gateway-ul din priză). Lângă ușă, " +
+          "codul se poate pune și din aplicația TTLock, prin Bluetooth. Îți scriu când revine.");
+      }
+    } else if (st.gatewayOnline === true && h.gateway) {
+      if (h.gateway.alerted) ciLog(ctx, "Gateway yală din nou online", "", "după " + ciAgo(st.at - h.gateway.since));
+      delete h.gateway;
+    }
+
+    if (st.battery != null) {
+      var level = st.battery < CI_BATTERY_CRITICAL ? CI_BATTERY_CRITICAL : st.battery < CI_BATTERY_LOW ? CI_BATTERY_LOW : 0;
+      if (level && (!h.battery || level < h.battery.level)) {
+        h.battery = { since: h.battery ? h.battery.since : ctx.now, level: level, alerted: ctx.now };
+        ciLog(ctx, "Baterie yală slabă", "", st.battery + "%");
+        ciAlertOwner("Yala: baterie " + (level === CI_BATTERY_CRITICAL ? "foarte " : "") + "slabă (" + st.battery + "%)",
+          "Bateria yalei a ajuns la " + st.battery + "%. Schimbă bateriile " +
+          (level === CI_BATTERY_CRITICAL ? "cât mai repede" : "la următoarea vizită în apartament") +
+          ", înainte să se descarce de tot (atunci ușa se mai deschide doar cu cheia mecanică)." + ciArrivalsSoon(ctx));
+      } else if (h.battery && st.battery >= CI_BATTERY_OK) {
+        ciLog(ctx, "Baterii yală schimbate", "", st.battery + "%");
+        delete h.battery;
+      }
+    }
+  }
+  if (JSON.stringify(h) !== before) PropertiesService.getScriptProperties().setProperty(CI_LOCK_HEALTH_PROPERTY, JSON.stringify(h));
+}
+
+function ciLockHealthState() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(CI_LOCK_HEALTH_PROPERTY) || "{}"); } catch (e) { return {}; }
+}
+
+// Pentru alertele yalei: cine sosește azi sau mâine și dacă are deja codul pe yală.
+function ciArrivalsSoon(ctx) {
+  var tomorrow = ciAddDays(ctx.today, 1);
+  var list = ctx.active.rows.filter(function (r) {
+    return r["Stare"] !== CI_STATE_CANCELLED && (r["Check-in"] === ctx.today || r["Check-in"] === tomorrow);
+  }).map(function (r) {
+    return (r["Nume"] || r["Nr. rezervare"]) + " (" + r["Sursă"] + "), " + (r["Check-in"] === ctx.today ? "azi" : "mâine") +
+           " — " + (/^\d{4,9}#/.test(String(r["Cod pe yală"] || "")) ? "codul e deja pe yală" : "codul NU e încă pus");
+  });
+  return list.length ? "\n\nSosiri apropiate:\n- " + list.join("\n- ") : "";
+}
+
+function ciAgo(ms) {
+  var m = Math.max(0, Math.round(ms / 60000));
+  return m < 120 ? m + " min" : Math.round(m / 60) + " ore";
+}
+
+function ciClock(ms) { return Utilities.formatDate(new Date(ms), CI_TZ, "dd.MM HH:mm"); }
 
 // Fișele completate (e-mailurile fisacazare.ro): se potrivesc cu rezervarea după data sosirii.
 // Prima fișă a unei rezervări pornește codul; fișele celorlalți adulți doar se notează în Jurnal.

@@ -258,6 +258,22 @@ Mesajul pleacă înaintea e-mailului; dacă Telegram nu răspunde, e-mailurile p
 trimite și el un mesaj la orice rulare eșuată (calendar, prețuri, imagini, recenzii). `TG_ENABLED` = `0` în Script
 Properties oprește temporar notificările.
 
+## Supraveghere: yala și automatizarea
+
+- **Yala** (`ciLockHealth` în `checkin.gs`, la fiecare rulare de 10 minute, din citirea TTLock a panoului — cel mult
+  o dată la 15 minute): **gateway offline** la două citiri la rând, **baterie** sub 30% (încă o alertă sub 15%),
+  **TTLock fără răspuns** de 2 ore → câte o alertă pe incident (Telegram cu sunet + e-mail), cu sosirile de azi și
+  mâine și dacă au deja codul pe yală. Problema apare și la „De făcut” în panou. Când trece („gateway din nou
+  online”, „TTLock răspunde din nou”, „baterii schimbate” = peste 50%) vine un mesaj fără sunet. Incidentele în curs
+  stau în Script Property `CI_LOCK_HEALTH` (nu se editează de mână).
+- **Automatizarea însăși:** dacă declanșatorul de 10 minute se oprește, Apps Script nu mai poate anunța nimic. De
+  aceea feed-ul „A13 Direct” conține ora ultimei rulări reușite (`X-A13-LAST-SYNC`, ignorată de platforme), iar
+  robotul GitHub („Update calendar”, din oră în oră) dă alarmă pe Telegram dacă e mai veche de 60 de minute: prima
+  cu sunet, apoi din oră în oră fără sunet, până se rezolvă. Ce verifici atunci în Apps Script: ⏰ Triggers
+  (`checkinSync` există?) și ☰ Executions (erori, ex. permisiune nouă cerută → rulează `checkinSync` o dată din editor
+  și acceptă). După o modificare a lui `calendar.gs`, implementarea „Calendar” trebuie trecută pe o versiune nouă,
+  altfel feed-ul nu conține ora (GitHub scrie atunci în log că verificarea e sărită).
+
 ## Instalare (o singură dată)
 
 1. **Tu, în Telegram:** caută **@BotFather** (are bifă albastră) → `/newbot` → nume: `A13 Notificări` → username
