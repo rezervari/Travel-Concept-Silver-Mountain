@@ -85,6 +85,9 @@ function checkinSync() {
     ciCheckBookingCalendar(ctx);
     ciArrivals(ctx);
     try { ciLockHealth(ctx); } catch (e) { ciStepError(ctx, "yală", String(e && e.message || e).slice(0, 300)); }
+    if (typeof salSync === "function") {   // salus.gs: 23 °C de la 07:00 în ziua sosirii, 21 °C după plecare, geamuri uitate
+      try { salSync(ctx); } catch (e) { ciStepError(ctx, "termostate", String(e && e.message || e).slice(0, 300)); }
+    }
     ciSave(ctx);
     PropertiesService.getScriptProperties().setProperty("CI_LAST_RUN", String(ctx.now));   // pentru panou.gs
     console.log("Rezervări: " + ctx.active.rows.length + ", anulate: " + ctx.cancelled.rows.length +

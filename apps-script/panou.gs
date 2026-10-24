@@ -154,7 +154,14 @@ function pnBuild(force) {
   var requests = pnRequests(ss, ctx);
   var cal = typeof calPanelData === "function" ? calPanelData(ss, ctx, force, live) : null;
   var lock = pnLockStatus(force);
-  var todo = pnLockTodo(ctx, lock).concat(pnTodo(ctx, current, requests.open, cal ? cal.overlaps : []));
+  var heat = null;   // salus.gs: termostatele și senzorii (o eroare de acolo nu oprește panoul)
+  if (typeof salPanelStatus === "function") {
+    try { heat = salPanelStatus({ now: now, today: ctx.today, active: active }, force); }
+    catch (e) { heat = { configured: true, ok: false, at: now, error: String(e && e.message || e).slice(0, 200) }; }
+  }
+  var heatTodo = [];
+  if (heat && heat.configured) { try { heatTodo = salPanelTodo(ctx); } catch (e) {} }
+  var todo = pnLockTodo(ctx, lock).concat(heatTodo, pnTodo(ctx, current, requests.open, cal ? cal.overlaps : []));
   var errors = pnErrors(props, now);
   var stays = current.map(function (r) { return pnStay(ctx, r); });
   var inHouse = stays.filter(function (s) { return s.phase === "inhouse" || s.phase === "departing"; })[0];
@@ -188,6 +195,7 @@ function pnBuild(force) {
       tokenExpires: Number(props.getProperty("TTLOCK_TOKEN_EXPIRES") || 0),
       errors: errors,
       lock: lock,
+      heat: heat,
       calendar: pnSiteCalendar(ctx, force)
     },
     links: pnLinks()

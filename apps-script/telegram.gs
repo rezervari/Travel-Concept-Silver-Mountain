@@ -33,6 +33,7 @@ var TG_EVENT_RULES = [
   [/^(Plecare din calendar|Perioadă blocată|Perioadă redeschisă|Blocare temporară \(aștept plata\))$/, "info", "📅"],
   [/^Status solicitare: /, "info", "📋"],
   [/^(Gateway yală din nou online|TTLock răspunde din nou|Baterii yală schimbate)$/, "info", "✅"],
+  [/^(Încălzire|Geam închis$|Senzor din nou online$|Baterie schimbată$)/, "info", "🌡️"],
   [/^Rezervare de test/, "info", "🧪"]
 ];
 
@@ -167,6 +168,8 @@ function tgDailySummary() {
 
   out.push(d.todo.length ? "📋 <b>De făcut: " + d.todo.length + "</b>\n" + d.todo.slice(0, 6).map(function (t) { return "• " + tgEsc(t.title); }).join("\n")
                          : "📋 Nimic de făcut.");
+  var heat = tgHeatSummary(d.health.heat);
+  if (heat) out.push(heat);
   var h = d.health, sys = [];
   if (h.lock.ok) sys.push("Yală: baterie " + (h.lock.battery != null ? h.lock.battery + "%" : "?") +
                           (h.lock.gatewayOnline === false ? ", gateway OFFLINE" : ""));
@@ -177,6 +180,34 @@ function tgDailySummary() {
   if (h.testMode) sys.push("MOD TEST activ");
   out.push("⚙️ " + tgEsc(sys.join(" · ")));
   tgSend(out.join("\n\n"), { level: "alert", panel: true });
+}
+
+// Termostatele (salus.gs, prin pnBuild): modul, următoarea schimbare, temperatura din fiecare cameră, senzorii cu probleme.
+function tgHeatSummary(T) {
+  if (!T || !T.configured) return "";
+  if (!T.ok) return "🌡️ Încălzire: Salus nu răspunde (" + tgEsc(T.error || "eroare") + ")";
+  function deg(c) { return c == null ? "?" : Number(c).toFixed(1).replace(".", ","); }
+  var head = !T.enabled ? "automatizarea e OPRITĂ" :
+    (T.mode === "stay" ? "sejur, " + deg(T.stayC) + " °C" : "între sejururi, " + deg(T.betweenC) + " °C") +
+    (T.next ? " · următoarea: " + deg(T.next.c) + " °C " + pnHm(T.next.at) : "");
+  var rooms = T.thermostats.map(function (t) {
+    return t.name.replace(/^T /, "") + " " + (t.ok ? deg(t.temp) + (t.locked ? " 🔒" : "") : "?");
+  }).join(" · ");
+  var lines = ["🌡️ <b>Încălzire</b>: " + tgEsc(head), "    " + tgEsc(rooms) + " °C"];
+  var off = T.sensors.filter(function (x) { return x.ok && !x.online; }).map(function (x) { return x.name; });
+  var open = T.sensors.filter(function (x) { return x.ok && x.online && x.open; })
+    .map(function (x) { return x.name + (x.openSince ? " (deschis " + pnHm(x.openSince) + ")" : ""); });
+  if (open.length) lines.push("    🪟 Geamuri deschise: " + tgEsc(open.join(", ")));
+  if (off.length) lines.push("    ⚠️ Senzori fără semnal: " + tgEsc(off.join(", ")));
+  if (T.verify && T.verify.alerted) lines.push("    ⚠️ " + tgEsc(deg(T.verify.target) + " °C nepreluat pe " + T.verify.pending.join(", ")));
+  var low = [].concat(
+    T.thermostats.filter(function (t) { return t.ok && t.batteryLow; }),
+    (T.trvs || []).filter(function (x) { return x.ok && x.online && (x.batteryLow || x.pairedLow); }),
+    T.sensors.filter(function (x) { return x.ok && x.batteryLow; })).map(function (x) { return x.name; });
+  var levels = T.thermostats.filter(function (t) { return t.ok && t.battery != null; }).map(function (t) { return t.battery; });
+  lines.push("    🔋 " + (low.length ? "Baterii slabe: " + tgEsc(low.join(", ")) :
+             "Baterii în regulă" + (levels.length ? " (termostate " + Math.min.apply(null, levels) + "/5)" : "")));
+  return lines.join("\n");
 }
 
 function tgSteps(s) {

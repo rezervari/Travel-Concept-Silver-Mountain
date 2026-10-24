@@ -120,13 +120,41 @@ versiunea de coduri, bateria, câte coduri există. **Nu** creează, nu modific�
 
 Codurile și numele lor nu se afișează în log; tokenul (90 de zile) se reînnoiește singur.
 
-# Termostatele Salus iT600 (`salus.gs`) — pasul 1: legătura (doar citire)
+# Termostatele Salus iT600 (`salus.gs`): încălzirea după rezervări + geamuri uitate
 
 Salus nu are API public. `salus.gs` folosește drumul aplicației Salus Smart Home, descoperit de binding-ul openHAB
 „salus-aws-bridge”: login Amazon Cognito (SRP, parola nu pleacă spre server), chei AWS temporare, lista dispozitivelor
-de la `eu.salusconnect.io` și starea fiecărui termostat din AWS IoT. API-ul e neoficial, deci Salus îl poate schimba
-fără anunț. **Nu** trimite nicio comandă termostatelor: citește temperatura din cameră, temperatura setată, modul
-(program / manual temporar / manual permanent / oprit) și reglajele raportate (limite, anti-îngheț, blocarea tastelor).
+de la `service-api.eu.premium.salusconnect.io`, starea fiecărui dispozitiv din AWS IoT și, pentru comenzi, publicarea
+pe topicul `shadow/update` al termostatului. API-ul e neoficial, deci Salus îl poate schimba fără anunț. Contul Salus
+are mai multe proprietăți; scriptul lucrează doar pe **„Cora Silver”** (apartamentul A13), iar pe celelalte nu le
+citește. Alt nume se poate pune în Script Property `SALUS_HOME`.
+
+**Automatizarea** (pas în `checkinSync`, la 10 minute; pornită cu `salusPornire`, oprită cu `salusOprire`):
+
+- **Încălzirea, după sejururile reale** (Booking și site din „Rezervări”, Airbnb „Reserved” și Travelminit din iCal;
+  blocările nu contează): în ziua sosirii, **de la 07:00 → 23 °C** pe toate 4 termostatele, manual permanent, taste
+  deblocate; în ziua plecării, **de la 11:00 → 21 °C** (dacă nu sosește altcineva în aceeași zi). Se trimite doar la
+  aceste momente și doar ce diferă, așa că ce reglează oaspetele între ele rămâne. La rularea următoare se verifică
+  dacă termostatele au preluat comanda; cele rămase în urmă o primesc din nou după 20 și 40 de minute, iar după o oră
+  vine o alertă. În Jurnal / pe Telegram (fără sunet): „Încălzire 23,0 °C …”, „Încălzire confirmată”.
+- **Geamuri uitate**: un senzor deschis de **cel puțin o oră** și camera (termostatul ei) **sub 20 °C** → o alertă
+  (Telegram cu sunet + e-mail), o dată pe deschidere; la închidere, „Geam închis” fără sunet. Deschiderile scurte nu
+  trimit nimic. Un senzor fără semnal de 2 ore (de obicei bateria) → o alertă; starea lui veche nu contează.
+- **Bateriile** tuturor celor 13 echipamente: termostatele raportează nivel 0–5 (slabă la 1 sau cu alarma `Error32`),
+  capetele termostatice doar alarma de baterie slabă (`TRVError22` pe cap; `Error22` pe termostatul lor = „un cap
+  asociat are baterie slabă”), senzorii tensiunea (≥ 2,6 V plină, ≥ 2,3 V pe jumătate, ≥ 2,1 V slabă, sub = critică,
+  pragurile aplicației web Salus după integrarea Home Assistant din comunitate; alertă sub 2,3 V sau cu alarma
+  senzorului). O alertă când un echipament trece pe baterie slabă, „Baterie schimbată” fără sunet după schimbare
+  (doar la echipamente citite și online). În panou: cardul „Baterii” (slabele primele) și „De făcut”; în rezumat: 🔋.
+- `salusPlan` arată, fără să schimbe nimic, sejururile văzute (cu orele), ce ar face automatizarea acum, termostatele
+  și senzorii. `salusDetalii` arată toate valorile raportate (blocare taste, deschis/închis, baterii).
+- Starea automatizării stă în Script Property `SAL_STATE` (o scrie scriptul), pornit/oprit în `SALUS_HEATING`.
+- **În panou** (secțiunea Sistem): cardul „Încălzire” (automatizare pornită/oprită, modul de acum, următoarea schimbare,
+  fiecare termostat cu temperatura din cameră → cea setată, modul, taste blocate, „încălzește”) și cardul „Senzori geam /
+  ușă” (închis / DESCHIS de la … / FĂRĂ SEMNAL din …, baterie, temperatură). La „De făcut” apar incidentele pentru care
+  a plecat deja alerta: geam uitat, senzori fără semnal, comandă nepreluată. Citirea de la Salus (`salPanelStatus`) stă
+  în cache 15 minute (⟳ citește din nou; după o comandă se golește). **În rezumatul de la 08:00** (Telegram): paragraful
+  🌡️ cu modul, următoarea schimbare, temperatura din fiecare cameră, geamurile deschise și senzorii fără semnal.
 
 1. În același proiect Apps Script: **➕ → Script** → numele `salus` → lipește [`salus.gs`](salus.gs) → salvează.
 2. Alege funcția `salusViteza` → **▶ Run** (nu cere cont și nu folosește rețeaua). În log trebuie să apară
@@ -135,10 +163,13 @@ fără anunț. **Nu** trimite nicio comandă termostatelor: citește temperatura
    - `SALUS_USERNAME` — e-mailul cu care intri în aplicația Salus Smart Home;
    - `SALUS_PASSWORD` — parola acelui cont. După primul login reușit rămâne doar ca hash (`SALUS_PASSWORD_HASH` +
      `SALUS_SRP_USER`), iar cea în clar se șterge. Dacă schimbi parola în aplicație, o pui din nou aici.
-4. Alege `salusSetup` → **▶ Run**. În log apar gateway-ul și termostatele, de exemplu
-   `— „Living” · model: … · ep9: cameră 21,6 °C · setat 21,0 °C · mod: manual permanent`.
+4. Alege `salusSetup` → **▶ Run**. În log apar proprietățile din cont, apoi dispozitivele din „Cora Silver”, de exemplu
+   `— „T Living” · model: SQ610RFNH · … ep9: cameră 22,7 °C · setat 22,0 °C · mod: manual permanent`.
    Mai târziu, pentru o verificare: `salusTest`. La o eroare: `salusDiagnoza`, care arată pasul care nu merge
-   (date lipsă, login, gateway, dispozitive, stare) și verifică dacă nu cumva contul e încă pe cloud-ul vechi Salus.
+   (date lipsă, login, proprietăți, dispozitive, stare) și verifică dacă nu cumva contul e încă pe cloud-ul vechi Salus.
+5. `salusPlan` (verifici ce ar face), apoi `salusPornire`: pune imediat modul potrivit (între sejururi 21 °C) și după
+   20 de secunde arată ce raportează termostatele. `checkin.gs` (pasul `salSync`) și `telegram.gs` (regula
+   „Încălzire / Geam închis / Senzor din nou online”) trebuie să fie și ele la zi.
 
 Parola, tokenurile și cheile AWS nu apar în log; din ID-urile dispozitivelor apar doar ultimele 4 caractere. Sesiunea
 (refresh token) stă în `SALUS_REFRESH_TOKEN`, tokenurile de o oră doar în cache. Un cont cu verificare în doi pași nu

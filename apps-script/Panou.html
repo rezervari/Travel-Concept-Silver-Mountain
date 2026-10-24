@@ -478,6 +478,7 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
       var days = Math.floor((h.tokenExpires - now) / 86400000);
       rows.push(sys(days < 3 ? "warn" : "", "Acces TTLock", "Tokenul expiră în " + plural(days, "zi", "zile") + " (se reînnoiește singur cu 7 zile înainte)."));
     }
+    heatRows(h.heat).forEach(function (r) { rows.push(r); });
     var C = h.calendar;
     if (C.ok) {
       var src = Object.keys(C.sources || {}).map(function (k) { var v = C.sources[k]; return k + " " + (v && v.events != null ? v.events : "?"); }).join(" · ");
@@ -507,6 +508,69 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     var sheetLinks = Object.keys(d.sheets).map(function (k) { return { label: "Sheet · " + k, href: d.sheets[k] }; });
     $("system").innerHTML = rows.join("") +
       '<h3 class="sub">Linkuri</h3><div class="links">' + sheetLinks.concat(d.links).map(linkBtn).join("") + "</div>";
+  }
+
+  // Termostatele Salus (salus.gs): modul, următoarea schimbare, fiecare termostat, apoi senzorii de geam / ușă.
+  function deg(c) { return c == null ? "?" : Number(c).toFixed(1).replace(".", ",") + " °C"; }
+  function heatRows(T) {
+    if (!T || !T.configured) return [];
+    if (!T.ok) return [sys("bad", "Termostate: Salus nu răspunde", (T.error || "") + (T.at ? " · încercat " + when(T.at) : ""))];
+    var lines = [(T.enabled ? "Automatizare pornită" : "Automatizare OPRITĂ (pornește cu salusPornire din editor)") + " · acum: " +
+      (T.mode === "stay" ? "sejur (" + deg(T.stayC) + ")" : T.mode === "between" ? "între sejururi (" + deg(T.betweenC) + ")" : "—")];
+    if (T.enabled && T.next) lines.push("Următoarea schimbare: " + deg(T.next.c) + " " + when(T.next.at) + " (" + T.next.why + ")");
+    if (T.verify) lines.push((T.verify.alerted ? "NEPRELUAT: " : "Se verifică ") + deg(T.verify.target) + " pe " + T.verify.pending.join(", "));
+    lines.push("Citit " + when(T.at));
+    var list = '<div class="codes">' + T.thermostats.map(function (t) {
+      var sub = t.ok ? [t.mode, t.locked ? "taste BLOCATE" : "", t.heating ? "încălzește" : ""].filter(Boolean).join(" · ") : t.error || "fără stare";
+      return "<div><span>" + esc(t.name) + '<br><small style="color:var(--muted)">' + esc(sub) + "</small></span><span>" +
+        (t.ok ? esc(deg(t.temp)) + ' <small style="color:var(--muted)">→ ' + esc(deg(t.set)) + "</small>" : "—") + "</span></div>";
+    }).join("") + "</div>";
+    var bad = T.thermostats.some(function (t) { return !t.ok || t.locked; }) || (T.verify && T.verify.alerted);
+    var out = [sys(!T.enabled || bad ? "warn" : "", "Încălzire" + (T.home ? " · " + T.home : ""), lines.join("\n"), list)];
+    if (T.sensors.length) {
+      var off = T.sensors.filter(function (x) { return x.ok && !x.online; }), open = T.sensors.filter(function (x) { return x.ok && x.online && x.open; });
+      var sens = '<div class="codes">' + T.sensors.map(function (x) {
+        var state = !x.ok ? (x.error || "fără stare") : !x.online ? "FĂRĂ SEMNAL" + (x.offlineSince ? " din " + when(x.offlineSince) : "") :
+          x.open ? "DESCHIS" + (x.openSince ? " de la " + when(x.openSince) : "") : "închis";
+        var extra = [x.volts != null ? Number(x.volts).toFixed(1).replace(".", ",") + " V" : "", x.temp != null ? deg(x.temp) : ""].filter(Boolean).join(" · ");
+        return "<div><span>" + esc(x.name) + (extra ? '<br><small style="color:var(--muted)">' + esc(extra) + "</small>" : "") + "</span><span>" + esc(state) + "</span></div>";
+      }).join("") + "</div>";
+      out.push(sys(off.length ? "bad" : open.length ? "warn" : "", "Senzori geam / ușă",
+        off.length || open.length ? [off.length ? plural(off.length, "fără semnal", "fără semnal") : "", open.length ? plural(open.length, "deschis", "deschise") : ""].filter(Boolean).join(" · ") +
+          " · alertă doar dacă un geam rămâne deschis peste o oră și camera scade sub 20 °C" : "Toate închise", sens));
+    }
+    out.push(batteryRow(T));
+    return out;
+  }
+
+  // Bateriile tuturor echipamentelor Salus: termostate (nivel 0–5), capete termostatice (doar alarmă), senzori (tensiune).
+  function batteryRow(T) {
+    var list = [];
+    T.thermostats.forEach(function (t) {
+      list.push({ name: t.name, sub: "termostat", low: t.ok && t.batteryLow, unknown: !t.ok || t.online === false,
+                  st: !t.ok ? "necitit" : t.batteryLow ? "SLABĂ" + (t.battery != null ? " (" + t.battery + "/5)" : "") : t.battery != null ? t.battery + "/5" : "?" });
+    });
+    (T.trvs || []).forEach(function (x) {
+      list.push({ name: x.name, sub: "cap termostatic" + (x.thermostat ? " · " + x.thermostat : ""), low: x.ok && x.online && (x.batteryLow || x.pairedLow),
+                  unknown: !x.ok || !x.online,
+                  st: !x.ok ? "necitit" : !x.online ? "FĂRĂ SEMNAL" : x.batteryLow ? "SLABĂ" : x.pairedLow ? "posibil slabă" : "OK" });
+    });
+    T.sensors.forEach(function (x) {
+      var volts = x.volts != null ? Number(x.volts).toFixed(1).replace(".", ",") + " V" : "";
+      list.push({ name: x.name, sub: "senzor geam / ușă", low: x.ok && x.batteryLow, unknown: !x.ok || !x.online,
+                  st: !x.ok ? "necitit" : (x.batteryLow && !/slabă|critică/.test(x.battery || "") ? "ALARMĂ · " : "") +
+                      (volts ? volts + (x.battery ? " · " + x.battery : "") : "?") + (x.online ? "" : " (ultima, fără semnal)") });
+    });
+    list.sort(function (a, b) { return (b.low ? 2 : b.unknown ? 1 : 0) - (a.low ? 2 : a.unknown ? 1 : 0); });
+    var low = list.filter(function (x) { return x.low; }), unk = list.filter(function (x) { return x.unknown; });
+    var html = '<div class="codes">' + list.map(function (x) {
+      return "<div><span>" + esc(x.name) + '<br><small style="color:var(--muted)">' + esc(x.sub) + "</small></span><span" +
+        (x.low ? ' style="color:var(--red);font-weight:600"' : "") + ">" + esc(x.st) + "</span></div>";
+    }).join("") + "</div>";
+    var text = low.length ? plural(low.length, "baterie slabă", "baterii slabe") + ": " + low.map(function (x) { return x.name; }).join(", ")
+      : "Toate în regulă" + (unk.length ? " · " + plural(unk.length, "echipament", "echipamente") + " fără semnal (bateria nu se poate citi)" : "");
+    return sys(low.length ? "bad" : unk.length ? "warn" : "", "Baterii (" + list.length + " echipamente)", text +
+      "\nTermostatele au nivel 0–5; capetele termostatice raportează doar alarma de baterie slabă.", html);
   }
 
   function sys(state, title, text, extra) {
