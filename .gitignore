@@ -1,5 +1,8 @@
 node_modules/
 
+# Fișierele-lacăt ale Excel/Word cât un document e deschis
+~$*
+
 Claude outputs/
 
 # Ghidul StayBook (copii locale; conține date operaționale: loc parcare, imagini Wi-Fi)

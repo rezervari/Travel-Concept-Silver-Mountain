@@ -16,10 +16,11 @@
  *   script.js blochează rezervarea în acele zile (fără fallback de preț implicit).
  *
  * Opțional (pentru mesajul „pe platforme același sejur costă de la…” din rezumat):
- *   - foaia „Prețuri de setat”: prețurile ACTUALE de pe platforme pe sezon (coloanele „Booking ACUM”,
+ *   - foaia „Prețuri de setat”: prețurile ACTUALE de pe platforme pe perioadă (coloanele „Booking ACUM”,
  *     „Airbnb ACUM”, „Travelminit ACUM”; dacă lipsesc, cele țintă) → seasons[].ota;
- *   - foaia „Platforme”: reducerea automată Booking (mobil), dacă Booking aplică reducerile pe durată,
- *     reducerile săptămânală/lunară Airbnb → otaComparison;
+ *   - foaia „Setări” (fostă „Platforme”): reducerea automată Booking (mobil), dacă platformele aplică reducerile
+ *     pe durată, reducerile săptămânală/lunară Airbnb → otaComparison; rândul „Scara standard” → defaultDiscountTiers;
+ *   - foaia „Perioade” (fostă „Sezoane”): coloana „Politică anulare” → seasons[].cancellation;
  *   - foaia „Date actuale”: data verificării (prima dată zz.ll.aaaa din primele rânduri) → otaComparison.checkedAt.
  *   Fără aceste foi, pricing.json rămâne ca înainte și site-ul nu afișează comparația.
  *
@@ -152,7 +153,7 @@ function main(){
     currency: CURRENCY,
     defaultPrice: DEFAULT_PRICE_FALLBACK,
     globalMinNights: GLOBAL_MIN_NIGHTS,
-    defaultDiscountTiers: DEFAULT_DISCOUNT_TIERS_FALLBACK,
+    defaultDiscountTiers: readDefaultTiers(workbook) || DEFAULT_DISCOUNT_TIERS_FALLBACK,
     seasons: seasons,
     generatedAt: new Date().toISOString(),
     generatedFrom: path.relative(__dirname, SOURCE_XLSX).split(path.sep).join("/")
@@ -168,25 +169,50 @@ function main(){
   if(otaComparison) console.log("Comparație platforme: " + JSON.stringify(otaComparison));
 }
 
-function findSheet(workbook, name){
-  var found = workbook.SheetNames.find(function(n){ return normalize(n) === normalize(name); });
-  return found ? workbook.Sheets[found] : null;
+// Prima foaie găsită dintre numele date (numele noi primele, apoi cele vechi: „Perioade”/„Sezoane”, „Setări”/„Platforme”).
+function findSheet(workbook){
+  var names = Array.prototype.slice.call(arguments, 1);
+  for(var i = 0; i < names.length; i++){
+    var found = workbook.SheetNames.find(function(n){ return normalize(n) === normalize(names[i]); });
+    if(found) return workbook.Sheets[found];
+  }
+  return null;
 }
 
 // Header-ele din Excel au rânduri noi și spații multiple („Booking\nACUM”) → comparăm pe text normalizat.
 function headerKey(h){ return normalize(h).replace(/\s+/g, " "); }
 
-// Politica de anulare pe sezon din foaia „Sezoane” (coloana „Politică anulare…”: „Flexibil 14 zile” /
+// Coloana ID din foile cu perioade: „ID perioadă” (acum) sau „ID sezon” (formatul vechi).
+function isIdHeader(c){ var k = headerKey(c); return k === "id perioada" || k === "id sezon"; }
+
+// Scara standard de reduceri pe durată din „Setări” (rândul „Scara standard”, coloanele B–G = 2…7+ nopți)
+// → defaultDiscountTiers (rezumatul de pe site + comparația Airbnb 2–6 nopți). null dacă lipsește sau e incompletă.
+function readDefaultTiers(workbook){
+  var sheet = findSheet(workbook, "Setări", "Platforme");
+  if(!sheet) return null;
+  var row = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null })
+    .find(function(r){ return headerKey(r[0]) === "scara standard"; });
+  if(!row) return null;
+  var tiers = [];
+  for(var i = 1; i <= 6; i++){
+    var v = Number(row[i]);
+    if(row[i] === null || row[i] === "" || !isFinite(v)) return null;
+    tiers.push({ minNights: i + 1, discount: Math.round(v * 100) });
+  }
+  return tiers;
+}
+
+// Politica de anulare pe perioadă din foaia „Perioade” (coloana „Politică anulare…”: „Flexibil 14 zile” /
 // „Nerambursabil”) → seasons[].cancellation, normalizat („flexibil 14 zile” / „nerambursabil”).
-// Site-ul oferă tariful direct flexibil doar în sezoanele „flexibil”. Fără foaie/coloană: nimic de adăugat.
+// Site-ul oferă tariful direct flexibil doar în perioadele „flexibil”. Fără foaie/coloană: nimic de adăugat.
 function readCancellationPolicies(workbook, seasons){
-  var sheet = findSheet(workbook, "Sezoane");
+  var sheet = findSheet(workbook, "Perioade", "Sezoane");
   if(!sheet) return;
   var rows = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
-  var hIdx = rows.findIndex(function(r){ return r.some(function(c){ return headerKey(c) === "id sezon"; }); });
+  var hIdx = rows.findIndex(function(r){ return r.some(isIdHeader); });
   if(hIdx === -1) return;
+  var cId = rows[hIdx].findIndex(isIdHeader);
   var header = rows[hIdx].map(headerKey);
-  var cId = header.indexOf("id sezon");
   var cPol = header.findIndex(function(h){ return h.indexOf("politica anulare") === 0; });
   if(cPol === -1) return;
   var byId = {};
@@ -203,7 +229,7 @@ function readOtaComparison(workbook, seasons){
   var priceSheet = findSheet(workbook, "Prețuri de setat");
   if(!priceSheet) return null;
   var rows = XLSX.utils.sheet_to_json(priceSheet, { header: 1, raw: true, defval: null });
-  var hIdx = rows.findIndex(function(r){ return r.some(function(c){ return headerKey(c) === "id sezon"; }); });
+  var hIdx = rows.findIndex(function(r){ return r.some(isIdHeader); });
   if(hIdx === -1) return null;
   var header = rows[hIdx].map(headerKey);
   function colOf(names){
@@ -213,7 +239,7 @@ function readOtaComparison(workbook, seasons){
     }
     return -1;
   }
-  var cId = header.indexOf("id sezon");
+  var cId = rows[hIdx].findIndex(isIdHeader);
   var cols = {
     booking: colOf(["booking acum", "booking standard rate"]),
     airbnb: colOf(["airbnb acum", "airbnb pret / noapte"]),
@@ -237,9 +263,9 @@ function readOtaComparison(workbook, seasons){
   });
   if(!matched) return null;
 
-  // Reguli din foaia „Platforme” (coloanele: Setare | Site direct | Booking.com | Airbnb | Travelminit)
+  // Reguli din foaia „Setări” / „Platforme” (coloanele: Setare | Site direct | Booking.com | Airbnb | Travelminit)
   var rules = { bookingMobileDiscount: 0, bookingUsesSiteDiscounts: true, airbnbUsesSiteDiscounts: false, travelminitUsesSiteDiscounts: false, airbnbWeeklyDiscount: 0, airbnbMonthlyDiscount: 0 };
-  var platSheet = findSheet(workbook, "Platforme");
+  var platSheet = findSheet(workbook, "Setări", "Platforme");
   if(platSheet){
     var pr = XLSX.utils.sheet_to_json(platSheet, { header: 1, raw: true, defval: null });
     var pct = function(v){ var n = Number(v); return isFinite(n) ? Math.round(n * 1000) / 10 : 0; };

@@ -313,7 +313,7 @@
 
   /* ---------- COMPARAȚIE CU PLATFORMELE (din pricing.json → otaComparison + seasons[].ota) ----------
    * Cel mai mic și cel mai mare preț pentru același sejur pe platformele de rezervări, cu regulile lor:
-   * reducerile pe durată ale site-ului pe platformele care le aplică (…UsesSiteDiscounts, din foaia „Platforme”),
+   * reducerile pe durată ale site-ului pe platformele care le aplică (…UsesSiteDiscounts, din foaia „Setări”),
    * fără nopțile de sărbători pe Booking/Travelminit; Booking + reducerea de mobil; Airbnb = reduceri globale.
    * { min, max } sau null dacă lipsesc datele pentru vreo noapte. Pe site nu se numește nicio platformă în comparație. */
   function computeOtaRange(ci, co){
@@ -731,7 +731,7 @@
   /* ---------- TARIF: NERAMBURSABIL / FLEXIBIL ----------
    * Flexibil = nerambursabil + 10%, anulare gratuită până cu 14 zile înainte de sosire. Oferit doar dacă toate
    * nopțile cad în sezoane „flexibil” (pricing.json → seasons[].cancellation, din coloana „Politică anulare” a
-   * foii „Sezoane”) și sosirea e peste cel puțin 15 zile. Aceleași reguli în apps-script/rezervari.gs. */
+   * foii „Perioade”) și sosirea e peste cel puțin 15 zile. Aceleași reguli în apps-script/rezervari.gs. */
   var FLEX_MARKUP_PCT = 10, FLEX_CANCEL_DAYS = 14, FLEX_MIN_LEAD_DAYS = 15;
   var rateNonref = document.getElementById("rateNonref");
   var rateFlex = document.getElementById("rateFlex");
