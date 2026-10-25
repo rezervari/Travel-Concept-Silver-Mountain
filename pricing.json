@@ -64,9 +64,9 @@
       ],
       "cancellation": "flexibil 14 zile",
       "ota": {
-        "booking": 1130,
-        "airbnb": 920,
-        "travelminit": 980
+        "booking": 1160,
+        "airbnb": 940,
+        "travelminit": 1000
       }
     },
     {
@@ -104,9 +104,9 @@
       ],
       "cancellation": "flexibil 14 zile",
       "ota": {
-        "booking": 1580,
-        "airbnb": 1420,
-        "travelminit": 1360
+        "booking": 1610,
+        "airbnb": 1450,
+        "travelminit": 1380
       }
     },
     {
@@ -124,9 +124,9 @@
       ],
       "cancellation": "nerambursabil",
       "ota": {
-        "booking": 1890,
-        "airbnb": 1940,
-        "travelminit": 1630
+        "booking": 1940,
+        "airbnb": 1970,
+        "travelminit": 1660
       }
     },
     {
@@ -144,9 +144,9 @@
       ],
       "cancellation": "nerambursabil",
       "ota": {
-        "booking": 2270,
-        "airbnb": 2400,
-        "travelminit": 1960
+        "booking": 2320,
+        "airbnb": 2440,
+        "travelminit": 1990
       }
     },
     {
@@ -184,9 +184,9 @@
       ],
       "cancellation": "flexibil 14 zile",
       "ota": {
-        "booking": 1700,
-        "airbnb": 1530,
-        "travelminit": 1470
+        "booking": 1740,
+        "airbnb": 1560,
+        "travelminit": 1490
       }
     },
     {
@@ -224,9 +224,9 @@
       ],
       "cancellation": "flexibil 14 zile",
       "ota": {
-        "booking": 1830,
-        "airbnb": 1640,
-        "travelminit": 1580
+        "booking": 1870,
+        "airbnb": 1680,
+        "travelminit": 1600
       }
     },
     {
@@ -264,16 +264,16 @@
       ],
       "cancellation": "flexibil 14 zile",
       "ota": {
-        "booking": 1130,
-        "airbnb": 1020,
-        "travelminit": 980
+        "booking": 1160,
+        "airbnb": 1040,
+        "travelminit": 1000
       }
     }
   ],
-  "generatedAt": "2026-10-22T12:43:32.559Z",
+  "generatedAt": "2026-10-25T19:27:43.350Z",
   "generatedFrom": "pricing/tarife.xlsx",
   "otaComparison": {
-    "checkedAt": "2026-10-22",
+    "checkedAt": "2026-10-25",
     "bookingMobileDiscount": 10,
     "bookingUsesSiteDiscounts": true,
     "airbnbUsesSiteDiscounts": true,
