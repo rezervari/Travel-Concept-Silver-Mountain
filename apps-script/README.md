@@ -338,6 +338,13 @@ Properties oprește temporar notificările.
   (`checkinSync` există?) și ☰ Executions (erori, ex. permisiune nouă cerută → rulează `checkinSync` o dată din editor
   și acceptă). După o modificare a lui `calendar.gs`, implementarea „Calendar” trebuie trecută pe o versiune nouă,
   altfel feed-ul nu conține ora (GitHub scrie atunci în log că verificarea e sărită).
+- **Calendarul de pe site** (invers): workflow-ul „Update calendar” (pornit din oră în oră de Worker-ul Cloudflare
+  `a13-panou`, vezi `panou-cloudflare/README.md`; programarea GitHub e doar rezervă, de 4–6 ori pe zi) citește
+  „A13 Direct” cu `&src=github`, iar `calServeFeed` notează ora în Script Property `CAL_GITHUB_FETCH`. Dacă trec peste
+  2 h 15 min fără citire (`CAL_SITE_STALE_MIN`; o rulare orară ratată nu e alarmă), `calSiteHealth` (în `calSync`)
+  trimite o alertă pe incident (Telegram cu sunet + e-mail), apare la „De făcut” și ca avertizare la „Calendarul de pe
+  site” (Sistem) și în rezumatul de la 08:00; când revine, un mesaj fără sunet. Incidentul în curs: `CAL_SITE_HEALTH`.
+  `updatedAt` din `booked-dates.json` nu e un semn de viață: se schimbă doar când se schimbă zilele ocupate.
 
 ## Instalare (o singură dată)
 

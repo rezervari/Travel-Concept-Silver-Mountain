@@ -25,13 +25,18 @@ var CAL_ICS_CACHE_SEC = 600;
 var CAL_MAX_BLOCK_NIGHTS = 400;
 var CAL_PLATFORMS = [["Booking", "ICS_BOOKING"], ["Airbnb", "ICS_AIRBNB"], ["Travelminit", "ICS_TRAVELMINIT"]];
 var CAL_REQUEST_ACTIONS = ["Așteaptă plata", "Confirmată", "Anulată"];
+var CAL_GITHUB_PROPERTY = "CAL_GITHUB_FETCH";          // ora la care GitHub („Update calendar”) a citit ultima dată feed-ul
+var CAL_SITE_HEALTH_PROPERTY = "CAL_SITE_HEALTH";      // { since, alerted } cât timp calendarul de pe site e vechi
+var CAL_SITE_STALE_MIN = 135;   // ~2 ore: workflow-ul rulează din oră în oră (Worker-ul a13-panou), una ratată nu e alarmă
 
 /* ============================== FEED-UL „A13 DIRECT” ============================== */
 
 // Apelată din doGet (rezervari.gs) pentru ?cal=<cheie>. Fără cheia corectă: „Not found”.
-function calServeFeed(token) {
+// src=github: citirea din workflow-ul „Update calendar” (update-calendar.cjs) → ora rămâne pentru calSiteHealth.
+function calServeFeed(token, src) {
   var expected = PropertiesService.getScriptProperties().getProperty(CAL_TOKEN_PROPERTY);
   if (!expected || String(token) !== expected) return ContentService.createTextOutput("Not found");
+  if (src === "github") PropertiesService.getScriptProperties().setProperty(CAL_GITHUB_PROPERTY, String(new Date().getTime()));
   var events = calFeedEvents(SpreadsheetApp.getActiveSpreadsheet(), new Date().getTime());
   var lastRun = Number(PropertiesService.getScriptProperties().getProperty("CI_LAST_RUN") || 0);
   return ContentService.createTextOutput(calIcs(events, lastRun)).setMimeType(ContentService.MimeType.ICAL);
@@ -214,7 +219,47 @@ function calSync(ctx) {
   });
   Object.keys(map).forEach(function (id) { if (!seen[id]) { delete map[id]; changed = true; } });
   if (changed) PropertiesService.getScriptProperties().setProperty(CAL_HOLDS_PROPERTY, JSON.stringify(map));
+  try { calSiteHealth(ctx); } catch (e) { ciStepError(ctx, "calendarul de pe site", String(e && e.message || e).slice(0, 300)); }
   calCheckOverlaps(ctx);
+}
+
+/* ============================== CALENDARUL DE PE SITE ============================== */
+
+// booked-dates.json (zilele ocupate de pe site, folosite și de rezervari.gs la verificarea solicitărilor) îl scrie
+// workflow-ul GitHub „Update calendar”, pornit din oră în oră de Worker-ul Cloudflare a13-panou (programarea GitHub e
+// doar rezervă: 4–6 rulări pe zi). La fiecare rulare GitHub citește „A13 Direct” cu src=github → CAL_GITHUB_FETCH.
+// updatedAt din booked-dates.json nu ajunge: se schimbă doar când se schimbă zilele ocupate.
+// Fără citire de peste CAL_SITE_STALE_MIN: o alertă pe incident, apoi un mesaj când revine.
+function calSiteHealth(ctx) {
+  var last = calGithubLastFetch();
+  if (!last) return;   // GitHub nu a citit încă feed-ul cu src=github (update-calendar.cjs vechi)
+  var props = PropertiesService.getScriptProperties();
+  var h = calSiteHealthState();
+  if (ctx.now - last > CAL_SITE_STALE_MIN * 60000) {
+    if (h.alerted) return;
+    props.setProperty(CAL_SITE_HEALTH_PROPERTY, JSON.stringify({ since: last, alerted: ctx.now }));
+    ciLog(ctx, "Calendarul de pe site nu se actualizează", "", "ultima rulare GitHub " + ciClock(last));
+    ciAlertOwner("Calendarul de pe site nu s-a mai actualizat din " + ciClock(last),
+      "Workflow-ul GitHub „Update calendar”, care scrie pe site zilele ocupate din Booking, Airbnb, Travelminit și „A13 Direct”, " +
+      "nu a mai rulat din " + ciClock(last) + " (acum " + ciAgo(ctx.now - last) + ").\n" +
+      "Cât durează, o rezervare nouă de pe platforme nu apare pe site, iar solicitările de pe site se verifică după zile vechi.\n\n" +
+      "Ce verifici: GitHub → Actions → Update calendar (ultima rulare și eventualele erori): " +
+      "https://github.com/rezervari/Travel-Concept-Silver-Mountain/actions/workflows/update-calendar.yml\n" +
+      "Rularea orară o pornește Worker-ul Cloudflare „a13-panou” cu tokenul GITHUB_DISPATCH_TOKEN (dacă a expirat, GitHub " +
+      "ți-a trimis un e-mail; tokenul nou se pune cu npx wrangler@4 secret put GITHUB_DISPATCH_TOKEN). " +
+      "Până se rezolvă: Actions → Update calendar → Run workflow. Îți scriu când revine.");
+  } else if (h.alerted) {
+    props.deleteProperty(CAL_SITE_HEALTH_PROPERTY);
+    ciLog(ctx, "Calendarul de pe site se actualizează din nou", "", "după " + ciAgo(last - h.since));
+  }
+}
+
+function calSiteHealthState() {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(CAL_SITE_HEALTH_PROPERTY) || "{}"); } catch (e) { return {}; }
+}
+
+function calGithubLastFetch() {
+  return Number(PropertiesService.getScriptProperties().getProperty(CAL_GITHUB_PROPERTY) || 0);
 }
 
 // Schimbă Status-ul unei solicitări (butoanele din panou). Restul (rezervarea, fișa, codul, feed-ul) îl face checkinSync.

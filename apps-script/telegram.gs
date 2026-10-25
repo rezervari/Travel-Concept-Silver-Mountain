@@ -32,7 +32,7 @@ var TG_EVENT_RULES = [
   [/^(Cod șters de pe yală|Valabilitate cod mutată)$/, "info", "🔑"],
   [/^(Plecare din calendar|Perioadă blocată|Perioadă redeschisă|Blocare temporară \(aștept plata\))$/, "info", "📅"],
   [/^Status solicitare: /, "info", "📋"],
-  [/^(Gateway yală din nou online|TTLock răspunde din nou|Baterii yală schimbate)$/, "info", "✅"],
+  [/^(Gateway yală din nou online|TTLock răspunde din nou|Baterii yală schimbate|Calendarul de pe site se actualizează din nou)$/, "info", "✅"],
   [/^(Încălzire|Geam închis$|Senzor din nou online$|Baterie schimbată$)/, "info", "🌡️"],
   [/^Rezervare de test/, "info", "🧪"]
 ];
@@ -176,6 +176,9 @@ function tgDailySummary() {
   else sys.push("Yală: TTLock nu răspunde");
   var age = h.lastRun ? Math.round((d.now - h.lastRun) / 60000) : null;
   sys.push(age == null ? "Sincronizare: nicio rulare înregistrată" : age > 25 ? "Sincronizare: ultima rulare acum " + age + " min ⚠️" : "Sincronizare: OK");
+  var C = h.calendar, seen = C.ok ? (C.checkedAt || C.updatedAt) : 0;   // checkedAt = ultima rulare GitHub
+  if (!C.ok) sys.push("Calendar site: nu se poate citi ⚠️");
+  else if (seen) sys.push(d.now - seen > (C.staleMs || 3 * 3600000) ? "Calendar site: neactualizat de " + ciAgo(d.now - seen) + " ⚠️" : "Calendar site: OK");
   if (h.errors.length) sys.push("Erori în 24 h: " + h.errors.length);
   if (h.testMode) sys.push("MOD TEST activ");
   out.push("⚙️ " + tgEsc(sys.join(" · ")));

@@ -21,7 +21,7 @@ binding = "ASSETS"
 binding = "PANOU_KV"
 id = "ee272291ddc944b592de1f67b2f04cfd"   # „a13-panou-kv”
 
-# Datele panoului se reîmprospătează la 5 minute.
+# Datele panoului se reîmprospătează la 5 minute; tot atunci se pornește „Update calendar” pe GitHub, dacă e timpul.
 [triggers]
 crons = ["*/5 * * * *"]
 
@@ -32,3 +32,6 @@ APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxn5QWCQN1V3KffutRxYE
 # „A13 Panou - doar Mircea” (Emails = proprietarul, sesiune 1 lună), pe „All traffic”.
 ACCESS_TEAM_DOMAIN = "spatiu123.cloudflareaccess.com"
 ACCESS_AUD = "1bf87485fee47bdf3b94bbe89ad0b75cb0c63b6e2b1167bb02b4888139c54ef9"
+# Workflow-ul care scrie booked-dates.json, pornit din oră în oră (secretul GITHUB_DISPATCH_TOKEN; fără el, nimic).
+GITHUB_REPO = "rezervari/Travel-Concept-Silver-Mountain"
+GITHUB_WORKFLOW = "update-calendar.yml"

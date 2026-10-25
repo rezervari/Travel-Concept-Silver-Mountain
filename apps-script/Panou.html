@@ -482,9 +482,11 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     var C = h.calendar;
     if (C.ok) {
       var src = Object.keys(C.sources || {}).map(function (k) { var v = C.sources[k]; return k + " " + (v && v.events != null ? v.events : "?"); }).join(" · ");
-      var old = C.updatedAt && now - C.updatedAt > 3 * 3600000;
+      // checkedAt = ultima rulare GitHub; updatedAt se schimbă doar când se schimbă zilele ocupate.
+      var seen = C.checkedAt || C.updatedAt, old = seen && now - seen > (C.staleMs || 3 * 3600000);
       rows.push(sys(old ? "warn" : "", "Calendarul de pe site",
-        "Actualizat " + when(C.updatedAt) + (src ? " · evenimente: " + src : ""),
+        (C.checkedAt ? "Verificat " + when(C.checkedAt) + " · ultima schimbare " + when(C.updatedAt) : "Actualizat " + when(C.updatedAt)) +
+        (old ? " · nu s-a mai actualizat de peste 2 ore (GitHub Actions → Update calendar)" : "") + (src ? " · evenimente: " + src : ""),
         C.next.length ? '<div class="codes">' + C.next.map(function (r) { return "<div><span>Ocupat</span><span>" + esc(dRange(r.start, r.end)) + "</span></div>"; }).join("") + "</div>" : ""));
     } else {
       rows.push(sys("bad", "Calendarul de pe site nu se poate citi", C.error || ""));

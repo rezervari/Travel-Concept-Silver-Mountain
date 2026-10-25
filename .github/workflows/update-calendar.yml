@@ -1,5 +1,7 @@
 name: Update calendar
 
+# Rularea orara o porneste Worker-ul Cloudflare a13-panou (workflow_dispatch, cand ultima rulare e mai veche de 55 min):
+# programarea GitHub de mai jos ruleaza in realitate doar de 4-6 ori pe zi. Ea ramane ca rezerva.
 on:
   schedule:
     # din ora in ora, la minutul 17 (ora fixa e aglomerata pe GitHub si rularile se amana)
@@ -13,7 +15,9 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
+# Niciodata doua rulari in acelasi timp (a doua asteapta).
 concurrency:
   group: update-calendar
   cancel-in-progress: false
@@ -23,16 +27,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Rularea programata vine la intamplare (GitHub o amana): daca o rulare reusita a fost acum mai putin de
+      # 30 de minute (de obicei cea pornita de Worker), nu mai repetam totul.
+      - name: Skip if the calendar was just updated
+        id: recent
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/update-calendar.yml/runs?status=success&per_page=1" \
+            --jq '.workflow_runs[0].created_at // empty' || true)
+          if [ -n "$last" ] && [ $(( $(date +%s) - $(date -d "$last" +%s) )) -lt 1800 ]; then
+            echo "Ultima rulare reusita: $last (acum mai putin de 30 min) — rularea programata se opreste aici."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
+        if: steps.recent.outputs.skip != '1'
         uses: actions/checkout@v5
 
       - name: Setup Node.js
+        if: steps.recent.outputs.skip != '1'
         uses: actions/setup-node@v5
         with:
           node-version: 24
 
       - name: Update calendar
         id: calendar
+        if: steps.recent.outputs.skip != '1'
         env:
           ICS_BOOKING: ${{ secrets.ICS_BOOKING }}
           ICS_AIRBNB: ${{ secrets.ICS_AIRBNB }}
@@ -42,6 +64,7 @@ jobs:
         run: node update-calendar.cjs
 
       - name: Save updated calendar
+        if: steps.recent.outputs.skip != '1'
         run: |
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"

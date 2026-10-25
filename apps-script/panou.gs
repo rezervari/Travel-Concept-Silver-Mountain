@@ -161,7 +161,7 @@ function pnBuild(force) {
   }
   var heatTodo = [];
   if (heat && heat.configured) { try { heatTodo = salPanelTodo(ctx); } catch (e) {} }
-  var todo = pnLockTodo(ctx, lock).concat(heatTodo, pnTodo(ctx, current, requests.open, cal ? cal.overlaps : []));
+  var todo = pnLockTodo(ctx, lock).concat(pnSiteTodo(ctx), heatTodo, pnTodo(ctx, current, requests.open, cal ? cal.overlaps : []));
   var errors = pnErrors(props, now);
   var stays = current.map(function (r) { return pnStay(ctx, r); });
   var inHouse = stays.filter(function (s) { return s.phase === "inhouse" || s.phase === "departing"; })[0];
@@ -375,6 +375,19 @@ function pnLockTodo(ctx, lock) {
   return out.filter(function (t) { return !ctx.dismissed[t.id]; });
 }
 
+// Calendarul de pe site, cât timp alerta din calendar.gs (calSiteHealth) e activă.
+function pnSiteTodo(ctx) {
+  if (typeof calSiteHealthState !== "function") return [];
+  var h = calSiteHealthState();
+  if (!h.alerted) return [];
+  var links = [{ label: "Update calendar (GitHub)", href: "https://github.com/rezervari/Travel-Concept-Silver-Mountain/actions/workflows/update-calendar.yml" }];
+  var item = pnItem({ nr: "", texts: [], links: links }, "site-calendar|" + h.since, "alert", "high",
+    "Calendarul de pe site nu se actualizează",
+    "Ultima rulare „Update calendar” pe GitHub " + pnHm(h.since) + ". Rezervările noi de pe platforme nu apar pe site. " +
+    "Verifică rulările pe GitHub și tokenul GITHUB_DISPATCH_TOKEN din Worker-ul a13-panou; între timp: Run workflow.");
+  return ctx.dismissed[item.id] ? [] : [item];
+}
+
 function pnItem(base, id, kind, level, title, detail) {
   return { id: id, kind: kind, level: level, title: title, detail: detail, nr: base.nr,
            texts: base.texts.slice(), links: base.links.slice() };
@@ -541,7 +554,17 @@ function pnLockStatus(force) {
 }
 
 // Calendarul de pe site (booked-dates.json, scris de GitHub Actions din iCal-urile platformelor).
+// checkedAt = ultima rulare GitHub (calendar.gs); updatedAt = ultima schimbare a zilelor ocupate.
 function pnSiteCalendar(ctx, force) {
+  var st = pnSiteCalendarFile(ctx, force);
+  if (st.ok && typeof calGithubLastFetch === "function") {
+    st.checkedAt = calGithubLastFetch() || null;
+    st.staleMs = CAL_SITE_STALE_MIN * 60000;
+  }
+  return st;
+}
+
+function pnSiteCalendarFile(ctx, force) {
   var cache = CacheService.getScriptCache();
   var hit = force ? null : cache.get("pn_cal");
   if (hit) return JSON.parse(hit);

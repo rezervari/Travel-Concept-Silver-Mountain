@@ -24,6 +24,8 @@
 // CALENDAR_SYNC_MAX_AGE_MIN (60) minute, automatizarea s-a oprit fara sa poata anunta singura -> rularea apare ca esuata,
 // iar mesajul pleaca pe Telegram din GitHub. Prima data cu sunet, apoi din ora in ora fara sunet, pana se rezolva.
 // Calendarul nu e afectat (zilele ocupate se scriu normal).
+// Si invers: pe GitHub, „A13 Direct” se citeste cu &src=github, iar Apps Script (calendar.gs) noteaza ora. Asa panoul si
+// Telegram stiu cand a rulat ultima data workflow-ul (updatedAt de mai jos se schimba doar cand se schimba zilele ocupate).
 
 const fs = require("fs");
 const path = require("path");
@@ -87,6 +89,17 @@ function parseLastSync(text) {
   return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6])) : null;
 }
 
+// Adauga un parametru la link (secret, nu se afiseaza); un link invalid ramane cum e (eroarea apare la citire).
+function withParam(url, key, value) {
+  try {
+    const u = new URL(url);
+    u.searchParams.set(key, value);
+    return u.toString();
+  } catch (_) {
+    return url;
+  }
+}
+
 function roTime(d) {
   return d.toLocaleString("ro-RO", { timeZone: "Europe/Bucharest", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
@@ -136,7 +149,9 @@ async function main() {
     sources = [{ name: "Google Calendar", url: GOOGLE_ICS_URL }];
   }
   if (process.env[OWN_SOURCE.env] && process.env[OWN_SOURCE.env].trim()) {
-    sources.push({ name: OWN_SOURCE.name, url: process.env[OWN_SOURCE.env].trim(), own: true });
+    let url = process.env[OWN_SOURCE.env].trim();
+    if (process.env.GITHUB_ACTIONS === "true") url = withParam(url, "src", "github");
+    sources.push({ name: OWN_SOURCE.name, url, own: true });
   }
 
   const today = new Date();

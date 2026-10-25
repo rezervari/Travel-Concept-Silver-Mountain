@@ -2,13 +2,16 @@
 // Datele și acțiunile vin tot din Apps Script (doPost → pnApi din panou.gs, cu cheia secretă PN_API_TOKEN). Aici:
 //  - Cloudflare Access în față (doar proprietarul) + verificarea tokenului Access (JWT) în cod, ca a doua barieră;
 //  - ultimele date ale panoului păstrate în KV (cron la 5 minute) → pagina se deschide imediat;
-//  - fișierele aplicației (manifest, iconițe, service worker) din public/ — fără date, servite direct de Cloudflare.
-// Secrete (npx wrangler secret put …): PN_API_TOKEN, OWNER_EMAIL. Restul în wrangler.toml. Vezi README.md.
+//  - fișierele aplicației (manifest, iconițe, service worker) din public/ — fără date, servite direct de Cloudflare;
+//  - pornirea orară a workflow-ului GitHub „Update calendar” (calendarul vizitatorilor de pe site), vezi mai jos.
+// Secrete (npx wrangler secret put …): PN_API_TOKEN, OWNER_EMAIL, GITHUB_DISPATCH_TOKEN. Restul în wrangler.toml. Vezi README.md.
 import PANEL_HTML from "../../apps-script/Panou.html";
 
 const SNAPSHOT_KEY = "snapshot";
 const FRESH_MS = 5.5 * 60 * 1000;          // pnData(false) primește datele păstrate cât sunt mai noi de atât
 const APPS_SCRIPT_TIMEOUT_MS = 90 * 1000;  // „Sincronizează” (checkinSync + datele) poate dura ~1 minut
+const CALENDAR_EVERY_MS = 55 * 60 * 1000;  // „Update calendar” pornit dacă nu a mai rulat de atât (cron la 5 min → ~orar)
+const GITHUB_TIMEOUT_MS = 20 * 1000;
 const FNS = new Set(["pnData", "pnSyncNow", "pnDismiss", "pnBlock", "pnUnblock", "pnSetRequestStatus"]);
 const SECURITY_HEADERS = {
   "cache-control": "no-store",
@@ -27,9 +30,11 @@ export default {
     return text(404, "Not found");
   },
 
-  // La 5 minute: datele panoului de la Apps Script → KV, ca pagina să se deschidă fără așteptare.
+  // La 5 minute: datele panoului de la Apps Script → KV, ca pagina să se deschidă fără așteptare;
+  // plus „Update calendar” pe GitHub, dacă e timpul (independent: o eroare la una nu o oprește pe cealaltă).
   async scheduled(event, env, ctx) {
     ctx.waitUntil(appsScript(env, "pnData", [false]).then((r) => store(env, r)));
+    ctx.waitUntil(dispatchCalendar(env).catch((e) => console.error("Update calendar: " + e.message)));
   }
 };
 
@@ -115,6 +120,37 @@ async function readSnapshot(env) {
 
 function store(env, snap) {
   return env.PANOU_KV.put(SNAPSHOT_KEY, snap.json, { metadata: { now: snap.now } });
+}
+
+/* ---------------------------------- GitHub: „Update calendar” ---------------------------------- */
+
+// booked-dates.json (zilele ocupate de pe site, folosite și de rezervari.gs la verificarea solicitărilor) îl scrie
+// workflow-ul „Update calendar”. Programarea lui GitHub („17 * * * *”) rulează în realitate doar de 4–6 ori pe zi,
+// cu pauze de 3–6 ore → de aici îl pornim (workflow_dispatch) când ultima rulare, de orice fel, e mai veche de 55 de
+// minute și nu e nimic în curs. O rulare programată recentă amână pornirea; programarea rămâne ca rezervă.
+// Token fine-grained doar pe acest repo, cu „Actions: Read and write” (secretul GITHUB_DISPATCH_TOKEN); fără el, nimic.
+async function dispatchCalendar(env, now = Date.now()) {
+  if (!env.GITHUB_DISPATCH_TOKEN || !env.GITHUB_REPO || !env.GITHUB_WORKFLOW) return "off";
+  const base = "https://api.github.com/repos/" + env.GITHUB_REPO + "/actions/workflows/" + env.GITHUB_WORKFLOW;
+  const headers = {
+    authorization: "Bearer " + env.GITHUB_DISPATCH_TOKEN,
+    accept: "application/vnd.github+json",
+    "x-github-api-version": "2022-11-28",
+    "user-agent": "a13-panou"
+  };
+  const res = await fetch(base + "/runs?per_page=1", { headers, signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS) });
+  if (!res.ok) throw new Error("lista rulărilor: GitHub HTTP " + res.status);
+  const run = ((await res.json()).workflow_runs || [])[0];
+  if (run && (run.status !== "completed" || now - Date.parse(run.created_at) < CALENDAR_EVERY_MS)) return "skip";
+  const go = await fetch(base + "/dispatches", {
+    method: "POST",
+    headers: { ...headers, "content-type": "application/json" },
+    body: JSON.stringify({ ref: env.GITHUB_REF || "main" }),
+    signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS)
+  });
+  if (!go.ok) throw new Error("pornire: GitHub HTTP " + go.status);
+  console.log("Update calendar pornit (ultima rulare: " + (run ? run.created_at : "niciuna") + ")");
+  return "dispatched";
 }
 
 /* ---------------------------------- Cloudflare Access ---------------------------------- */

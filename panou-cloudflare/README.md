@@ -10,7 +10,30 @@ ca să se deschidă repede și să se poată instala ca aplicație pe telefon ș
 ```
 telefon / laptop → Cloudflare Access (doar proprietarul) → Worker a13-panou → Apps Script (doPost → pnApi)
                                                       ↘ KV: ultimele date (cron 5 min)
+                                    cron 5 min → GitHub: „Update calendar” (workflow_dispatch, ~din oră în oră)
 ```
+
+## Pornirea orară a „Update calendar” (calendarul de pe site)
+
+Programarea GitHub a workflow-ului (`cron: "17 * * * *"`) rulează în realitate doar de 4–6 ori pe zi, cu pauze de
+3–6 ore. La fiecare cron de 5 minute, Worker-ul citește ultima rulare a workflow-ului (`/actions/workflows/…/runs`) și o
+pornește (`/dispatches`, `ref: main`) dacă e mai veche de 55 de minute și nu e nimic în curs → ~o rulare pe oră. O
+rulare programată recentă amână pornirea; la rândul ei, rularea programată se oprește singură dacă o rulare reușită a
+fost acum mai puțin de 30 de minute (primul pas din `update-calendar.yml`). Erorile apar în logurile Worker-ului
+(`npx wrangler@4 tail`); dacă rulările se opresc, Apps Script trimite alerta „Calendarul de pe site nu s-a mai
+actualizat” (vezi `apps-script/README.md`, Supraveghere).
+
+**Tokenul** `GITHUB_DISPATCH_TOKEN` (secret în Worker; fără el pornirea e oprită, restul merge) îl creează proprietarul
+contului GitHub `rezervari`: github.com → Settings → Developer settings → Personal access tokens → **Fine-grained
+tokens** → Generate new token: nume `a13-panou update-calendar`, expirare 1 an, Resource owner `rezervari`,
+Repository access **Only select repositories** → `Travel-Concept-Silver-Mountain`, Permissions → Repository →
+**Actions: Read and write** (Metadata: Read-only se pune singur), nimic altceva. Apoi, din acest folder:
+
+```bash
+npx wrangler@4 secret put GITHUB_DISPATCH_TOKEN
+```
+
+(lipești tokenul când e cerut). GitHub trimite e-mail înainte să expire; tokenul nou se pune la fel.
 
 ## Securitate
 
@@ -29,8 +52,8 @@ telefon / laptop → Cloudflare Access (doar proprietarul) → Worker a13-panou 
 
 | Ce | Unde |
 |---|---|
-| `APPS_SCRIPT_URL`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD` | `wrangler.toml` (`[vars]`) |
-| `PN_API_TOKEN`, `OWNER_EMAIL` | secrete: `npx wrangler@4 secret put <NUME>` |
+| `APPS_SCRIPT_URL`, `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `GITHUB_REPO`, `GITHUB_WORKFLOW` | `wrangler.toml` (`[vars]`) |
+| `PN_API_TOKEN`, `OWNER_EMAIL`, `GITHUB_DISPATCH_TOKEN` | secrete: `npx wrangler@4 secret put <NUME>` |
 | `PN_API_TOKEN` | și în Apps Script → Project Settings → Script Properties |
 
 Cheia nouă (de ex. dacă trebuie schimbată): generată local și trimisă direct în secret + clipboard, fără să apară pe

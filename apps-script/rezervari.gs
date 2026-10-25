@@ -120,7 +120,7 @@ function doPost(e) {
 // ?cal=<cheie>: calendarul iCal „A13 Direct” (calendar.gs), pentru platforme și site.
 // Proprietarul, autentificat cu contul lui, vede în schimb panoul de control (panou.gs).
 function doGet(e) {
-  if (e && e.parameter && e.parameter.cal && typeof calServeFeed === "function") return calServeFeed(e.parameter.cal);
+  if (e && e.parameter && e.parameter.cal && typeof calServeFeed === "function") return calServeFeed(e.parameter.cal, e.parameter.src);
   if (typeof pnAllowed === "function" && pnAllowed()) return pnServe();
   return json({ ok: true, service: BRAND + " rezervari" });
 }
