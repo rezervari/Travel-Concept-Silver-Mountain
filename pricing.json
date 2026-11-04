@@ -134,19 +134,19 @@
       "label": "Sezon iarnă",
       "start": "2026-12-28",
       "end": "2027-01-04",
-      "price": 1800,
-      "minNights": 4,
+      "price": 2100,
+      "minNights": 5,
       "discountTiers": [
         {
-          "minNights": 4,
+          "minNights": 5,
           "discount": 0
         }
       ],
       "cancellation": "nerambursabil",
       "ota": {
-        "booking": 2320,
-        "airbnb": 2440,
-        "travelminit": 1990
+        "booking": 2710,
+        "airbnb": 3030,
+        "travelminit": 2310
       }
     },
     {
@@ -270,7 +270,7 @@
       }
     }
   ],
-  "generatedAt": "2026-10-25T19:27:43.350Z",
+  "generatedAt": "2026-11-04T13:51:58.169Z",
   "generatedFrom": "pricing/tarife.xlsx",
   "otaComparison": {
     "checkedAt": "2026-10-25",
