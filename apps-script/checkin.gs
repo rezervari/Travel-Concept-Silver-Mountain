@@ -313,9 +313,12 @@ function ciExtranetLink(body, nr) {
 
 // Completează data plecării și verifică rezervările Booking viitoare față de calendarul iCal Booking.
 // O rezervare care nu mai apare în calendar NU se anulează automat: e doar marcată „De verificat”.
+// Un sejur început apare în exportul Booking cu începutul mutat zilnic (28.10 → 29.10 → …), iar din seara dinaintea
+// plecării nu mai apare deloc (văzut la 6131205469, 28.10–04.11.2026) → după sosire se caută după plecare și lipsa nu
+// se mai semnalează; „De verificat” rămâne doar pentru sejururile care nu au început.
 function ciCheckBookingCalendar(ctx) {
   var rows = ctx.active.rows.filter(function (r) {
-    return r["Sursă"] === "Booking" && (!r["Check-out"] || r["Check-out"] >= ctx.today);
+    return r["Sursă"] === "Booking" && (!r["Check-out"] || r["Check-out"] > ctx.today);
   });
   if (!rows.length) return;
   var url = PropertiesService.getScriptProperties().getProperty(CI_ICS_PROPERTY);
@@ -331,7 +334,13 @@ function ciCheckBookingCalendar(ctx) {
   }
   rows.forEach(function (r) {
     var nr = r["Nr. rezervare"];
+    var started = r["Check-in"] <= ctx.today;
     var ev = events.filter(function (e) { return e.start === r["Check-in"]; })[0];
+    if (!ev && started && r["Check-out"]) {
+      // restul sejurului început: evenimentul care începe după sosire și înainte de plecare (nu următoarea rezervare)
+      ev = events.filter(function (e) { return e.start > r["Check-in"] && e.start < r["Check-out"]; })[0];
+    }
+    if (!ev && started && r["Check-out"]) return;
     if (ev) {
       if (r["Check-out"] !== ev.end) {
         if (r["Check-out"]) ciLog(ctx, "Plecare modificată", nr, r["Check-out"] + " → " + ev.end);

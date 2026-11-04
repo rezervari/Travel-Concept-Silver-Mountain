@@ -100,6 +100,15 @@ function withParam(url, key, value) {
   }
 }
 
+// Ziua curenta in Romania, ca data la miezul noptii UTC (asa sunt stocate si datele din iCal). Platformele schimba ziua
+// la miezul noptii ora Romaniei: intre 00:00 si 02:00/03:00 (inca ziua precedenta in UTC) Airbnb nu mai exporta deja
+// blocarea noptii trecute — cu ziua UTC, o sursa ramasa fara evenimente parea „golita” (alarma falsa, 2–3.11.2026).
+function todayInRomania(now) {
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Bucharest", year: "numeric", month: "2-digit", day: "2-digit" })
+    .formatToParts(now).reduce((o, x) => (o[x.type] = x.value, o), {});
+  return new Date(Date.UTC(+p.year, +p.month - 1, +p.day));
+}
+
 function roTime(d) {
   return d.toLocaleString("ro-RO", { timeZone: "Europe/Bucharest", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
@@ -154,8 +163,7 @@ async function main() {
     sources.push({ name: OWN_SOURCE.name, url, own: true });
   }
 
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  const today = todayInRomania(new Date());
 
   let previousFile = null;
   try { previousFile = JSON.parse(fs.readFileSync(OUT_FILE, "utf8")); } catch (_) {}
