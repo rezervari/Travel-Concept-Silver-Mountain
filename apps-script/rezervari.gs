@@ -15,7 +15,7 @@
  */
 
 var BRAND = "A13 Travel Concept";
-var SITE_URL = "https://rezervari.github.io/Travel-Concept-Silver-Mountain/";
+var SITE_URL = "https://a13.travelconcept.ro/";
 var HERO_IMG = SITE_URL + "hero-apartament.jpg";
 var PHONE_DISPLAY = "0744 332 234";
 var PHONE_TEL = "+40744332234";

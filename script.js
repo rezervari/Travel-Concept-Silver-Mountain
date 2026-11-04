@@ -88,7 +88,7 @@
       var umamiScript = document.createElement("script");
       umamiScript.src = "https://cloud.umami.is/script.js";
       umamiScript.setAttribute("data-website-id", UMAMI_WEBSITE_ID);
-      umamiScript.setAttribute("data-domains", "rezervari.github.io"); // fără statistici din teste locale
+      umamiScript.setAttribute("data-domains", "a13.travelconcept.ro"); // fără statistici din teste locale
       document.head.appendChild(umamiScript);
     });
   }
