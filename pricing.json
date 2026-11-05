@@ -5,27 +5,27 @@
   "defaultDiscountTiers": [
     {
       "minNights": 2,
-      "discount": 10
+      "discount": 0
     },
     {
       "minNights": 3,
-      "discount": 12
-    },
-    {
-      "minNights": 4,
       "discount": 15
     },
     {
-      "minNights": 5,
+      "minNights": 4,
       "discount": 20
     },
     {
-      "minNights": 6,
+      "minNights": 5,
       "discount": 25
     },
     {
+      "minNights": 6,
+      "discount": 27
+    },
+    {
       "minNights": 7,
-      "discount": 33
+      "discount": 30
     }
   ],
   "seasons": [
@@ -39,27 +39,27 @@
       "discountTiers": [
         {
           "minNights": 2,
-          "discount": 10
+          "discount": 0
         },
         {
           "minNights": 3,
-          "discount": 12
-        },
-        {
-          "minNights": 4,
           "discount": 15
         },
         {
-          "minNights": 5,
+          "minNights": 4,
           "discount": 20
         },
         {
-          "minNights": 6,
+          "minNights": 5,
           "discount": 25
         },
         {
+          "minNights": 6,
+          "discount": 27
+        },
+        {
           "minNights": 7,
-          "discount": 33
+          "discount": 30
         }
       ],
       "cancellation": "flexibil 14 zile",
@@ -79,27 +79,27 @@
       "discountTiers": [
         {
           "minNights": 2,
-          "discount": 10
+          "discount": 0
         },
         {
           "minNights": 3,
-          "discount": 12
-        },
-        {
-          "minNights": 4,
           "discount": 15
         },
         {
-          "minNights": 5,
+          "minNights": 4,
           "discount": 20
         },
         {
-          "minNights": 6,
+          "minNights": 5,
           "discount": 25
         },
         {
+          "minNights": 6,
+          "discount": 27
+        },
+        {
           "minNights": 7,
-          "discount": 33
+          "discount": 30
         }
       ],
       "cancellation": "flexibil 14 zile",
@@ -125,7 +125,7 @@
       "cancellation": "nerambursabil",
       "ota": {
         "booking": 1940,
-        "airbnb": 1970,
+        "airbnb": 2040,
         "travelminit": 1660
       }
     },
@@ -145,7 +145,7 @@
       "cancellation": "nerambursabil",
       "ota": {
         "booking": 2710,
-        "airbnb": 3030,
+        "airbnb": 3230,
         "travelminit": 2310
       }
     },
@@ -159,27 +159,27 @@
       "discountTiers": [
         {
           "minNights": 2,
-          "discount": 10
+          "discount": 0
         },
         {
           "minNights": 3,
-          "discount": 12
-        },
-        {
-          "minNights": 4,
           "discount": 15
         },
         {
-          "minNights": 5,
+          "minNights": 4,
           "discount": 20
         },
         {
-          "minNights": 6,
+          "minNights": 5,
           "discount": 25
         },
         {
+          "minNights": 6,
+          "discount": 27
+        },
+        {
           "minNights": 7,
-          "discount": 33
+          "discount": 30
         }
       ],
       "cancellation": "flexibil 14 zile",
@@ -199,27 +199,27 @@
       "discountTiers": [
         {
           "minNights": 2,
-          "discount": 10
+          "discount": 0
         },
         {
           "minNights": 3,
-          "discount": 12
-        },
-        {
-          "minNights": 4,
           "discount": 15
         },
         {
-          "minNights": 5,
+          "minNights": 4,
           "discount": 20
         },
         {
-          "minNights": 6,
+          "minNights": 5,
           "discount": 25
         },
         {
+          "minNights": 6,
+          "discount": 27
+        },
+        {
           "minNights": 7,
-          "discount": 33
+          "discount": 30
         }
       ],
       "cancellation": "flexibil 14 zile",
@@ -239,27 +239,27 @@
       "discountTiers": [
         {
           "minNights": 2,
-          "discount": 10
+          "discount": 0
         },
         {
           "minNights": 3,
-          "discount": 12
-        },
-        {
-          "minNights": 4,
           "discount": 15
         },
         {
-          "minNights": 5,
+          "minNights": 4,
           "discount": 20
         },
         {
-          "minNights": 6,
+          "minNights": 5,
           "discount": 25
         },
         {
+          "minNights": 6,
+          "discount": 27
+        },
+        {
           "minNights": 7,
-          "discount": 33
+          "discount": 30
         }
       ],
       "cancellation": "flexibil 14 zile",
@@ -270,7 +270,7 @@
       }
     }
   ],
-  "generatedAt": "2026-11-04T13:51:58.169Z",
+  "generatedAt": "2026-11-05T18:40:49.615Z",
   "generatedFrom": "pricing/tarife.xlsx",
   "otaComparison": {
     "checkedAt": "2026-10-25",
@@ -278,7 +278,7 @@
     "bookingUsesSiteDiscounts": true,
     "airbnbUsesSiteDiscounts": true,
     "travelminitUsesSiteDiscounts": true,
-    "airbnbWeeklyDiscount": 32,
+    "airbnbWeeklyDiscount": 30,
     "airbnbMonthlyDiscount": 33
   }
 }
