@@ -58,6 +58,9 @@ function doPost(e) {
   try {
     var data = JSON.parse((e && e.postData && e.postData.contents) || "{}");
 
+    // Botul de Telegram pentru cheltuieli (fin-telegram.gs): mesajele trimise de Worker-ul „a13-telegram”.
+    if (data.tgRelay && typeof finTgRelay === "function") return finTgRelay(data);
+
     // Panoul de pe Cloudflare (panou.gs → pnApi): aceleași acțiuni ca pagina din Apps Script, cu cheia PN_API_TOKEN.
     if (data.api && typeof pnApi === "function") return pnApi(data);
 

@@ -363,3 +363,36 @@ Properties oprește temporar notificările.
    Property `TG_CHAT_ID`). Verificare: Actions → **Test Telegram** → Run workflow — trebuie să vină pe Telegram
    „✅ GitHub: alertele pentru rulările eșuate ajung aici”; dacă rularea e roșie, mesajul de eroare spune de ce
    (401 = cheie greșită, 400 „chat not found” = chat greșit).
+
+# Evidența sejururilor și a cheltuielilor (`finante.gs`)
+
+Google Sheet separat, „A13 – Sejururi și cheltuieli” (în folderul Drive al fișierului vechi „Clienti - Cheltuieli Silver.xlsx”, care rămâne neatins). ID-ul e în Script Property `FIN_SS_ID`. Scriptul stă în același proiect cu restul și folosește permisiunea `spreadsheets` pe care proiectul o are deja.
+
+Foi:
+- **Rezumat**: anul în C3 (nume definit `An`), indicatori, cheltuieli pe categorii, „De completat”, 3 grafice.
+- **Sejururi**: coloanele calculate sunt formule `ARRAYFORMULA` în rândul 3, deci un rând nou se calculează singur. Comisionul se ia din factură sau se estimează cu procentul din Setări.
+- **Cheltuieli**: un rând pe cheltuială. Facturile lunare au data de 1 a lunii. Galben = factură lunară fără sumă. Coloana „Sejur” leagă cheltuiala de un oaspete.
+- **Lunar**: calculat automat. Un sejur intră în luna plecării.
+- **Setări**: categoriile (tip „Fixă lunară” / „Variabilă”, grup în grafic) și platformele (comision estimat).
+
+Funcții:
+- `finBuild(id)`: construiește structura (șterge foile din fișier). După import refuză, în afară de `finBuild(id, true)`.
+- `finImport(data)`: scrie rândurile inițiale.
+- `finRefresh()`: reface graficele și lățimile coloanelor, fără să atingă datele.
+- `finCheck()`: scrie în jurnal indicatorii, celulele cu erori și etichetele de sejur negăsite.
+
+De știut:
+- Formulele scrise din script se pun cu fișierul pe `en_US` (virgulă între argumente), iar la final fișierul trece pe `ro_RO`. Cu `ro_RO` activ, o formulă cu virgule dă `#ERROR!`.
+- Datele clienților nu se pun în repo (repo-ul e public). Importul inițial s-a făcut dintr-un fișier temporar din proiect (`finante-import.gs`), golit după import.
+
+# Cheltuieli trimise pe Telegram (`fin-telegram.gs`)
+
+Scrii botului @A13TravelConceptBot o cheltuială pe un rând („spălătorie 231,26”, „întreținere 1.020,40 oct”, „dedeman 269,67 ieri”, sau poza bonului cu textul ca descriere). Rândul apare în foaia Cheltuieli din „A13 – Sejururi și cheltuieli”. Botul răspunde cu ce a înțeles și cu totalul lunii, plus butoanele Altă categorie / Altă dată / Anulează. Comenzi: `/luna` (sau `/luna oct`), `/lipsa`, `/anuleaza`, `/ajutor`.
+
+- **Facturile lunare** (categoriile „Fixă lunară” din Setări): pe 1 ale lunii se creează rândurile galbene, fără sumă. Din ziua 5, după 08:00, botul trimite o dată lista celor lipsă, cu butoane: atingi una și scrii suma. O factură lunară scrisă fără lună completează singură rândul galben; dacă lipsesc mai multe luni, botul întreabă care. Pasul e `finMonthly`, chemat din `checkinSync`.
+- **Drumul unui mesaj**: Telegram → Worker-ul `a13-telegram` (`telegram-cloudflare/`, fără secrete, doar IP-urile Telegram) → `doPost` cu `{ tgRelay, secret, update }` → `finTgRelay`. Aici se verifică cheia webhook-ului (Script Property `FIN_TG_SECRET`, generată de `finTgSetup`) și chatul (`TG_CHAT_ID`, doar chat privat).
+- **Implementarea „Calendar”**: webhook-ul trece prin ea, deci după o modificare a lui `fin-telegram.gs` sau `Cod.gs` faci Deploy → Manage deployments → „Calendar” → versiune nouă.
+- **Funcții de rulat din editor**: `finTgSetup` (o dată: cheia, webhook-ul, comenzile botului), `finTgStatus` (adresa webhook-ului, mesajele în așteptare, ultima eroare), `finTgStop` (oprește citirea mesajelor; notificările pleacă în continuare).
+- **`tgSetup`**: cât timp webhook-ul e pornit, nu mai merge (folosește `getUpdates`). Pentru el rulezi întâi `finTgStop`.
+- **Pozele**: rămân în chatul Telegram. În tabel apare „foto Telegram”, iar `file_id` stă în nota celulei. Salvarea în Drive ar cere permisiunea Drive pentru tot proiectul.
+- **Siguranță la butoane**: un buton modifică rândul doar dacă data, categoria și suma sunt încă cele de atunci. Dacă rândul s-a mutat sau l-ai schimbat de mână, botul refuză. Anularea merge 6 ore.

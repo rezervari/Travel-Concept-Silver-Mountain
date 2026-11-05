@@ -1,0 +1,10 @@
+# Releul botului Telegram A13 (cheltuielile pe Telegram, vezi README.md). Publicare, din acest folder: npx wrangler@4 deploy
+name = "a13-telegram"
+main = "src/worker.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+preview_urls = false
+
+[vars]
+# Implementarea „Calendar” din Apps Script (Execute as: Me, Who has access: Anyone), aceeași ca la panou.
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxn5QWCQN1V3KffutRxYELFtSHtE7m6I8bmdZvNRzAtEw2PqJrJW0FxDDZ8asHBIgKn/exec"
