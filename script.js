@@ -127,9 +127,9 @@
     defaultPrice: 700,
     globalMinNights: 2,
     defaultDiscountTiers: [
-      { minNights:2, discount:10 }, { minNights:3, discount:12 },
-      { minNights:4, discount:15 }, { minNights:5, discount:20 },
-      { minNights:6, discount:25 }, { minNights:7, discount:33 }
+      { minNights:2, discount:0 }, { minNights:3, discount:15 },
+      { minNights:4, discount:20 }, { minNights:5, discount:25 },
+      { minNights:6, discount:27 }, { minNights:7, discount:30 }
     ],
     seasons: []
   };

@@ -39,9 +39,9 @@ const CURRENCY = "RON";
 const GLOBAL_MIN_NIGHTS = 2;
 const DEFAULT_PRICE_FALLBACK = 700; // folosit DOAR daca pricing.json nu poate fi incarcat deloc in browser (eroare retea)
 const DEFAULT_DISCOUNT_TIERS_FALLBACK = [
-  { minNights: 2, discount: 10 }, { minNights: 3, discount: 12 },
-  { minNights: 4, discount: 15 }, { minNights: 5, discount: 20 },
-  { minNights: 6, discount: 25 }, { minNights: 7, discount: 33 }
+  { minNights: 2, discount: 0 }, { minNights: 3, discount: 15 },
+  { minNights: 4, discount: 20 }, { minNights: 5, discount: 25 },
+  { minNights: 6, discount: 27 }, { minNights: 7, discount: 30 }
 ];
 
 // 25569 = numarul de zile intre epoca Excel (1899-12-30) si epoca Unix (1970-01-01).
