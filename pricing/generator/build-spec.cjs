@@ -62,7 +62,7 @@ set(ST, "A11", "Strategie"); fmt(ST, "A11", SECTION);
 set(ST, "A16", "Scara standard de reduceri pe durată (perioadele „Standard”)"); fmt(ST, "A16", SECTION);
 set(ST, "A17", "Nopți"); ["2 nopți", "3 nopți", "4 nopți", "5 nopți", "6 nopți", "7+ nopți"].forEach((t, i) => set(ST, col(2 + i) + "17", t)); fmt(ST, "A17:G17", HEAD);
 set(ST, "A18", "Scara standard"); [0.10, 0.12, 0.15, 0.20, 0.25, 0.33].forEach((v, i) => inp(ST, col(2 + i) + "18", v)); fmt(ST, "B18:G18", Object.assign({ nf: PCT, border: true, h: "center" }, INPUT));
-set(ST, "H18", "Se aplică pe site, pe Booking (planurile „2 zile” … „7 zile”), pe Travelminit („Reducere generală”) și pe Airbnb („Trip length” 2–6 nopți). Dacă o schimbi aici, o schimbi și pe platforme (vezi „Checklist”).");
+set(ST, "H18", "Se aplică pe site, pe Booking (planurile „3 zile” … „7 zile”; la 2 nopți Standard Rate + „2 zile - flexibil +10%”), pe Travelminit („Reducere generală”) și pe Airbnb („Trip length” 3–6 nopți, săptămânal = treapta 7+). Treptele de 0% nu se setează pe platforme. Dacă o schimbi aici, o schimbi și pe platforme (vezi „Checklist”).");
 
 set(ST, "A20", "Platforme"); fmt(ST, "A20", SECTION);
 ["Setare", "Site direct", "Booking.com", "Airbnb", "Travelminit"].forEach((t, i) => set(ST, col(1 + i) + "21", t)); set(ST, "H21", "Sursă / explicație");
@@ -74,7 +74,7 @@ const plat = [
   [24, "Comisionul se ia fără taxele locale? (1=da, 0=nu)", "—", 1, 0, 0, "0", "Booking scade taxa turistică + Salvamont din suma comisionabilă (ex. 3.969 lei total → 3.633 lei comisionabil). Airbnb și Travelminit iau comision pe tot, fiindcă taxele sunt incluse în preț.", "Excl"],
   [25, "Cost procesare plată (% din totalul plătit de oaspete)", 0, 0.013, 0, 0, PCT1, "Booking: 1,3% din total (Plăți prin Booking.com) — 15% × 3.633 + 1,3% × 3.969 = 596,55 lei, exact suma reținută. Site: 0 la transfer bancar (pune % dacă încasezi cu cardul). Travelminit: încasezi tu, fără cost.", "Plata"],
   [26, "TVA nerecuperabil pe comision", "—", 0, 0, 0, PCT, "0 când firma are codul de TVA trecut în cont (taxare inversă la Booking/Airbnb, TVA deductibil la Travelminit). Airbnb: pune 21% dacă în cont NU e trecut codul de TVA RO15288158.", "TVAc"],
-  [27, "Reducere automată a platformei (mobil / Genius)", "—", 0.10, 0, 0, PCT, "Booking: „Mobile rate 10%” activ din 07.06.2026; Genius neactiv. Dacă pornești și Genius 10%, pune reducerea combinată: 1 − 0,9 × 0,9 = 19%.", "Auto"],
+  [27, "Reducere automată a platformei (mobil / Genius)", "—", 0.10, 0, 0, PCT, "Booking: „Mobile rate 10%” activ din 07.06.2026. Genius e separat, la rândurile 46–47 (doar pe perioadele fără „Preț fix”).", "Auto"],
   [28, "Ponderea oaspeților care primesc reducerea automată", "—", 1, 1, 1, PCT, "100% = prețul e ridicat ca și oaspetele de pe telefon să-ți lase câștigul țintă (cei de pe calculator plătesc mai mult). 70% = compensare pe medie.", "Pond"],
   [29, "Aplică reducerile pe durată din „Perioade”? (1=da, 0=nu)", "da", 1, 1, 1, "0", "Booking: planurile derivate „2 zile” … „7 zile”; Travelminit: „Reducere generală” pe intervalele perioadelor; Airbnb: „Trip length” 2–6 nopți + săptămânal/lunar, GLOBALE (se aplică pe tot anul, și la perioadele cu preț fix).", "Durata"],
   [30, "Rotunjire în sus la (lei)", "—", 10, 10, 10, LEI, "Prețurile calculate se rotunjesc în sus la multiplu de 10 lei.", "Rot"],
@@ -106,6 +106,13 @@ set(ST, "A39", "Costuri pe sejur (pentru profit; nu schimbă prețurile)"); fmt(
   [43, "Consumabile / sejur (săpun, hârtie, apă, vin)", 50, "c_Cons", ""],
 ].forEach(([r, label, v, n, ex]) => { set(ST, "A" + r, label); inp(ST, "B" + r, v); fmt(ST, "B" + r, Object.assign({ nf: LEI, h: "center" }, INPUT)); if (ex) set(ST, "H" + r, ex); name(n, `='Setări'!$B$${r}`); });
 
+set(ST, "A45", "Booking – Genius"); fmt(ST, "A45", SECTION);
+[
+  [46, "Reducere Genius (Booking, toți membrii Genius)", 0.10, "b_Genius", "Genius nivelul 1: minim 10% pentru toți membrii (reînscris pe 06.11.2026). Se cumulează cu Mobile rate și cu planurile pe durată. Suspendat pe sărbători (max. 30 de zile pe an), de aceea în calcul se aplică doar perioadelor fără „Preț fix”. 0% = Genius oprit."],
+  [47, "Ponderea oaspeților Booking cu Genius (estimare)", 0.50, "b_GenPond", "Cât din oaspeții Booking sunt membri Genius. Prețul de listă Booking se urcă astfel încât, în medie, câștigul să rămână cel țintă (cei cu Genius aduc mai puțin, ceilalți mai mult). Se corectează după raportul lunar Genius din Extranet."],
+].forEach(([r, label, v, n, ex]) => { set(ST, "A" + r, label); inp(ST, "B" + r, v); fmt(ST, "B" + r, Object.assign({ nf: PCT, h: "center" }, INPUT)); set(ST, "H" + r, ex); name(n, `='Setări'!$B$${r}`); });
+fmt(ST, "A46:B47", { border: true });
+
 set(ST, "J4", "Liste (meniuri)"); fmt(ST, "J4", { bold: true, color: "#808080" });
 ["Standard", "Preț fix", "Personalizat"].forEach((t, i) => set(ST, "J" + (5 + i), t));
 ["Flexibil 14 zile", "Nerambursabil", "Flexibil 7 zile", "Moderat"].forEach((t, i) => set(ST, "K" + (5 + i), t));
@@ -115,10 +122,10 @@ name("p_TVA", "='Setări'!$B$5"); name("p_TaxaTur", "='Setări'!$B$6"); name("p_
 name("p_Taxe", "='Setări'!$B$9"); name("p_Avantaj", "='Setări'!$B$12"); name("p_Prag", "='Setări'!$B$13"); name("s_Flex", "='Setări'!$B$14");
 name("p_Std", "='Setări'!$B$18:$G$18");
 width(ST, "A", 62); width(ST, "B:E", 13); width(ST, "F:G", 10); width(ST, "H", 95); width(ST, "I", 3); width(ST, "J:K", 16);
-fmt(ST, "H5:H43", { wrap: true, v: "top", color: "#404040" }); fmt(ST, "A5:G43", { v: "top" });
+fmt(ST, "H5:H47", { wrap: true, v: "top", color: "#404040" }); fmt(ST, "A5:G47", { v: "top" });
 ops.push({ op: "tab", s: ST, color: "#FFC000" });
 ops.push({ op: "freeze", s: ST, row: 3, col: 0 });
-ops.push({ op: "autofit", s: ST, r: "A4:H43" });
+ops.push({ op: "autofit", s: ST, r: "A4:H47" });
 
 /* ============================== PERIOADE ============================== */
 const PE = "Perioade";
@@ -202,6 +209,10 @@ cdef("Gs", "Site: plătește oaspetele / noapte (sejur minim)", () => `=IF($A6="
 cdef("Ns", "Site: câștig real / noapte", () => `=IF($A6="","",(${C("Gs")}6-p_Taxe)/(1+p_TVA)-s_Plata*${C("Gs")}6)`, LEI);
 cdef("N", "Câștig țintă / noapte", () => `=IF($A6="","",${C("Ns")}6/(1+p_Avantaj))`, LEI);
 const plats = [["b", "Booking"], ["a", "Airbnb"], ["m", "Travelminit"]];
+// Factorul reducerilor automate (1 − reducere × pondere). Booking: Mobile rate × Genius; Genius e suspendat pe perioadele „Preț fix”.
+const autoF = p => p === "b"
+  ? `((1-b_Auto*b_Pond)*(1-IF($${C("tip")}6="Preț fix",0,b_Genius*b_GenPond)))`
+  : `(1-${p}_Auto*${p}_Pond)`;
 plats.forEach(([p, label]) => {
   cdef(p + "ck", `${label}: comision efectiv (cu supliment, TVA nerecuperabil)`, () => `=IF($A6="","",(${p}_Com+${p}_Supl)*(1+${p}_TVAc))`, PCT1);
   cdef(p + "G", `${label}: plătește oaspetele pentru câștigul țintă`, () => `=IF($A6="","",(${C("N")}6+p_Taxe/(1+p_TVA)-${C(p + "ck")}6*${p}_Excl*p_Taxe)/(1/(1+p_TVA)-${C(p + "ck")}6-${p}_Plata))`, LEI);
@@ -212,12 +223,12 @@ plats.forEach(([p, label]) => {
     cdef("aP", "AIRBNB preț / noapte", () => `=IF($A6="","",IF(N(Perioade!$O6)>0,CEILING(MAX(${C("aFloor")}6,${C("aEq")}6*(1-a_PondSug)+N(Perioade!$O6)*a_PondSug),a_Rot),CEILING(${C("aEq")}6,a_Rot)))`, LEI);
   } else {
     cdef(p + "d", `${label}: reducere pe durată la sejurul minim`, () => `=IF($A6="","",${p}_Durata*${C("dS")}6)`, PCT);
-    cdef(p + "P", `${label.toUpperCase()} preț de setat`, () => `=IF($A6="","",CEILING(${C(p + "G")}6/(1-${C(p + "d")}6)/(1-${p}_Auto*${p}_Pond),${p}_Rot))`, LEI);
+    cdef(p + "P", `${label.toUpperCase()} preț de setat`, () => `=IF($A6="","",CEILING(${C(p + "G")}6/(1-${C(p + "d")}6)/${autoF(p)},${p}_Rot))`, LEI);
   }
 });
 const pd = p => (p === "a" ? C("ad") : C(p + "d"));
 plats.forEach(([p, label]) => {
-  cdef(p + "Gm", `${label}: plătește oaspetele (sejur minim, cu prețul rotunjit)`, () => `=IF($A6="","",${C(p + "P")}6*(1-${pd(p)}6)*(1-${p}_Auto*${p}_Pond))`, LEI);
+  cdef(p + "Gm", `${label}: plătește oaspetele (sejur minim, cu prețul rotunjit)`, () => `=IF($A6="","",${C(p + "P")}6*(1-${pd(p)}6)*${autoF(p)})`, LEI);
   cdef(p + "Nm", `${label}: câștig real / noapte (sejur minim)`, () => `=IF($A6="","",(${C(p + "Gm")}6-p_Taxe)/(1+p_TVA)-${C(p + "ck")}6*(${C(p + "Gm")}6-${p}_Excl*p_Taxe)-${p}_Plata*${C(p + "Gm")}6)`, LEI);
 });
 plats.forEach(([p, label]) => {
@@ -232,7 +243,7 @@ const blockStart = ci + 1;
 NIGHTS.forEach(n => {
   const e = `$${effOf(n)}6`;
   cdef("t" + n, `${n} n: câștig țintă`, () => `=IF(OR($A6="",${n}<$C6),"",(($${C("S")}6*(1-${e})-p_Taxe)/(1+p_TVA)-s_Plata*$${C("S")}6*(1-${e}))/(1+p_Avantaj))`, LEI);
-  const gB = `($${C("bP")}6*(1-b_Durata*${e})*(1-b_Auto*b_Pond))`;
+  const gB = `($${C("bP")}6*(1-b_Durata*${e})*${autoF("b")})`;
   cdef("b" + n, `${n} n: câștig Booking`, () => `=IF(${C("t" + n)}6="","",(${gB}-p_Taxe)/(1+p_TVA)-$${C("bck")}6*(${gB}-b_Excl*p_Taxe)-b_Plata*${gB})`, LEI);
   const aCol = col(ci + 1);
   const gA = `($${C("aP")}6*(1-${aCol}$2)*(1-a_Auto*a_Pond))`;
@@ -336,11 +347,13 @@ set(SI, "A12", "Reducere pe durată (site, Booking, Travelminit)"); f(SI, "B12",
 set(SI, "A13", "Reducere globală Airbnb"); f(SI, "B13", "=a_Durata*IF(B5>=28,a_Luna,IF(B5>=7,a_Sapt,IF(B5>=2,INDEX(p_Std,1,B5-1),0)))");
 set(SI, "A14", "Verificare sejur"); f(SI, "B14", `=IF(C${DR0}="","⚠ Data nu e în nicio perioadă – pe site rezervarea e blocată",IF(B5<N(B11),"⚠ Sub numărul minim de nopți",IF(B5>30,"⚠ Max. 30 de nopți în simulator","OK")))`);
 fmt(SI, "B10:B14", Object.assign({ h: "center" }, CALC)); fmt(SI, "B11", { nf: "0" }); fmt(SI, "B12:B13", { nf: PCT });
+set(SI, "A15", "Oaspete Booking cu Genius? 1=da"); inp(SI, "B15", 0); fmt(SI, "B15", Object.assign({ nf: "0", h: "center", border: true }, INPUT));
 ["", "Site direct", "Booking.com", "Airbnb", "Travelminit"].forEach((h, i) => set(SI, col(4 + i) + "4", h)); fmt(SI, "D4:H4", HEAD);
 const simRows = [
   [5, "Preț nopți (fără reduceri)", c => `=SUM(${c}${DR0}:${c}${DR1})`],
   [6, "Reducere pe durată", { E: `=-SUMPRODUCT(E${DR0}:E${DR1},I${DR0}:I${DR1})*$B$12`, F: `=-SUMPRODUCT(F${DR0}:F${DR1},I${DR0}:I${DR1})*$B$12*b_Durata`, G: "=-G5*$B$13", H: `=-SUMPRODUCT(H${DR0}:H${DR1},I${DR0}:I${DR1})*$B$12*m_Durata` }],
-  [7, "Reducere automată (mobil / Genius)", { E: "=0", F: "=-(F5+F6)*b_Auto*$B$7", G: "=-(G5+G6)*a_Auto", H: "=-(H5+H6)*m_Auto" }],
+  // Genius doar pe nopțile din perioadele cu reduceri (coloana I = 1), după reducerea pe durată și după Mobile rate
+  [7, "Reducere automată (mobil / Genius)", { E: "=0", F: `=-(F5+F6)*b_Auto*$B$7-SUMPRODUCT(F${DR0}:F${DR1},I${DR0}:I${DR1})*(1-$B$12*b_Durata)*(1-b_Auto*$B$7)*b_Genius*$B$15`, G: "=-(G5+G6)*a_Auto", H: "=-(H5+H6)*m_Auto" }],
   [8, "Supliment tarif flexibil (site)", { E: "=(E5+E6)*s_Flex*$B$8", F: "=0", G: "=0", H: "=0" }],
   [9, "PLĂTEȘTE OASPETELE", c => `=SUM(${c}5:${c}8)`],
   [10, "Taxe locale (turistică + Salvamont)", () => "=-(p_TaxaTur+p_TaxaSalv)*$B$6*$B$5"],
@@ -398,14 +411,15 @@ set(CK, "A2", "După fiecare modificare în „Perioade” sau „Setări”, pa
 const ck = [
   ["Site", "Prețuri, nopți minime, reduceri", "Salvezi fișierul și îl copiezi ca pricing/tarife.xlsx în repo → git push", "Automat din foaia „Export site”"],
   ["Booking.com", "Standard Rate pe fiecare perioadă", "Extranet → Tarife și disponibilitate → Calendar", "„Prețuri de setat”, coloana G"],
-  ["Booking.com", "Planurile „2 zile” … „7 zile”", "Extranet → Planuri tarifare", "Aceleași procente ca scara standard din „Setări”; deschise pe perioadele Standard, închise pe cele cu preț fix (coloana J)"],
+  ["Booking.com", "Planurile „2 zile” … „7 zile”", "Extranet → Planuri tarifare", "„3 zile” … „7 zile” = scara standard din „Setări”; la 2 nopți Standard Rate (nerambursabil) + „2 zile - flexibil +10%”; deschise pe perioadele Standard, închise pe cele cu preț fix (coloana J)"],
   ["Booking.com", "Plan „Sarbatori – Nerambursabil”", "Calendar", "Deschis doar pe perioadele cu preț fix, cu prețul din coloana G"],
   ["Booking.com", "Perioade „Personalizat”", "Extranet → Planuri tarifare", "Set separat de planuri derivate cu procentele perioadei (coloana J), deschis doar pe perioada respectivă"],
   ["Booking.com", "Nopți minime pe perioadă", "Calendar → Restricții (pe intervalul perioadei)", "„Prețuri de setat”, coloana D"],
   ["Booking.com", "Mobile rate", "Promoții → Tarife specifice", "Ca în „Setări” (reducerea automată Booking, azi 10%). Dacă o schimbi, schimbi și în „Setări”"],
+  ["Booking.com", "Genius", "Extranet → Genius", "Reducerea din „Setări” (azi 10%, toți membrii); suspendat pe perioadele cu preț fix (max. 30 de zile pe an); ponderea Genius din „Setări” se corectează după raportul lunar Genius"],
   ["Airbnb", "Preț pe noapte pe fiecare perioadă", "Calendar → selectezi intervalul → Preț", "„Prețuri de setat”, coloana H (perioadele cu preț fix sunt deja urcate pentru reducerile globale)"],
   ["Airbnb", "Preț de bază (zilele fără preț personalizat)", "Editor anunț → Prețuri → Preț de bază", "Cel mai mic preț Airbnb din an (plasă de siguranță)"],
-  ["Airbnb", "Reduceri Trip length / săptămânal / lunar", "Calendar → Settings → Discounts", "Trip length 2–6 nopți = scara standard; săptămânal și lunar din „Setări”"],
+  ["Airbnb", "Reduceri Trip length / săptămânal / lunar", "Calendar → Settings → Discounts", "Trip length 3–6 nopți = scara standard (treapta de 0% nu se setează); săptămânal și lunar din „Setări”"],
   ["Airbnb", "Nopți minime pe perioadă", "Calendar → Disponibilitate → Durata sejurului", "„Prețuri de setat”, coloana D"],
   ["Travelminit", "Tarif standard pe fiecare perioadă", "Tarife și capacitate → tabel (perioadă)", "„Prețuri de setat”, coloana I"],
   ["Travelminit", "Reduceri pe durată („Reducere generală”)", "Reduceri / promoții", "Pe intervalele și cu procentele din coloana L; „În zilele de ședere”, necombinabile; fără reduceri pe perioadele cu preț fix"],
@@ -459,7 +473,7 @@ set(GH, "A1", "Prețuri A13 Travel Concept – cum funcționează tabelul"); fmt
 set(GH, "A2", "Scrii doar prețul de pe site pe fiecare perioadă. Prețurile pentru Booking, Airbnb și Travelminit se calculează singure, cu TVA, comision, costul plății și reducerile pe care le aplică fiecare platformă."); fmt(GH, "A2", NOTE);
 const gh = [
   ["CUM LUCREZI"],
-  ["1. Setări (rar)", "Comisioane, TVA, taxe locale, reducerea de mobil Booking, avantajul site-ului (5%), scara standard de reduceri pe durată, costurile pe sejur."],
+  ["1. Setări (rar)", "Comisioane, TVA, taxe locale, reducerea de mobil Booking, Genius (reducere + ponderea oaspeților Genius), avantajul site-ului (5%), scara standard de reduceri pe durată, costurile pe sejur."],
   ["2. Perioade", "Pentru fiecare perioadă: datele, prețul tău pe site / noapte (cu taxele locale incluse), nopțile minime și tipul reducerilor: Standard (scara din Setări), Preț fix (fără reduceri, ex. sărbători) sau Personalizat (completezi procentele)."],
   ["3. Prețuri de setat", "Citești ce pui pe fiecare platformă (coloanele G–I) și ce planuri / reduceri deschizi (J–L). Verificarea arată cât îți rămâne pe fiecare canal la sejurul minim."],
   ["4. Verificare sejururi", "Pentru fiecare perioadă, la 2–7 și 14 nopți: cât îți rămâne pe fiecare platformă, ca procent din câștigul țintă, plus profitul pe noapte pe site după costuri."],

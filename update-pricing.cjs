@@ -18,7 +18,7 @@
  * Opțional (pentru mesajul „pe platforme același sejur costă de la…” din rezumat):
  *   - foaia „Prețuri de setat”: prețurile ACTUALE de pe platforme pe perioadă (coloanele „Booking ACUM”,
  *     „Airbnb ACUM”, „Travelminit ACUM”; dacă lipsesc, cele țintă) → seasons[].ota;
- *   - foaia „Setări” (fostă „Platforme”): reducerea automată Booking (mobil), dacă platformele aplică reducerile
+ *   - foaia „Setări” (fostă „Platforme”): reducerea automată Booking (mobil), reducerea Genius, dacă platformele aplică reducerile
  *     pe durată, reducerile săptămânală/lunară Airbnb → otaComparison; rândul „Scara standard” → defaultDiscountTiers;
  *   - foaia „Perioade” (fostă „Sezoane”): coloana „Politică anulare” → seasons[].cancellation;
  *   - foaia „Date actuale”: data verificării (prima dată zz.ll.aaaa din primele rânduri) → otaComparison.checkedAt.
@@ -264,7 +264,7 @@ function readOtaComparison(workbook, seasons){
   if(!matched) return null;
 
   // Reguli din foaia „Setări” / „Platforme” (coloanele: Setare | Site direct | Booking.com | Airbnb | Travelminit)
-  var rules = { bookingMobileDiscount: 0, bookingUsesSiteDiscounts: true, airbnbUsesSiteDiscounts: false, travelminitUsesSiteDiscounts: false, airbnbWeeklyDiscount: 0, airbnbMonthlyDiscount: 0 };
+  var rules = { bookingMobileDiscount: 0, bookingGeniusDiscount: 0, bookingUsesSiteDiscounts: true, airbnbUsesSiteDiscounts: false, travelminitUsesSiteDiscounts: false, airbnbWeeklyDiscount: 0, airbnbMonthlyDiscount: 0 };
   var platSheet = findSheet(workbook, "Setări", "Platforme");
   if(platSheet){
     var pr = XLSX.utils.sheet_to_json(platSheet, { header: 1, raw: true, defval: null });
@@ -272,6 +272,8 @@ function readOtaComparison(workbook, seasons){
     pr.forEach(function(r){
       var label = headerKey(r[0]);
       if(label.indexOf("reducere automata a platformei") === 0) rules.bookingMobileDiscount = pct(r[2]);
+      // Genius Booking (secțiunea „Booking – Genius”, valoarea în coloana B); suspendat pe sezoanele fără reduceri
+      else if(label.indexOf("reducere genius") === 0) rules.bookingGeniusDiscount = pct(r[1]);
       else if(label.indexOf("aplica reducerile pe durata") === 0){
         rules.bookingUsesSiteDiscounts = Number(r[2]) === 1;
         rules.airbnbUsesSiteDiscounts = Number(r[3]) === 1;
@@ -298,6 +300,7 @@ function readOtaComparison(workbook, seasons){
   return {
     checkedAt: checkedAt,
     bookingMobileDiscount: rules.bookingMobileDiscount,
+    bookingGeniusDiscount: rules.bookingGeniusDiscount,
     bookingUsesSiteDiscounts: rules.bookingUsesSiteDiscounts,
     airbnbUsesSiteDiscounts: rules.airbnbUsesSiteDiscounts,
     travelminitUsesSiteDiscounts: rules.travelminitUsesSiteDiscounts,

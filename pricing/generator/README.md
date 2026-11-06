@@ -35,4 +35,5 @@ Pașii sunt în foaia „Calcule”, pe aceleași rânduri ca în „Perioade”
 2. **Câștigul țintă** = câștigul de pe site ÷ (1 + avantajul site-ului).
 3. **Prețul plătit de oaspete** pe platformă = (țintă + taxe ÷ (1 + TVA) − c × taxe [doar unde comisionul se ia fără taxe]) ÷ (1 ÷ (1 + TVA) − c − cost plată). Aici c = (comision + supliment) × (1 + TVA nerecuperabil).
 4. **Prețul de setat** = prețul plătit ÷ (1 − reducerea pe durată la sejurul minim) ÷ (1 − reducerea automată × ponderea), rotunjit în sus.
+   - La Booking se mai împarte la (1 − Genius × ponderea Genius), din „Setări” B46/B47, doar la perioadele fără „Preț fix” (Genius e suspendat pe sărbători).
    - La Airbnb se folosește reducerea globală (Trip length, săptămânal sau lunar), chiar și la perioadele cu preț fix.

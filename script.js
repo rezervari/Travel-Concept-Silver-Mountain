@@ -314,7 +314,8 @@
   /* ---------- COMPARAȚIE CU PLATFORMELE (din pricing.json → otaComparison + seasons[].ota) ----------
    * Cel mai mic și cel mai mare preț pentru același sejur pe platformele de rezervări, cu regulile lor:
    * reducerile pe durată ale site-ului pe platformele care le aplică (…UsesSiteDiscounts, din foaia „Setări”),
-   * fără nopțile de sărbători pe Booking/Travelminit; Booking + reducerea de mobil; Airbnb = reduceri globale.
+   * fără nopțile de sărbători pe Booking/Travelminit; Booking + reducerea de mobil, plus varianta cu Genius (cel mai mic
+   * preț de pe Booking; Genius e suspendat pe sărbători, deci doar pe nopțile cu reduceri); Airbnb = reduceri globale.
    * { min, max } sau null dacă lipsesc datele pentru vreo noapte. Pe site nu se numește nicio platformă în comparație. */
   function computeOtaRange(ci, co){
     var cfg = pricingData && pricingData.otaComparison;
@@ -335,7 +336,13 @@
     function withLos(x, uses){ return uses ? x.all - x.disc + x.disc * (100 - pct) / 100 : x.all; }
     var candidates = [];
     if(isFinite(sums.booking.all)){
-      candidates.push(withLos(sums.booking, cfg.bookingUsesSiteDiscounts) * (100 - (cfg.bookingMobileDiscount || 0)) / 100);
+      var bkMobile = (100 - (cfg.bookingMobileDiscount || 0)) / 100;
+      var bkLos = withLos(sums.booking, cfg.bookingUsesSiteDiscounts);
+      candidates.push(bkLos * bkMobile);
+      if(cfg.bookingGeniusDiscount > 0){
+        var geniusBase = cfg.bookingUsesSiteDiscounts ? sums.booking.disc * (100 - pct) / 100 : sums.booking.disc;
+        candidates.push((bkLos - geniusBase * cfg.bookingGeniusDiscount / 100) * bkMobile);
+      }
     }
     if(isFinite(sums.airbnb.all)){
       // Reducerile Airbnb sunt globale (și pe sărbători): săptămânal (7+) / lunar (28+), iar 2–6 nopți = „Trip length”
@@ -906,7 +913,7 @@
           '<strong>' + savingAmountText(direct) + '</strong>' +
           '<span>față de platformele de rezervări online, unde același sejur costă ' +
             (direct.isRange ? 'între ~' + direct.otaFrom + ' și ~' + direct.otaTo : 'de la ~' + direct.otaFrom) + '\u00a0RON.</span>' +
-          '<small>Prețuri verificate' + (direct.checkedAt ? ' la ' + direct.checkedAt : '') + ', cu reducerile automate ale platformelor (inclusiv pentru mobil). ' +
+          '<small>Prețuri verificate' + (direct.checkedAt ? ' la ' + direct.checkedAt : '') + ', cu reducerile automate ale platformelor (inclusiv pentru mobil și pentru membrii programelor de fidelitate). ' +
           (rate === "flexibil"
             ? 'Tariful direct ales are anulare gratuită până pe ' + fmtDate(flexDeadline(ci)) + '.'
             : 'Pe platforme, unele tarife includ anulare gratuită; tariful direct ales e nerambursabil.') + '</small>' +

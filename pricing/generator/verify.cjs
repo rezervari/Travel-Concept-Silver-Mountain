@@ -34,7 +34,8 @@ fails += diff;
 const st = a => Number(v("Setări", a) || 0);
 const chan = c => ({ c: (st(c + "22") + st(c + "23")) * (1 + st(c + "26")), excl: st(c + "24"), p: st(c + "25"), auto: st(c + "27") * st(c + "28"), dur: st(c + "29"), rot: st(c + "30") || 1 });
 const P = { vat: st("B5"), T: (st("B6") + st("B7")) * st("B8"), adv: st("B12"), sPay: st("B25"), std: ["B", "C", "D", "E", "F", "G"].map(c => st(c + "18")),
-  wk: st("B34"), mo: st("B35"), w: st("B36"), minNet: st("B37"), b: chan("C"), a: chan("D"), m: chan("E") };
+  wk: st("B34"), mo: st("B35"), w: st("B36"), minNet: st("B37"), b: chan("C"), a: chan("D"), m: chan("E"),
+  gen: st("B46") * st("B47") }; // Genius Booking (reducere × pondere), doar pe perioadele fără „Preț fix”
 const a1 = 1 / (1 + P.vat), ceil = (x, r) => Math.ceil(x / r - 1e-9) * r;
 const inv = (ch, N) => (N + P.T * a1 - ch.c * ch.excl * P.T) / (a1 - ch.c - ch.p);
 const airG = n => P.a.dur * (n >= 28 ? P.mo : n >= 7 ? P.wk : P.std[Math.max(2, n) - 2]);
@@ -45,7 +46,7 @@ for (let r = 6; r <= 40; r++) {
   const tip = ["Preț fix", "Personalizat"].includes(v("Perioade", "G" + r)) ? v("Perioade", "G" + r) : "Standard";
   const dS = tip === "Preț fix" ? 0 : tip === "Standard" ? P.std[Math.min(minN, 7) - 2] : (v("Perioade", String.fromCharCode(72 + Math.min(minN, 7) - 2) + r) || 0);
   const Gs = S * (1 - dS), Ns = (Gs - P.T) * a1 - P.sPay * Gs, N = Ns / (1 + P.adv);
-  const B = ceil(inv(P.b, N) / (1 - P.b.dur * dS) / (1 - P.b.auto), P.b.rot);
+  const B = ceil(inv(P.b, N) / (1 - P.b.dur * dS) / (1 - P.b.auto) / (1 - (tip === "Preț fix" ? 0 : P.gen)), P.b.rot);
   const dA = airG(minN), aEq = inv(P.a, N) / (1 - dA) / (1 - P.a.auto);
   let A = ceil(aEq, P.a.rot);
   if (sug > 0) { const floor = inv(P.a, Ns * P.minNet) / (1 - dA) / (1 - P.a.auto); A = ceil(Math.max(floor, aEq * (1 - P.w) + sug * P.w), P.a.rot); }
