@@ -64,7 +64,7 @@
       ],
       "cancellation": "flexibil 14 zile",
       "ota": {
-        "booking": 1160,
+        "booking": 1220,
         "airbnb": 940,
         "travelminit": 1000
       }
@@ -104,7 +104,7 @@
       ],
       "cancellation": "flexibil 14 zile",
       "ota": {
-        "booking": 1610,
+        "booking": 1700,
         "airbnb": 1450,
         "travelminit": 1380
       }
@@ -184,7 +184,7 @@
       ],
       "cancellation": "flexibil 14 zile",
       "ota": {
-        "booking": 1740,
+        "booking": 1830,
         "airbnb": 1560,
         "travelminit": 1490
       }
@@ -224,7 +224,7 @@
       ],
       "cancellation": "flexibil 14 zile",
       "ota": {
-        "booking": 1870,
+        "booking": 1970,
         "airbnb": 1680,
         "travelminit": 1600
       }
@@ -264,17 +264,18 @@
       ],
       "cancellation": "flexibil 14 zile",
       "ota": {
-        "booking": 1160,
+        "booking": 1220,
         "airbnb": 1040,
         "travelminit": 1000
       }
     }
   ],
-  "generatedAt": "2026-11-05T18:40:49.615Z",
+  "generatedAt": "2026-11-06T06:06:02.102Z",
   "generatedFrom": "pricing/tarife.xlsx",
   "otaComparison": {
-    "checkedAt": "2026-10-25",
+    "checkedAt": "2026-11-06",
     "bookingMobileDiscount": 10,
+    "bookingGeniusDiscount": 10,
     "bookingUsesSiteDiscounts": true,
     "airbnbUsesSiteDiscounts": true,
     "travelminitUsesSiteDiscounts": true,
