@@ -364,6 +364,13 @@ Properties oprește temporar notificările.
    „✅ GitHub: alertele pentru rulările eșuate ajung aici”; dacă rularea e roșie, mesajul de eroare spune de ce
    (401 = cheie greșită, 400 „chat not found” = chat greșit).
 
+## Raportul săptămânal Booking (`tgBookingReport`)
+
+Îl compune o sarcină programată Claude pe PC-ul lui Mircea („A13: raport săptămânal Booking pe Telegram”, luni la 09:00): citește din Chrome, doar citire, Dashboard Clasament și Raportul Genius din Extranet, plus ocuparea din `booked-dates.json`, apoi trimite textul la implementarea **„Calendar”** cu `{ bookingReport: { token, text, url, alert } }`.
+- `doPost` (`rezervari.gs`) → `tgBookingReport` (`telegram.gs`): verifică Script Property **`TG_REPORT_TOKEN`** (≥ 32 de caractere; pusă de Mircea, aceeași cu `cheie.txt` de pe PC), trimite textul fără sunet (cu sunet doar la `alert`, de ex. sesiunea Booking expirată), max. 6 mesaje pe zi (`TG_REPORT_DAY`). Cheie greșită → `{"ok":true}` fără acțiune; trimis → `"sent":true`.
+- Pe PC (nu în repo): `C:\Users\mirce\.claude\a13-raport-booking\` — `trimite-raport.cjs` (trimiterea), `ocupare.cjs` (nopți ocupate 30/60/90 de zile), `istoric.json` (rapoartele, cu baza din 05–06.11.2026), `cheie.txt` (cheia, secretă).
+- Cheie nouă: generezi una aleatoare (64 hex) în `cheie.txt` și o pui identic ca `TG_REPORT_TOKEN` în Script Properties.
+
 # Evidența sejururilor și a cheltuielilor (`finante.gs`)
 
 Google Sheet separat, „A13 – Sejururi și cheltuieli” (în folderul Drive al fișierului vechi „Clienti - Cheltuieli Silver.xlsx”, care rămâne neatins). ID-ul e în Script Property `FIN_SS_ID`. Scriptul stă în același proiect cu restul și folosește permisiunea `spreadsheets` pe care proiectul o are deja.

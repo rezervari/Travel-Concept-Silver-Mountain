@@ -64,6 +64,9 @@ function doPost(e) {
     // Panoul de pe Cloudflare (panou.gs → pnApi): aceleași acțiuni ca pagina din Apps Script, cu cheia PN_API_TOKEN.
     if (data.api && typeof pnApi === "function") return pnApi(data);
 
+    // Raportul săptămânal Booking compus de Claude (telegram.gs → tgBookingReport), cu cheia TG_REPORT_TOKEN.
+    if (data.bookingReport && typeof tgBookingReport === "function") return tgBookingReport(data.bookingReport);
+
     // Honeypot: câmp invizibil pe site, completat doar de roboți → răspundem „ok” și ignorăm.
     if (data.website) return json({ ok: true });
 

@@ -8,7 +8,8 @@
  * Telegram nu răspunde, restul merge mai departe (e-mailurile pleacă la fel ca înainte).
  *
  * Script Properties: TG_BOT_TOKEN (de la @BotFather; secret), TG_CHAT_ID (îl pune tgSetup), PANOU_URL (butonul
- * „Panou”), TG_ENABLED = "0" oprește temporar notificările. Instalare: apps-script/README.md.
+ * „Panou”), TG_ENABLED = "0" oprește temporar notificările, TG_REPORT_TOKEN (cheia raportului săptămânal Booking
+ * trimis de Claude, vezi tgBookingReport). Instalare: apps-script/README.md.
  */
 
 var TG_API = "https://api.telegram.org/bot";
@@ -251,6 +252,41 @@ function tgSend(html, opts) {
       console.warn("Telegram: " + tgClean(e2));
       return false;
     }
+  }
+}
+
+/* ============================== RAPORT BOOKING (compus de Claude) ============================== */
+
+// Raportul săptămânal de vizibilitate Booking: îl compune o sarcină programată Claude pe PC-ul lui Mircea (citește
+// Extranetul din Chrome) și îl trimite la implementarea „Calendar” cu { bookingReport: { token, text, url, alert } }.
+// Cheia = Script Property TG_REPORT_TOKEN (≥ 32 de caractere, pusă de Mircea). Aici doar se trimite textul pe Telegram,
+// fără sunet (cu sunet doar la alert), max. TG_REPORT_MAX_DAY mesaje pe zi. Cheie greșită → {"ok":true} fără acțiune
+// (ca la tgRelay); doar un mesaj trimis răspunde cu "sent":true.
+var TG_REPORT_TOKEN_PROPERTY = "TG_REPORT_TOKEN";
+var TG_REPORT_DAY_PROPERTY = "TG_REPORT_DAY";
+var TG_REPORT_MAX_DAY = 6;
+
+function tgBookingReport(d) {
+  var out = function (o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); };
+  try {
+    d = d || {};
+    var p = PropertiesService.getScriptProperties();
+    var token = String(p.getProperty(TG_REPORT_TOKEN_PROPERTY) || "");
+    if (token.length < 32 || String(d.token || "") !== token) return out({ ok: true });
+    var text = String(d.text || "").trim();
+    if (!text) return out({ ok: false, error: "empty" });
+    var today = Utilities.formatDate(new Date(), CI_TZ, "yyyyMMdd");
+    var day = String(p.getProperty(TG_REPORT_DAY_PROPERTY) || "").split(":");
+    var n = day[0] === today ? Number(day[1]) || 0 : 0;
+    if (n >= TG_REPORT_MAX_DAY) return out({ ok: false, error: "limit" });
+    p.setProperty(TG_REPORT_DAY_PROPERTY, today + ":" + (n + 1));
+    var buttons = [];
+    if (/^https:\/\/admin\.booking\.com\//.test(String(d.url || ""))) buttons.push({ text: "Extranet", url: String(d.url) });
+    var sent = tgSend(text.slice(0, TG_MAX_CHARS), { level: d.alert ? "alert" : "info", buttons: buttons });
+    return out({ ok: !!sent, sent: !!sent });
+  } catch (e) {
+    console.warn("Raport Booking: " + tgClean(e));
+    return out({ ok: false, error: "server" });
   }
 }
 
