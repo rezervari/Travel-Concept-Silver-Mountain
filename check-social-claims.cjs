@@ -93,14 +93,21 @@ function buildAlerts(oldFile, newFile, claimsFile, now) {
     }
     if (!lines.length) continue;
     const published = c.scheduled && now >= new Date(c.scheduled);
+    const where = c.where || "Facebook + Instagram";
+    const meta = /Facebook|Instagram/.test(where);
+    const google = /Google/.test(where);
+    const how = published
+      ? "Editează textul postării" + (meta ? " în Business Suite → Conținut → Publicate (Facebook și Instagram)" : "") +
+        (meta && google ? " și" : "") + (google ? " în profilul Google → Postări" : "") + "."
+      : "Postarea nu e încă publicată: modific-o sau șterge-o" +
+        (meta ? " din Business Suite → Conținut → Programate (Facebook și Instagram)" : "") +
+        (meta && google ? " și" : "") + (google ? " din profilul Google → Postări" : "") + ".";
     alerts.push([
       "⚠️ Postare de modificat",
-      c.post + " (" + (c.where || "Facebook + Instagram") + ", " + (published ? "publicată" : "programată") +
+      c.post + " (" + where + ", " + (published ? "publicată" : "programată") +
         (c.scheduled ? " pe " + roDateTime(c.scheduled) : "") + ") spune că aceste nopți sunt libere, dar calendarul s-a schimbat:",
       ...lines,
-      published
-        ? "Editează textul postării în Business Suite → Conținut → Publicate, pe Facebook și pe Instagram."
-        : "Postarea nu e încă publicată: modific-o sau șterge-o din Business Suite → Conținut → Programate (Facebook și Instagram).",
+      how,
     ].join("\n"));
   }
   return alerts;
