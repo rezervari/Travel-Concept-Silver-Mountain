@@ -63,6 +63,19 @@ jobs:
           CALENDAR_ALLOW_EMPTY: ${{ github.event.inputs.allow_empty }}
         run: node update-calendar.cjs
 
+      # Postări care promit nopți libere (.github/social-claims.json): dacă o rezervare/blocare nouă le ocupă,
+      # mesaj pe Telegram ca postarea să fie modificată. Compară booked-dates.json din commit cu cel nou scris.
+      # Nu oprește niciodată rularea.
+      - name: Check social posts against new bookings
+        if: steps.recent.outputs.skip != '1'
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          git show HEAD:booked-dates.json > "$RUNNER_TEMP/booked-old.json" 2>/dev/null || echo '{}' > "$RUNNER_TEMP/booked-old.json"
+          node check-social-claims.cjs "$RUNNER_TEMP/booked-old.json" booked-dates.json
+
       - name: Save updated calendar
         if: steps.recent.outputs.skip != '1'
         run: |

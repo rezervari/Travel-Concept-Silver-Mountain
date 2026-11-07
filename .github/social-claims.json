@@ -1,0 +1,15 @@
+{
+  "_info": "Postări (programate sau publicate) care spun că anumite nopți sunt libere. check-social-claims.cjs (pas în workflow-ul „Update calendar”) trimite pe Telegram o alertă când o rezervare sau o blocare nouă ocupă nopți din aceste intervale, ca postarea să fie modificată. Intervalele au „to” EXCLUSIV (ziua de după ultima noapte). După „watchUntil” postarea nu mai e verificată. Se adaugă aici orice postare nouă care promite date libere.",
+  "claims": [
+    {
+      "post": "«Crăciun și Revelion la munte»",
+      "where": "Facebook + Instagram",
+      "scheduled": "2026-11-11T19:00:00+02:00",
+      "watchUntil": "2026-12-21",
+      "ranges": [
+        { "label": "Crăciun (21–27 decembrie)", "from": "2026-12-21", "to": "2026-12-28" },
+        { "label": "Revelion (28 decembrie – 4 ianuarie)", "from": "2026-12-28", "to": "2027-01-05" }
+      ]
+    }
+  ]
+}

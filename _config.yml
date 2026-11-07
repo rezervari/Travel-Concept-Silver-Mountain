@@ -21,6 +21,7 @@ exclude:
   - update-google-reviews.js
   - optimize-images.cjs
   - update-calendar.cjs
+  - check-social-claims.cjs
   - update-pricing.cjs
   - update-schema.cjs
   - package.json
