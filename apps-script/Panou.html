@@ -112,6 +112,20 @@ main{max-width:1440px;margin:0 auto;padding:16px 16px 96px}
 .code-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:9px;background:var(--soft);font-size:13.5px}
 .code-line b{font-size:16px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
 .notes{margin-top:8px;color:var(--muted);font-size:12.5px}
+/* Adresa Booking a oaspetelui (…@guest.booking.com) */
+.alias{margin-top:10px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--soft)}
+.alias.need{border-color:#f1c75a;background:var(--yellow-tint)}
+.alias-label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+.alias.need .alias-label{color:var(--yellow-ink)}
+.alias-row{display:flex;gap:8px;align-items:center;margin-top:6px}
+.alias-row .field{margin:0;flex:1;min-width:0}
+.alias-row .field.bad{border-color:var(--red)}
+.alias small{display:block;margin-top:6px;color:var(--muted);font-size:12.5px}
+.alias-ok{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin-top:10px;font-size:13px}
+.alias-ok svg.i{color:var(--green)}
+.alias-ok span{word-break:break-all}
+.alias-ok .btn{min-height:30px;padding:3px 10px;font-size:12.5px;margin-left:auto}
+.todo .alias{background:var(--card)}
 details.past{margin-top:6px}
 details.past summary{cursor:pointer;color:var(--muted);font-size:13.5px;padding:6px 0}
 /* Solicitări */
@@ -298,7 +312,8 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
   function ic(name) { return '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' + (P[name] || "") + "</svg>"; }
 
   var S = { data: INITIAL, tab: "home", logCat: "all", logNr: "", logLimit: 40, busy: false, showCodes: false, loadedAt: INITIAL.now || Date.now(),
-            calMonth: "", calMode: "", calFirst: "", calLast: "", calPick: "", calReason: "" };
+            calMonth: "", calMode: "", calFirst: "", calLast: "", calPick: "", calReason: "",
+            alias: {}, aliasEdit: {} };   // adresa Booking: ce ai scris în câmp (nr → text) / câmpul deschis cu „Schimbă”
   try { S.tab = sessionStorage.getItem("pn-tab") || "home"; } catch (e) {}
 
   function $(id) { return document.getElementById(id); }
@@ -371,7 +386,7 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     if (!d.todo.length) { $("todo").innerHTML = '<div class="empty">' + ic("check") + "Nimic de făcut acum.</div>"; return; }
     $("todo").innerHTML = d.todo.map(function (t) {
       var cls = t.kind === "alert" ? "alert" : t.level === "high" ? "high" : "";
-      var icon = t.kind === "request" ? "site" : t.kind === "booking-chat" ? "chat" : t.kind === "alert" ? "alert" : "history";
+      var icon = t.kind === "request" ? "site" : t.kind === "booking-chat" ? "chat" : t.kind === "alert" ? "alert" : t.kind === "alias" ? "mail" : "history";
       var texts = t.texts.map(function (x) {
         return '<div class="copy"><div class="copy-head"><span>' + esc(x.label) + '</span><button type="button" class="btn btn-copy" data-copy="' +
           esc(x.text) + '">' + ic("copy") + "Copiază</button></div><div class=\"copy-text\">" + esc(x.text) + "</div></div>";
@@ -379,7 +394,7 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
       var links = t.links.map(linkBtn).join("");
       var acts = t.actions ? '<div class="row-actions">' + statusButtons(t.at, t.actions) + "</div>" : "";
       return '<article class="todo ' + cls + '"><div class="todo-head"><span class="ic">' + ic(icon) + "</span><div><h3>" + esc(t.title) +
-        "</h3><p>" + esc(t.detail) + "</p></div></div>" + texts + acts +
+        "</h3><p>" + esc(t.detail) + "</p></div></div>" + texts + acts + (t.alias ? '<div class="alias">' + aliasField(t.alias) + "</div>" : "") +
         '<div class="row-actions">' + links + '<button type="button" class="btn ghost" data-dismiss="' + esc(t.id) + '">' + ic("check") + "Gata</button></div></article>";
     }).join("");
   }
@@ -390,6 +405,57 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
       var b = STATUS_BTN[st];
       return '<button type="button" class="btn ' + b[2] + '" data-confirm data-status="' + esc(st) + '" data-at="' + esc(at) + '">' + ic(b[1]) + b[0] + "</button>";
     }).join("");
+  }
+
+  // Adresa Booking a oaspetelui: câmpul (cu ce ai scris deja, păstrat la reîncărcarea datelor) și butonul Salvează.
+  var ALIAS_RE = /^[a-z0-9._%+\-]+@guest\.booking\.com$/;
+  function aliasField(nr) {
+    var v = S.alias[nr] != null ? S.alias[nr] : "";
+    return '<div class="alias-row"><input class="field" type="email" inputmode="email" autocomplete="off" autocapitalize="off" ' +
+      'spellcheck="false" data-alias-input="' + esc(nr) + '" placeholder="nume.123456@guest.booking.com" aria-label="Adresa Booking pentru ' +
+      esc(nr) + '" value="' + esc(v) + '"><button type="button" class="btn primary" data-alias-save="' + esc(nr) + '">' + ic("check") +
+      "Salvează</button></div>";
+  }
+
+  // Pe cardul unei rezervări Booking: adresa salvată (cu „Schimbă” cât încă n-a plecat mesajul cu fișa) sau câmpul.
+  function aliasBlock(s) {
+    if (!/booking/i.test(s.source)) return "";
+    var ok = ALIAS_RE.test(s.bookingEmail || "");
+    if (ok && !S.aliasEdit[s.nr]) {
+      return '<div class="alias-ok">' + ic("mail") + "<span>Adresă Booking: <b>" + esc(s.bookingEmail) + "</b>" +
+        (s.aliasSent ? " · mesajul cu fișa a plecat" : "") + "</span>" +
+        (!s.aliasSent && s.aliasField ? '<button type="button" class="btn ghost" data-alias-edit="' + esc(s.nr) + '">Schimbă</button>' : "") + "</div>";
+    }
+    if (!s.aliasField && !S.aliasEdit[s.nr]) return "";
+    var bad = s.bookingEmail && !ok;
+    return '<div class="alias' + (s.aliasNeeded || bad ? " need" : "") + '"><div class="alias-label">' + ic(s.aliasNeeded || bad ? "alert" : "mail") +
+      (bad ? "Adresă Booking greșită în foaie: " + esc(s.bookingEmail) : S.aliasEdit[s.nr] ? "Schimbă adresa Booking" : "Adresă Booking lipsă") + "</div>" +
+      aliasField(s.nr) +
+      "<small>O găsești în Extranet sau Pulse, la rezervare. Pe ea pleacă mesajul cu fișa (cu o zi înainte, la 10:00) și copia codului. " +
+      "O poți lipi și în chatul Telegram al botului.</small>" +
+      (S.aliasEdit[s.nr] ? '<div class="row-actions"><button type="button" class="btn ghost" data-alias-cancel="' + esc(s.nr) + '">Renunță</button></div>' : "") +
+      "</div>";
+  }
+
+  // el = butonul Salvează sau câmpul (Enter): se folosește câmpul de lângă el (același nr poate apărea de două ori).
+  function saveAlias(nr, el) {
+    var row = el && el.closest ? el.closest(".alias-row") : null;
+    var input = row ? row.querySelector("[data-alias-input]") : document.querySelector('[data-alias-input="' + nr + '"]');
+    var v = String((input && input.value) || S.alias[nr] || "").trim().toLowerCase();
+    if (!ALIAS_RE.test(v)) {
+      if (input) { input.classList.add("bad"); input.focus(); }
+      return toast("Adresa trebuie să fie de forma nume.123456@guest.booking.com");
+    }
+    call("pnSetBookingEmail", [nr, v], null, function () {
+      delete S.alias[nr]; delete S.aliasEdit[nr];
+      var st = S.data.stays.filter(function (x) { return x.nr === nr; })[0];
+      setTimeout(function () { toast(st && st.aliasSent ? "Salvat · mesajul cu fișa a plecat" : "Adresă Booking salvată"); }, 0);
+    });
+  }
+
+  function aliasTyping() {
+    var a = document.activeElement;
+    return !!(a && a.hasAttribute && a.hasAttribute("data-alias-input"));
   }
 
   function linkBtn(l) {
@@ -404,7 +470,7 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     var phase = s.phase === "upcoming" ? (s.days === 1 ? "mâine" : "peste " + s.days + " zile") : PHASE[s.phase];
     var steps = s.steps.map(function (st) {
       var mark = st.st === "done" ? "✓" : st.st === "warn" ? "!" : "";
-      var sub = st.at ? when(st.at) : st.info ? (/Booking/.test(st.info) ? "mesaj Booking" : st.info) : "";
+      var sub = st.at ? when(st.at) + (st.via ? " · " + st.via : "") : st.info ? (/Booking/.test(st.info) ? "mesaj Booking" : st.info) : "";
       return '<li class="step st-' + st.st + '"><span class="dt">' + mark + "</span>" + esc(st.label) + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</li>";
     }).join("");
     var stateWarn = s.state && s.state !== "Confirmată" ? '<div class="state-warn">' + esc(s.state) + "</div>" : "";
@@ -420,7 +486,7 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
       '<div class="stay-dates"><b>' + esc(dShort(s.checkin)) + "</b> → <b>" + esc(dShort(s.checkout)) + "</b>" +
       (s.nights ? ' <span style="color:var(--muted);font-size:14px">· ' + plural(Number(s.nights), "noapte", "nopți") + "</span>" : "") + "</div>" +
       '<div class="stay-who">' + esc(s.name || "Numele vine din fișa de cazare") + (s.guests ? " · " + esc(s.guests) : "") + "</div>" +
-      stateWarn + '<ol class="steps">' + steps + "</ol>" + code +
+      stateWarn + aliasBlock(s) + '<ol class="steps">' + steps + "</ol>" + code +
       (s.notes ? '<div class="notes">' + esc(s.notes) + "</div>" : "") +
       '<div class="row-actions">' + links.map(linkBtn).join("") +
       '<button type="button" class="btn ghost" data-history="' + esc(s.nr) + '">' + ic("history") + "Istoric</button></div></article>";
@@ -693,7 +759,21 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     if (!t) return;
     // Cât o acțiune e în curs, butoanele cu efect nu mai pornesc alta (ex. „Închide perioada” apăsat de două ori).
     if (S.busy && (t.id === "btnRefresh" || t.id === "btnSync" ||
-        t.matches("[data-calsave],[data-status],[data-unblock],[data-dismiss]"))) return toast("Se salvează…");
+        t.matches("[data-calsave],[data-status],[data-unblock],[data-dismiss],[data-alias-save]"))) return toast("Se salvează…");
+    if (t.hasAttribute("data-alias-save")) return saveAlias(t.getAttribute("data-alias-save"), t);
+    if (t.hasAttribute("data-alias-edit")) {
+      var en = t.getAttribute("data-alias-edit"), st0 = S.data.stays.filter(function (x) { return x.nr === en; })[0];
+      S.aliasEdit[en] = true; S.alias[en] = st0 ? st0.bookingEmail : "";
+      render();
+      var inp = document.querySelector('[data-alias-input="' + en + '"]');
+      if (inp) inp.focus();
+      return;
+    }
+    if (t.hasAttribute("data-alias-cancel")) {
+      var cn = t.getAttribute("data-alias-cancel");
+      delete S.aliasEdit[cn]; delete S.alias[cn];
+      return render();
+    }
     if (t.hasAttribute("data-confirm") && !t.classList.contains("arm")) return arm(t);
     if (t.id === "btnRefresh") return call("pnData", [true], "Date reîncărcate");
     if (t.id === "btnSync") return call("pnSyncNow", [], "Sincronizare făcută");
@@ -869,12 +949,13 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
   }
 
   // Reîncărcare automată la 2 minute (doar cât pagina e vizibilă) și la revenirea în pagină.
+  // Nu și cât scrii adresa Booking într-un câmp (reîncărcarea ar muta cursorul).
   setInterval(function () {
-    if (!document.hidden && !S.busy && !S.calMode) call("pnData", [false]);
+    if (!document.hidden && !S.busy && !S.calMode && !aliasTyping()) call("pnData", [false]);
     else $("updated").textContent = "actualizat " + when(S.loadedAt);
   }, 120000);
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden && !S.busy && !S.calMode && Date.now() - S.loadedAt > 60000) call("pnData", [false]);
+    if (!document.hidden && !S.busy && !S.calMode && !aliasTyping() && Date.now() - S.loadedAt > 60000) call("pnData", [false]);
   });
   setInterval(function () { $("updated").textContent = "actualizat " + when(S.loadedAt); }, 30000);
 
@@ -883,7 +964,26 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(function () { var two = window.innerWidth >= 1000; if (two !== wasTwo) { wasTwo = two; renderCal(S.data); } }, 200);
   });
-  document.addEventListener("input", function (ev) { if (ev.target && ev.target.id === "calReason") S.calReason = ev.target.value; });
+  document.addEventListener("input", function (ev) {
+    var el = ev.target;
+    if (!el) return;
+    if (el.id === "calReason") S.calReason = el.value;
+    if (el.hasAttribute && el.hasAttribute("data-alias-input")) {
+      S.alias[el.getAttribute("data-alias-input")] = el.value;
+      el.classList.remove("bad");
+      // același câmp poate apărea de două ori (la „De făcut” și pe cardul rezervării): le ține la fel
+      Array.prototype.forEach.call(document.querySelectorAll('[data-alias-input="' + el.getAttribute("data-alias-input") + '"]'), function (o) {
+        if (o !== el) o.value = el.value;
+      });
+    }
+  });
+  document.addEventListener("keydown", function (ev) {
+    var el = ev.target;
+    if (ev.key === "Enter" && el && el.hasAttribute && el.hasAttribute("data-alias-input") && !S.busy) {
+      ev.preventDefault();
+      saveAlias(el.getAttribute("data-alias-input"), el);
+    }
+  });
 
   render();
   // Pe Cloudflare pagina pornește cu ultimele date păstrate (cel mult câteva minute); mai vechi de 2 minute → reîncărcare.

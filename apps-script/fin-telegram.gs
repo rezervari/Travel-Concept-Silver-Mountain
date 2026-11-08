@@ -6,6 +6,8 @@
  * Altă categorie / Altă dată / Anulează. Facturile lunare („Fixă lunară” în Setări): pe 1 ale lunii se creează rândurile
  * galbene (fără sumă), iar din data de 5, de la 08:00, botul trimite o dată lista celor lipsă, cu butoane: atingi una și
  * scrii suma. Comenzi: /luna, /lipsa, /anuleaza, /ajutor.
+ * Tot aici: o adresă …@guest.booking.com lipită în chat (eventual cu numărul rezervării) se pune în „Rezervări”, la
+ * rezervarea Booking viitoare fără adresă (ciSetBookingEmail din checkin.gs); dacă sunt mai multe, botul întreabă.
  *
  * Drumul unui mesaj: Telegram → Worker-ul „a13-telegram” (telegram-cloudflare/: fără secrete, acceptă doar cereri de pe
  * IP-urile Telegram) → doPost (rezervari.gs) cu { tgRelay, secret, update } → finTgRelay. Cheia webhook-ului
@@ -151,6 +153,11 @@ function finTgMessage(msg) {
     return finTgSend(finTgHelpText());
   }
 
+  if (/@guest\.booking\.com/i.test(text)) {   // adresa Booking a unui oaspete, nu o cheltuială
+    finTgSetState(null);
+    return finTgBookingEmail(text);
+  }
+
   var state = finTgGetState();
   if (state && state.type === "photo" && !photo) photo = state.fileId;
   if (state && (state.type === "fill" || state.type === "date") && text) {
@@ -225,6 +232,14 @@ function finTgCallback(cb) {
   var m = /^([a-z]+):?(.*)$/.exec(data) || [];
   var kind = m[1], parts = String(m[2] || "").split(":");
   var chatId = cb.message && cb.message.chat && cb.message.chat.id, msgId = cb.message && cb.message.message_id;
+
+  if (kind === "ba") {                                          // rezervarea aleasă pentru adresa Booking lipită
+    var email = finTgCacheGet("fin_tg_alias_" + parts[0]);
+    if (!email) return finTgAnswer(cb.id, "Cererea a expirat. Lipește din nou adresa.");
+    finTgAnswer(cb.id, "");
+    return finTgBookingSave(parts[1], email, chatId, msgId);
+  }
+
   var S = finTgSheets();
 
   if (kind === "nc" || kind === "pk") {                        // categoria / rândul pentru o cheltuială încă nescrisă
@@ -283,6 +298,58 @@ function finTgCallback(cb) {
     return finTgSend("Ce sumă are <b>" + tgEsc(row.cat) + "</b> pe " + finTgMonthName(row.date) + "?");
   }
   finTgAnswer(cb.id, "");
+}
+
+/* ============================== ADRESA BOOKING A OASPETELUI ============================== */
+
+// Text cu …@guest.booking.com: rezervarea = numărul din mesaj, altfel singura rezervare Booking viitoare fără adresă;
+// dacă sunt mai multe, butoane (adresa stă 30 min în cache, butonul duce doar un id scurt).
+function finTgBookingEmail(text) {
+  var m = /([a-z0-9._%+\-]+@guest\.booking\.com)\b/i.exec(text);
+  var email = m ? m[1].toLowerCase() : "";
+  if (!CI_BOOKING_EMAIL_RE.test(email)) {
+    return finTgSend("Nu recunosc adresa Booking. Lipește-o întreagă, de forma <code>nume.123456@guest.booking.com</code>.");
+  }
+  var nr = (text.replace(m[1], " ").match(/\b(\d{8,12})\b/) || [])[1] || "";
+  if (nr) return finTgBookingSave(nr, email);
+  var cands = ciBookingEmailCandidates();
+  if (cands.length === 1) return finTgBookingSave(String(cands[0]["Nr. rezervare"]), email);
+  if (!cands.length) {
+    return finTgSend("Nu am găsit nicio rezervare Booking viitoare fără adresă. Dacă e pentru o anumită rezervare, " +
+                     "trimite și numărul ei, de exemplu <code>5429915812 " + tgEsc(email) + "</code>.");
+  }
+  var id = Utilities.getUuid().replace(/-/g, "").slice(0, 10);
+  CacheService.getScriptCache().put("fin_tg_alias_" + id, JSON.stringify(email), FIN_TG_STATE_TTL);
+  var kb = cands.slice(0, 6).map(function (r) {
+    var nrC = String(r["Nr. rezervare"]), cin = String(r["Check-in"]);
+    return [{ text: nrC + " · sosire " + cin.slice(8, 10) + "." + cin.slice(5, 7), callback_data: "ba:" + id + ":" + nrC }];
+  });
+  finTgSend("Pentru ce rezervare e <code>" + tgEsc(email) + "</code>?", kb);
+}
+
+// Pune adresa în „Rezervări”, rulează sincronizarea (dacă e deja timpul, mesajul cu fișa pleacă acum) și confirmă.
+function finTgBookingSave(nr, email, chatId, msgId) {
+  var res;
+  try {
+    res = ciSetBookingEmail(nr, email, "Telegram");
+  } catch (e) {
+    var err = "⚠️ " + tgEsc(tgClean(e));
+    return chatId ? finTgEdit(chatId, msgId, err, null) : finTgSend(err);
+  }
+  try { checkinSync(); } catch (e2) { console.warn("checkinSync după adresa Booking: " + e2); }
+  var row = ciLoadTable(SpreadsheetApp.getActiveSpreadsheet(), CI_SHEET, CI_HEADERS).rows
+    .filter(function (r) { return String(r["Nr. rezervare"]) === res.nr; })[0] || {};
+  var cin = res.checkin, sent = ciHasFlag(row, "alias-fisa");
+  var when = sent ? "Mesajul cu fișa de cazare a plecat acum pe această adresă."
+    : /^\d{4}-\d{2}-\d{2}$/.test(cin) ? "Mesajul cu fișa de cazare pleacă " + weekday(ciAddDays(cin, -1)) + ", " +
+        longDate(ciAddDays(cin, -1)) + ", la " + ciPad(CI_FORM_SEND_HOUR) + ":00."
+    : "Mesajul cu fișa pleacă cu o zi înainte de sosire, la " + ciPad(CI_FORM_SEND_HOUR) + ":00.";
+  if (row["Cod trimis"]) when = "Codul a fost deja trimis oaspetelui; adresa rămâne în foaie.";
+  else if (row["Fișă primită"]) when = "Fișa e deja completată: pe această adresă pleacă și copia codului.";
+  var html = "✅ Adresa Booking " + (res.changed ? "salvată" : "era deja salvată") + " pentru <code>" + tgEsc(res.nr) + "</code>" +
+    (/^\d{4}-\d{2}-\d{2}$/.test(cin) ? " (sosire " + cin.slice(8, 10) + "." + cin.slice(5, 7) + ")" : "") + ".\n" + when +
+    (ciTestMode() ? "\n<i>Mod test: mesajele pentru oaspeți vin la tine, nu la oaspete.</i>" : "");
+  return chatId ? finTgEdit(chatId, msgId, html, null) : finTgSend(html);
 }
 
 /* ============================== SCRIEREA ÎN TABEL ============================== */
@@ -424,7 +491,9 @@ function finTgHelpText() {
     "• <code>spălătorie 231,26</code>\n• <code>dm 168,55</code>\n• <code>întreținere 1.020,40 oct</code>\n• <code>dedeman 269,67 ieri</code>\n\n" +
     "Poți trimite și poza bonului, cu textul ca descriere. Botul răspunde cu ce a înțeles; dacă a greșit, apeși " +
     "Altă categorie, Altă dată sau Anulează.\n\n/luna · totalul lunii (sau /luna oct)\n/lipsa · facturile lunare netrecute\n" +
-    "/anuleaza · anulează ultima cheltuială trecută de aici";
+    "/anuleaza · anulează ultima cheltuială trecută de aici\n\n" +
+    "Adresa Booking a unui oaspete (<code>nume.123456@guest.booking.com</code>, din Extranet sau Pulse): lipește-o aici " +
+    "și o pun la rezervarea lui; dacă sunt mai multe rezervări fără adresă, te întreb la care.";
 }
 
 function finTgConfirmText(S, r, filled, now) {

@@ -180,16 +180,30 @@ merge: scriptul spune asta clar, iar soluția e un cont separat fără ea, dacă
 După Faza 1 și legătura TTLock, `checkinSync` (același declanșator, la 10 min) duce și sosirea, în pași izolați:
 
 - **Linkul spre fișă** — rezervările de pe site (avem e-mail): cu o zi înainte, de la **10:00**, un e-mail cu
-  fișa fisacazare precompletată doar cu datele sejurului. Booking (fără e-mail): linkul pleacă prin **mesajul
-  programat din Extranet**; scriptul doar notează asta.
+  fișa fisacazare precompletată doar cu datele sejurului. Booking: dacă rezervarea are **adresa Booking** a oaspetelui
+  (coloana „E-mail Booking”, vezi mai jos), pleacă acolo un e-mail **text** RO + EN cu fișa și ghidul; altfel rămâne
+  **mesajul programat din Extranet** (scriptul doar notează asta).
 - **Fișa completată** → codul = **ultimele 6 cifre ale telefonului**, pus pe yală prin gateway, valabil din ziua
-  sosirii **16:00** până în ziua plecării **11:00**; oaspetele primește pe e-mail codul + ghidul (Booking: codul
-  pleacă pe e-mailul trecut în fișă).
-- **Reminder la 13:00** (ziua sosirii, fișă necompletată): site = e-mail de reminder către oaspete; Booking = un
-  e-mail la tine cu textul (RO + EN) gata de lipit în chatul Booking.
+  sosirii **16:00** până în ziua plecării **11:00**; oaspetele primește pe e-mail codul + ghidul (Booking: pe e-mailul
+  trecut în fișă + o copie text pe adresa Booking). Textele spun explicit: codul se tastează pe **tastatura yalei**
+  (atinsă cu degetul ca să se aprindă), **nu** în cutiuța cu cifru de 4 cifre de lângă ușă (cheia de rezervă).
+- **Reminder la 13:00** (ziua sosirii, fișă necompletată): site = e-mail de reminder către oaspete; Booking = textul
+  (RO + EN) direct pe adresa Booking, dacă există, plus același text la tine, gata de lipit în chatul Booking.
 - **Cod de rezervă la 16:00** (fișă tot necompletată): un cod aleator de 6 cifre pe yală (16:00 → 11:00), etichetat
-  „· REZERVĂ”. Site = e-mail cu codul la oaspete; Booking/fără e-mail = e-mail la tine cu textul de lipit. Dacă fișa
-  vine mai târziu, codul rămâne cel de rezervă (nu se mai face altul).
+  „· REZERVĂ”. Site = e-mail cu codul la oaspete; Booking = textul direct pe adresa Booking (dacă există) + la tine
+  textul de lipit; fără nicio adresă = doar textul de lipit. Dacă fișa vine mai târziu, codul rămâne cel de rezervă.
+
+**Adresa Booking a oaspetelui** (`…@guest.booking.com`, din Extranet → rezervarea sau din Pulse): o pui în coloana
+**„E-mail Booking”** din „Rezervări” (imediat după „E-mail”; acceptă doar `@guest.booking.com`), **din panou** (câmpul de
+pe cardul rezervării sau de la „De făcut”) sau **lipind-o în chatul botului Telegram** (dacă sunt mai multe rezervări
+Booking viitoare fără adresă, botul întreabă la care; cu numărul rezervării în mesaj o pune direct acolo). Booking
+redirecționează mesajele spre e-mailul real al oaspetelui și le arată în conversația din Extranet, dar doar de la
+expeditorii aprobați și doar cu linkurile aprobate în **Extranet → Preferințe pentru mesaje → Setări de securitate**
+(acum: Gmail-ul contului + travel@travelconcept.ro; exact linkul fișei și al ghidului) — de aceea pe adresa Booking pleacă
+doar text, fără linkul de fișă precompletat, Google Maps sau WhatsApp. Cu 2 zile înainte de sosire, de la 09:00, dacă
+adresa lipsește: o amintire (Telegram + e-mail), un element la „De făcut” și celula galbenă în foaie (roșie = adresă
+greșită). Scriptul nu suprascrie niciodată această coloană; după ce a plecat mesajul cu fișa, adresa se mai schimbă doar
+din foaie. Rulată manual, `checkinColoanaBooking` pune din nou validarea și nota pe coloană.
 - **După plecare (12:00)** sau **la anulare** → codul se șterge de pe yală; la anulare primești și nopțile de
   deblocat pe Airbnb/Travelminit.
 
@@ -213,7 +227,10 @@ Jurnal / Sistem), care citește același Sheet:
   alertele încă de actualitate (cod nepus, cod neșters, telefon lipsă …), rezervările „De verificat”. **Gata** ascunde
   un element (Script Property `PN_DISMISSED`).
 - **Sejururi** — fiecare rezervare cu pașii: link fișă → fișă → cod pe yală → cod trimis → cod șters, codul și
-  linkurile (Extranet, WhatsApp, telefon), **Istoric** = jurnalul acelei rezervări.
+  linkurile (Extranet, WhatsApp, telefon), **Istoric** = jurnalul acelei rezervări. La rezervările Booking încă
+  nesosite: **adresa Booking** a oaspetelui (câmp + **Salvează**, galben când lipsește la o sosire apropiată; după
+  salvare, adresa cu **Schimbă** cât încă n-a plecat mesajul cu fișa). Salvarea (`pnSetBookingEmail`) scrie celula
+  în „Rezervări” și rulează sincronizarea, deci mesajul cu fișa pleacă imediat dacă e deja timpul.
 - **Jurnal** — foaia „Jurnal” + solicitările de pe site, cu filtre (Site, Rezervări, Fișe, Coduri, Erori).
 - **Sistem** — ultima sincronizare (`CI_LAST_RUN`, scris de `checkinSync`), mod test/real, yala (baterie, gateway,
   codurile valabile — ascunse până apeși „Arată codurile”), tokenul TTLock, calendarul de pe site, cota de e-mail,
@@ -251,7 +268,8 @@ Aceeași pagină rulează și pe Cloudflare, ca aplicație instalabilă, mai rap
 (vezi [`panou-cloudflare/README.md`](../panou-cloudflare/README.md)). Worker-ul cheamă funcțiile panoului prin
 `doPost` → `pnApi` (în `panou.gs`), prin implementarea **„Calendar”** (Anyone), cu cheia **`PN_API_TOKEN`** din Script
 Properties (aceeași în secretul Worker-ului). Fără cheia corectă: `{"ok":false,"error":"auth"}`; doar funcțiile
-panoului (`pnData`, `pnSyncNow`, `pnDismiss`, `pnBlock`, `pnUnblock`, `pnSetRequestStatus`). La o modificare în
+panoului (`pnData`, `pnSyncNow`, `pnDismiss`, `pnBlock`, `pnUnblock`, `pnSetRequestStatus`, `pnSetBookingEmail`;
+aceeași listă e și în `FNS` din `panou-cloudflare/src/worker.js`). La o modificare în
 `panou.gs` / `rezervari.gs`: implementarea „Calendar” pe versiune nouă; la o modificare în `Panou.html`: și
 `npx wrangler@4 deploy` din `panou-cloudflare/`.
 

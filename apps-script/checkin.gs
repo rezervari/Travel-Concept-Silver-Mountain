@@ -21,9 +21,16 @@ var CI_SHEET = "Rezervări";
 var CI_SHEET_CANCELLED = "Anulate";
 var CI_SHEET_LOG = "Jurnal";
 var CI_REQUESTS_SHEET = "Solicitări";       // foaia scrisă de rezervari.gs (SHEET_NAME)
-var CI_HEADERS = ["Nr. rezervare", "Sursă", "Check-in", "Check-out", "Nopți", "Nume", "Telefon", "E-mail",
+var CI_HEADERS = ["Nr. rezervare", "Sursă", "Check-in", "Check-out", "Nopți", "Nume", "Telefon", "E-mail", "E-mail Booking",
                   "Oaspeți", "Stare", "Fișă primită", "Link fișă trimis", "Cod pe yală", "Cod trimis",
                   "Cod șters", "Note", "Link", "Actualizat", "Alerte"];
+// Adresa Booking a oaspetelui (…@guest.booking.com): o pune Mircea (în foaie, din panou sau lipită în chatul Telegram).
+// Booking o redirecționează spre e-mailul real al oaspetelui și o arată în conversația din Extranet. Pe ea pleacă doar
+// TEXT simplu, cu linkurile aprobate în Extranet (Setări de securitate: exact CI_FORM_PUBLIC și CI_GUIDE_URL).
+var CI_BOOKING_EMAIL = "E-mail Booking";
+var CI_BOOKING_EMAIL_RE = /^[a-z0-9._%+\-]+@guest\.booking\.com$/;
+var CI_ALIAS_REMIND_DAYS = 2;   // cu 2 zile înainte de sosire, de la 09:00: amintire dacă lipsește adresa Booking
+var CI_ALIAS_REMIND_HOUR = 9;
 var CI_CANCELLED_HEADERS = CI_HEADERS.concat(["Anulată la"]);
 var CI_LOG_HEADERS = ["Data", "Eveniment", "Nr. rezervare", "Detalii"];
 var CI_TEXT_COLS = ["Nr. rezervare", "Check-in", "Check-out", "Telefon", "Cod pe yală"]; // scrise ca text, fără conversii
@@ -493,8 +500,8 @@ function ciSetStatusDropdown(ss) {
 // Pașii sosirii. Fiecare e separat: o eroare (ex. gateway offline) nu oprește restul; se reîncearcă la rularea următoare.
 function ciArrivals(ctx) {
   [["fișe", ciProcessForms], ["coduri", ciIssuePendingCodes], ["valabilitate", ciSyncCodeWindows],
-   ["link fișă", ciSendFormLinks], ["reminder fișă", ciArrivalReminders], ["cod rezervă", ciBackupCodes],
-   ["ștergere coduri", ciDeleteExpiredCodes]]
+   ["adresă Booking", ciBookingEmailReminders], ["link fișă", ciSendFormLinks], ["reminder fișă", ciArrivalReminders],
+   ["cod rezervă", ciBackupCodes], ["ștergere coduri", ciDeleteExpiredCodes]]
     .forEach(function (s) {
       try { s[1](ctx); }
       catch (e) { ciStepError(ctx, s[0], String(e && e.message || e).slice(0, 300)); }
@@ -746,18 +753,30 @@ function ciSyncCodeWindows(ctx) {
 }
 
 // Cu o zi înainte de sosire, de la 10:00 (sau imediat, la o rezervare de ultim moment): linkul spre fișă.
-// Booking nu ne dă e-mailul oaspetelui: acolo pleacă mesajul programat din Extranet (doar se notează).
+// Booking nu ne dă e-mailul oaspetelui: dacă Mircea a pus adresa Booking (…@guest.booking.com), pleacă acolo un e-mail
+// TEXT (RO + EN), oricând o adaugă până la cod; altfel rămâne mesajul programat din Extranet (doar se notează).
 function ciSendFormLinks(ctx) {
   ctx.active.rows.forEach(function (r) {
-    if (r["Link fișă trimis"] || r["Fișă primită"] || r["Stare"] === CI_STATE_CANCELLED) return;
+    if (r["Fișă primită"] || r["Stare"] === CI_STATE_CANCELLED) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(r["Check-in"])) return;
     if (ctx.now < ciAt(ciAddDays(r["Check-in"], -1), CI_FORM_SEND_HOUR)) return;
     if (ctx.now >= ciAt(r["Check-out"] || r["Check-in"], CI_CHECKOUT_HOUR)) return;
     if (r["Sursă"] === "Booking") {
-      r["Link fișă trimis"] = "prin mesajul programat din Booking";
-      ciTouch(r);
+      var alias = ciBookingAlias(r);
+      if (alias && !ciHasFlag(r, "alias-fisa") && !r["Cod pe yală"]) {
+        var t = ciMailGuestText(alias, "Fișa de cazare · Registration form – " + BRAND + " · " +
+                                rangeShort(r["Check-in"], r["Check-out"] || r["Check-in"]), ciBookingFormText(r, ctx));
+        ciMarkOnce(r, "alias-fisa");
+        r["Link fișă trimis"] = new Date();
+        ciTouch(r);
+        ciLog(ctx, "Link fișă trimis", r["Nr. rezervare"], t ? "MOD TEST: la proprietar" : "pe adresa Booking " + alias);
+      } else if (!r["Link fișă trimis"]) {
+        r["Link fișă trimis"] = "prin mesajul programat din Booking";
+        ciTouch(r);
+      }
       return;
     }
+    if (r["Link fișă trimis"]) return;
     if (!r["E-mail"]) {
       ciAlertOnce(r, "fara-email", "Link fișă netrimis: " + r["Nr. rezervare"] + " nu are e-mail",
         "Trimite-i oaspetelui linkul spre fișa de cazare: " + CI_FORM_PUBLIC);
@@ -789,9 +808,19 @@ function ciArrivalReminders(ctx) {
     }
 
     if (r["Sursă"] === "Booking") {
-      ciAlertOnce(r, "reminder-fisa", "Reminder fișă de trimis în Booking: " + (r["Nume"] || r["Nr. rezervare"]),
-        "Rezervarea " + r["Nr. rezervare"] + " sosește azi, dar fișa de cazare nu e completată. Trimite-i oaspetelui, din chatul Booking, mesajul de mai jos. " +
-        "Dacă până la ora 16:00 tot nu o completează, pun automat pe yală un cod de rezervă și ți-l trimit (tot de lipit în chat).\n\n" +
+      var alias = ciBookingAlias(r);
+      if (alias && !ciHasFlag(r, "alias-reminder")) {
+        var t = ciMailGuestText(alias, "Fișa de cazare · Registration form – " + BRAND,
+                                ciReminderChatText("ro") + "\n\n" + ciReminderChatText("en"));
+        ciMarkOnce(r, "alias-reminder");
+        ciLog(ctx, "Reminder fișă trimis", r["Nr. rezervare"], t ? "MOD TEST: la proprietar" : "pe adresa Booking " + alias);
+      }
+      ciAlertOnce(r, "reminder-fisa",
+        (alias ? "Reminder fișă trimis pe adresa Booking: " : "Reminder fișă de trimis în Booking: ") + (r["Nume"] || r["Nr. rezervare"]),
+        "Rezervarea " + r["Nr. rezervare"] + " sosește azi, dar fișa de cazare nu e completată. " +
+        (alias ? "Am trimis mesajul de mai jos direct pe adresa Booking a oaspetelui (" + alias + "). Verifică în Extranet că apare în conversație; dacă nu, lipește-l tu în chat. "
+               : "Trimite-i oaspetelui, din chatul Booking, mesajul de mai jos. ") +
+        "Dacă până la ora 16:00 tot nu o completează, pun automat pe yală un cod de rezervă" + (alias ? " și i-l trimit tot pe adresa Booking.\n\n" : " și ți-l trimit (tot de lipit în chat).\n\n") +
         "— RO —\n" + ciReminderChatText("ro") + "\n\n— EN —\n" + ciReminderChatText("en"));
       return;
     }
@@ -843,9 +872,17 @@ function ciBackupCodes(ctx) {
     ciTouch(r);
     ciLog(ctx, "Cod de rezervă pus pe yală", nr, ciWindowLabel(r));
     if (r["Sursă"] === "Booking" || !r["E-mail"]) {
-      ciAlertOnce(r, "rezerva-trimite", "Cod de rezervă de trimis oaspetelui: " + (r["Nume"] || nr),
+      var alias = ciBookingAlias(r);
+      if (alias) {
+        var t = ciMailGuestText(alias, "Codul de acces · Door code – " + BRAND,
+                                ciBackupChatText("ro", code) + "\n\n" + ciBackupChatText("en", code));
+        ciLog(ctx, "Cod de rezervă trimis", nr, t ? "MOD TEST: la proprietar" : "pe adresa Booking " + alias);
+      }
+      ciAlertOnce(r, "rezerva-trimite",
+        (alias ? "Cod de rezervă trimis pe adresa Booking: " : "Cod de rezervă de trimis oaspetelui: ") + (r["Nume"] || nr),
         "Fișa nu a fost completată până la ora 16:00, așa că am pus pe yală un cod de rezervă: " + code + "#  (" + ciWindowLabel(r) + ").\n" +
-        (r["Sursă"] === "Booking" ? "Trimite-i din chatul Booking mesajul de mai jos." : "Trimite-i oaspetelui mesajul de mai jos.") + "\n\n" +
+        (alias ? "L-am trimis direct pe adresa Booking a oaspetelui (" + alias + "). Verifică în Extranet că apare în conversație; dacă nu, lipește-i tu mesajul de mai jos."
+               : r["Sursă"] === "Booking" ? "Trimite-i din chatul Booking mesajul de mai jos." : "Trimite-i oaspetelui mesajul de mai jos.") + "\n\n" +
         "— RO —\n" + ciBackupChatText("ro", code) + "\n\n— EN —\n" + ciBackupChatText("en", code));
       r["Cod trimis"] = new Date();
       ciTouch(r);
@@ -865,14 +902,95 @@ function ciReminderChatText(lang) {
     " Codul vă vine pe e-mailul trecut în fișă, la câteva minute după completare, și funcționează de la ora 16:00. Mulțumim!";
 }
 
-// Codul de rezervă de lipit în chatul Booking (fișa tot necompletată la ora 16:00).
+// Codul de rezervă (fișa tot necompletată la ora 16:00): de lipit în chatul Booking sau trimis pe adresa Booking.
+// Oaspeții confundau yala cu cutiuța cu cifru de lângă ușă (4 cifre, cheia de rezervă) → se spune explicit.
 function ciBackupChatText(lang, code) {
   if (lang === "en") {
-    return "Hello! Your door code for apartment A13 is " + code + "#. Enter the 6 digits, then #. It works from 4:00 pm today until 11:00 am on departure day. " +
-      "Please still complete the registration form (mandatory): " + CI_FORM_PUBLIC;
+    return "Hello! The access code for apartment A13 is " + code + "#. Touch the keypad of the electronic lock on the apartment door with your finger " +
+      "so the digits light up, then enter the 6 digits and #. Do not enter it on the small key box next to the door (that one is for emergencies only). " +
+      "The code works from 4:00 pm today until 11:00 am on departure day. Please still complete the registration form (mandatory): " + CI_FORM_PUBLIC;
   }
-  return "Bună ziua! Codul de acces la ușa apartamentului A13 este " + code + "#. Tastați cele 6 cifre, apoi #. Funcționează de la ora 16:00 azi până la ora 11:00 în ziua plecării. " +
-    "Vă rugăm totuși să completați fișa de cazare (obligatorie): " + CI_FORM_PUBLIC;
+  return "Bună ziua! Codul de acces în apartamentul A13 este " + code + "#. Atingeți cu degetul tastatura yalei electronice de pe ușa apartamentului, " +
+    "ca să se aprindă cifrele, apoi tastați cele 6 cifre și #. Nu îl introduceți în cutiuța cu cifru de lângă ușă (aceea e doar pentru urgențe). " +
+    "Codul funcționează de la ora 16:00 azi până la ora 11:00 în ziua plecării. Vă rugăm totuși să completați fișa de cazare (obligatorie): " + CI_FORM_PUBLIC;
+}
+
+// Cu 2 zile înainte de sosire, de la 09:00: dacă rezervarea Booking nu are încă adresa Booking, te anunț o dată
+// (Telegram + e-mail), ca mesajul cu fișa să poată pleca a doua zi la 10:00.
+function ciBookingEmailReminders(ctx) {
+  ctx.active.rows.forEach(function (r) {
+    if (!ciNeedsBookingEmail(ctx, r)) return;
+    var cin = r["Check-in"], nr = r["Nr. rezervare"];
+    var when = cin === ctx.today ? "azi" : cin === ciAddDays(ctx.today, 1) ? "mâine" : weekday(cin) + ", " + longDate(cin);
+    ciAlertOnce(r, "alias-lipsa", "Adaugă adresa Booking: " + nr + " (sosire " + cin.slice(8, 10) + "." + cin.slice(5, 7) + ")",
+      "Rezervarea Booking " + nr + " sosește " + when + ". Ca mesajul cu fișa de cazare să plece automat " +
+      (cin > ciAddDays(ctx.today, 1) ? "cu o zi înainte, la 10:00," : "cât mai repede") + " pe adresa Booking a oaspetelui, adaug-o: " +
+      "lipește-o aici, în chatul botului, sau în panou, pe cardul rezervării. O găsești în Extranet (rezervarea → e-mail) sau în Pulse, " +
+      "de forma nume.123456@guest.booking.com. Fără ea rămâne doar mesajul programat din dimineața sosirii.");
+  });
+}
+
+// Rezervare Booking care ar avea nevoie acum de adresa Booking: fără adresă, fișă și cod, de la 2 zile înainte de
+// sosire (09:00) până în ziua sosirii la 16:00. Aceeași regulă pentru amintire, panou și culoarea din foaie.
+function ciNeedsBookingEmail(ctx, r) {
+  if (r["Sursă"] !== "Booking" || r["Stare"] === CI_STATE_CANCELLED) return false;
+  if (ciBookingAlias(r) || r["Fișă primită"] || r["Cod pe yală"]) return false;
+  var cin = r["Check-in"];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(cin) || cin < ctx.today) return false;
+  return ctx.now >= ciAt(ciAddDays(cin, -CI_ALIAS_REMIND_DAYS), CI_ALIAS_REMIND_HOUR) && ctx.now < ciAt(cin, CI_CHECKIN_HOUR);
+}
+
+// Adresa Booking din rând, doar dacă e validă („” altfel).
+function ciBookingAlias(r) {
+  var v = String(r[CI_BOOKING_EMAIL] || "").trim().toLowerCase();
+  return CI_BOOKING_EMAIL_RE.test(v) ? v : "";
+}
+
+// Pune adresa Booking a unei rezervări (din panou sau din Telegram). Scrie doar celula, sub lacătul scriptului, ca
+// sincronizarea automată să nu o suprascrie. După ce a plecat mesajul cu fișa, adresa se mai schimbă doar din foaie.
+function ciSetBookingEmail(nr, email, via) {
+  email = String(email || "").trim().toLowerCase();
+  nr = String(nr || "").trim();
+  if (!CI_BOOKING_EMAIL_RE.test(email)) throw new Error("Adresa trebuie să fie de forma nume.123456@guest.booking.com.");
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw new Error("Sincronizarea automată rulează chiar acum. Încearcă din nou peste un minut.");
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = ciEnsureSheet(ss, CI_SHEET, CI_HEADERS);
+    var header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+    var values = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, header.length).getValues() : [];
+    var at = -1, row = {};
+    values.forEach(function (v, i) { if (String(v[header.indexOf("Nr. rezervare")]).trim() === nr) at = i; });
+    if (at < 0) throw new Error("Nu găsesc rezervarea " + nr + " în foaia „Rezervări”.");
+    header.forEach(function (h, k) { row[h] = ciNormCell(h, values[at][k]); });
+    var today = Utilities.formatDate(new Date(), CI_TZ, "yyyy-MM-dd");
+    if (row["Sursă"] !== "Booking") throw new Error("Rezervarea " + nr + " nu e de pe Booking.");
+    if (row["Stare"] === CI_STATE_CANCELLED) throw new Error("Rezervarea " + nr + " e anulată.");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(row["Check-out"]) && row["Check-out"] < today) throw new Error("Sejurul " + nr + " s-a încheiat.");
+    var prev = ciBookingAlias(row);
+    if (prev && prev !== email && ciHasFlag(row, "alias-fisa")) {
+      throw new Error("Mesajul cu fișa a plecat deja pe " + prev + ". Adresa se mai poate schimba doar din foaia „Rezervări”.");
+    }
+    if (prev !== email) {
+      sh.getRange(at + 2, header.indexOf(CI_BOOKING_EMAIL) + 1).setValue(email);
+      var ctx = { ss: ss, events: [] };
+      ciLog(ctx, prev ? "Adresă Booking schimbată" : "Adresă Booking adăugată", nr, email + " (din " + via + ")");
+      ciAppendLog(ctx);
+      SpreadsheetApp.flush();
+    }
+    return { nr: nr, checkin: row["Check-in"], checkout: row["Check-out"], email: email, changed: prev !== email };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Rezervările Booking viitoare (sau de azi) fără adresă Booking, în ordinea sosirii (pentru Telegram).
+function ciBookingEmailCandidates() {
+  var today = Utilities.formatDate(new Date(), CI_TZ, "yyyy-MM-dd");
+  return ciLoadTable(SpreadsheetApp.getActiveSpreadsheet(), CI_SHEET, CI_HEADERS).rows.filter(function (r) {
+    return r["Sursă"] === "Booking" && r["Stare"] !== CI_STATE_CANCELLED && !ciBookingAlias(r) &&
+           /^\d{4}-\d{2}-\d{2}$/.test(r["Check-in"]) && r["Check-in"] >= today;
+  }).sort(function (a, b) { return String(a["Check-in"]).localeCompare(String(b["Check-in"])); });
 }
 
 // În ziua plecării, de la 12:00: codul se șterge de pe yală (ca după fiecare oaspete, manual, până acum).
@@ -972,19 +1090,43 @@ function ciMarkOnce(r, key) {
   return true;
 }
 
+// Codul pleacă pe e-mailul din fișă (cu design) și, la Booking, și ca text pe adresa Booking (apare în conversația
+// din Extranet), ca oaspetele să-l primească sigur.
 function ciSendCode(ctx, r, code) {
-  if (!r["E-mail"]) {
+  var alias = r["Sursă"] === "Booking" ? ciBookingAlias(r) : "";
+  if (!r["E-mail"] && !alias) {
     ciAlertOnce(r, "cod-fara-email", "Cod pus, dar fără e-mail: " + r["Nr. rezervare"],
       "Codul " + code + "# e pe yală (" + ciWindowLabel(r) + "), dar nu am adresa de e-mail a oaspetelui. Trimite-i-l tu.");
     return;
   }
   var subject = "Codul de acces · " + BRAND + " · " + rangeShort(r["Check-in"], r["Check-out"]);
-  var test = ciMailGuest(r["E-mail"], subject, ciCodeText(r, code), ciCodeHtml(r, code));
+  var test = false, to = [];
+  if (r["E-mail"]) {
+    test = ciMailGuest(r["E-mail"], subject, ciCodeText(r, code), ciCodeHtml(r, code));
+    to.push(r["E-mail"]);
+  }
+  if (alias) {
+    test = ciMailGuestText(alias, "Codul de acces · Door code – " + BRAND + " · " + rangeShort(r["Check-in"], r["Check-out"]),
+                           ciBookingCodeText(r, code)) || test;
+    to.push("adresa Booking " + alias);
+  }
   if (!test) ciAlertOwner("Cod trimis: " + (r["Nume"] || r["Nr. rezervare"]),
-    "Codul " + code + "# (" + ciWindowLabel(r) + ") a fost pus pe yală și trimis la " + r["E-mail"] + ".");
+    "Codul " + code + "# (" + ciWindowLabel(r) + ") a fost pus pe yală și trimis la " + to.join(" și pe ") + ".");
   r["Cod trimis"] = new Date();
   ciTouch(r);
-  ciLog(ctx, "Cod trimis", r["Nr. rezervare"], test ? "MOD TEST: la proprietar" : r["E-mail"]);
+  ciLog(ctx, "Cod trimis", r["Nr. rezervare"], test ? "MOD TEST: la proprietar" : to.join(" + "));
+}
+
+// E-mail TEXT pentru oaspete (adresa Booking: fără design, ca un mesaj Booking). În mod test pleacă la proprietar.
+function ciMailGuestText(to, subject, text) {
+  var owner = Session.getEffectiveUser().getEmail();
+  if (ciTestMode()) {
+    MailApp.sendEmail(owner, "[TEST → " + to + "] " + subject,
+      "MOD TEST: acest e-mail (text simplu) ar fi plecat la " + to + ".\n\n" + text, { name: BRAND + " (test)" });
+    return true;
+  }
+  MailApp.sendEmail(to, subject, text, { name: BRAND, replyTo: owner });
+  return false;
 }
 
 function ciTestBanner(to) {
@@ -1073,7 +1215,9 @@ function ciFormHtml(r) {
 
 function ciCodeText(r, code) {
   return "Bine ați venit" + (r["Nume"] ? ", " + firstName(r["Nume"]) : "") + "!\n\n" +
-    "Codul de acces pentru ușa de la " + CI_PLACE_TEXT + ": " + code + "#  (tastați cele 6 cifre, apoi #)\n" +
+    "Codul de acces pentru ușa de la " + CI_PLACE_TEXT + ": " + code + "#\n" +
+    "Cum intrați: atingeți cu degetul tastatura yalei electronice de pe ușa apartamentului (cifrele se aprind), tastați cele 6 cifre, apoi #.\n" +
+    "Atenție: lângă ușă există și o cutiuță mică cu cifru de 4 cifre. Codul NU se introduce acolo: în ea e doar o cheie de rezervă pentru urgențe.\n" +
     "Valabil din " + ciStayLine(r) + ". După ora 11:00, în ziua plecării, codul nu mai funcționează.\n\n" +
     "Adresa: " + CI_ADDRESS + ". Intrarea în complex este liberă; ușa apartamentului A13 este pe holul de la etajul 1.\n" +
     "Traseu: " + CI_MAPS_URL + "\n\n" +
@@ -1092,7 +1236,10 @@ function ciCodeHtml(r, code) {
         '<td align="center" bgcolor="' + C.blueDark + '" style="background:' + C.blueDark + ';border-radius:12px;padding:22px 12px;' +
           'font-family:' + FONT + ';font-size:40px;line-height:46px;font-weight:800;letter-spacing:8px;color:' + C.white + ';">' + esc(code) + '#</td>' +
       '</tr></table>' +
-      p("Tastează cele 6 cifre, apoi <strong>#</strong>. Codul funcționează din " + esc(ciStayLine(r)) + ".") +
+      p("Atinge cu degetul tastatura <strong>yalei electronice</strong> de pe ușa apartamentului: cifrele se aprind. " +
+        "Tastează cele 6 cifre, apoi <strong>#</strong>. Codul funcționează din " + esc(ciStayLine(r)) + ".") +
+      warnBox("<strong>Atenție:</strong> lângă ușă există și o cutiuță mică cu cifru de 4 cifre. Codul tău <strong>nu</strong> se " +
+              "introduce acolo: în ea e doar o cheie de rezervă pentru urgențe, iar cifrul ți-l dăm la telefon, dacă e nevoie.") +
       warnBox("<strong>La plecare:</strong> check-out până la ora 11:00. După această oră codul nu mai deschide ușa.") +
       sectionTitle("Cum ajungi") +
       p(esc(CI_ADDRESS) + ". Intrarea în complex este liberă; ușa apartamentului A13 este pe holul de la <strong>etajul 1</strong>.") +
@@ -1110,6 +1257,122 @@ function ciCodeHtml(r, code) {
     footer("Complex Silver Mountain · Poiana Brașov<br>Travel Concept International SRL · CUI RO15288158 · " +
            '<a href="mailto:travel@travelconcept.ro" style="color:' + C.headerSub + ';">travel@travelconcept.ro</a>');
   return layout("Codul de acces al ușii și ghidul apartamentului · valabil " + ciWindowLabel(r) + ".", inner);
+}
+
+/* ---------- mesajele TEXT pe adresa Booking (RO + EN; doar linkurile aprobate în Extranet) ---------- */
+
+var CI_EN_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+var CI_EN_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September",
+                    "October", "November", "December"];
+var CI_PHONE_INTL = "+40 744 332 234";
+var CI_TEXT_SEPARATOR = "----------";
+
+// „sâmbătă, 28 noiembrie” / „Saturday, 28 November” (+ anul, la cerere)
+function ciRoDayMonth(iso, year) {
+  var d = parseDay(iso);
+  return weekday(iso) + ", " + d.getUTCDate() + " " + LUNI[d.getUTCMonth()] + (year ? " " + d.getUTCFullYear() : "");
+}
+function ciEnDayMonth(iso, year) {
+  var d = parseDay(iso);
+  return CI_EN_DAYS[d.getUTCDay()] + ", " + d.getUTCDate() + " " + CI_EN_MONTHS[d.getUTCMonth()] + (year ? " " + d.getUTCFullYear() : "");
+}
+
+// Cu o zi înainte de sosire: fișa și ghidul.
+function ciBookingFormText(r, ctx) {
+  var cin = r["Check-in"], tomorrow = cin === ciAddDays(ctx.today, 1), today = cin === ctx.today;
+  var name = r["Nume"] ? firstName(String(r["Nume"])) : "";
+  return [
+    "Bună ziua" + (name ? ", " + name : "") + ",",
+    "",
+    "Vă așteptăm " + (tomorrow ? "mâine, " : today ? "astăzi, " : "") + ciRoDayMonth(cin, true) +
+      ", la Apartamentul A13 Travel Concept din complexul Silver Mountain, Poiana Brașov. Check-in de la ora 16:00.",
+    "",
+    "1. Fișa de cazare (obligatorie)",
+    "Vă rugăm să o completați înainte de a porni la drum, câte una pentru fiecare adult:",
+    CI_FORM_PUBLIC,
+    "Treceți corect adresa de e-mail și numărul de telefon: la câteva minute după completare vă trimitem automat, pe acel e-mail, " +
+      "codul personal de acces. Codul are 6 cifre și se introduce pe yala electronică de pe ușa apartamentului (nu în cutiuța cu cifru " +
+      "de lângă ușă). Funcționează " + (tomorrow ? "de mâine" : today ? "de azi" : "din ziua sosirii") +
+      ", de la ora 16:00, până în ziua plecării, la ora 11:00.",
+    "",
+    "2. Ghidul apartamentului (sosire, parcare, Wi-Fi, reguli):",
+    CI_GUIDE_URL,
+    "",
+    "Pentru orice întrebare: " + CI_PHONE_INTL + " (telefon / WhatsApp), între 08:00 și 22:00.",
+    "",
+    "Drum bun!",
+    "Echipa " + BRAND,
+    "",
+    CI_TEXT_SEPARATOR,
+    "",
+    "Hello" + (name ? " " + name : "") + ",",
+    "",
+    "We look forward to welcoming you " + (tomorrow ? "tomorrow, " : today ? "today, " : "on ") + ciEnDayMonth(cin, true) +
+      ", at Apartment A13 Travel Concept in the Silver Mountain complex, Poiana Brașov. Check-in from 4:00 pm.",
+    "",
+    "1. Registration form (required)",
+    "Please fill it in before you set off, one for each adult:",
+    CI_FORM_PUBLIC,
+    "Please enter your e-mail address and phone number correctly: a few minutes after you submit the form, your personal access " +
+      "code is sent automatically to that e-mail. The code has 6 digits and is entered on the electronic lock on the apartment door " +
+      "(not on the small key box next to the door). It works " +
+      (tomorrow ? "from 4:00 pm tomorrow" : today ? "from 4:00 pm today" : "from 4:00 pm on your arrival day") +
+      " until 11:00 am on your departure day.",
+    "",
+    "2. Apartment guide (arrival, parking, Wi-Fi, house rules):",
+    CI_GUIDE_URL,
+    "",
+    "Any questions: " + CI_PHONE_INTL + " (phone / WhatsApp), 8 am – 10 pm.",
+    "",
+    "Have a safe trip!",
+    "The " + BRAND + " team"
+  ].join("\n");
+}
+
+// După fișă: copia codului (pe e-mailul din fișă pleacă și varianta cu design).
+function ciBookingCodeText(r, code) {
+  var cin = r["Check-in"], cout = r["Check-out"], both = !!r["E-mail"];
+  return [
+    "Bună ziua,",
+    "",
+    "Mulțumim pentru fișa de cazare. Codul de acces în apartamentul A13 este:",
+    "",
+    code + "#",
+    "",
+    "Cum intrați:",
+    "1. Apartamentul A13 este la etajul 1, în Corpul A al complexului Silver Mountain.",
+    "2. Atingeți cu degetul tastatura yalei electronice de pe ușa apartamentului: cifrele se aprind.",
+    "3. Tastați cele 6 cifre ale codului, apoi #. Ușa se descuie.",
+    "",
+    "Atenție: lângă ușă există și o cutiuță mică cu cifru de 4 cifre. Codul de mai sus NU se introduce acolo. În cutiuță este doar " +
+      "o cheie de rezervă pentru urgențe, iar cifrul ei vi-l dăm la telefon, dacă e nevoie.",
+    "",
+    "Codul funcționează de " + ciRoDayMonth(cin) + ", ora 16:00, până " + ciRoDayMonth(cout) + ", ora 11:00. Ușa se încuie singură când o închideți.",
+    "Adresa: " + CI_ADDRESS + ".",
+    "Ghidul apartamentului: " + CI_GUIDE_URL,
+    (both ? "Același cod l-am trimis și pe adresa de e-mail din fișă. " : "") + "Pentru orice problemă: " + CI_PHONE_INTL + " (telefon / WhatsApp).",
+    "",
+    CI_TEXT_SEPARATOR,
+    "",
+    "Hello,",
+    "",
+    "Thank you for the registration form. The access code for apartment A13 is:",
+    "",
+    code + "#",
+    "",
+    "How to get in:",
+    "1. Apartment A13 is on the 1st floor of Building A in the Silver Mountain complex.",
+    "2. Touch the keypad of the electronic lock on the apartment door with your finger: the digits light up.",
+    "3. Enter the 6 digits of the code, then press #. The door unlocks.",
+    "",
+    "Please note: next to the door there is also a small key box with a 4-digit combination. Do NOT enter the code above there. " +
+      "The box only holds a spare key for emergencies, and we will give you its combination by phone if needed.",
+    "",
+    "The code works from " + ciEnDayMonth(cin) + ", 4:00 pm until " + ciEnDayMonth(cout) + ", 11:00 am. The door locks automatically when you close it.",
+    "Address: " + CI_ADDRESS + ".",
+    "Apartment guide: " + CI_GUIDE_URL,
+    (both ? "We have also sent the same code to the e-mail address in your form. " : "") + "If anything goes wrong: " + CI_PHONE_INTL + " (phone / WhatsApp)."
+  ].join("\n");
 }
 
 /* ============================== FOI: CITIRE / SCRIERE ============================== */
@@ -1142,13 +1405,43 @@ function ciEnsureSheet(ss, name, headers) {
     sh = ss.insertSheet(name);
     sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight("bold");
     sh.setFrozenRows(1);
+    if (name === CI_SHEET) ciPrepareBookingEmailColumn(sh, headers.indexOf(CI_BOOKING_EMAIL) + 1);
     return sh;
   }
-  // Foaie mai veche sau cu coloane adăugate de mână: antetele care lipsesc se adaugă la final.
-  var hdr = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0] : [];
-  var missing = headers.filter(function (h) { return hdr.indexOf(h) < 0; });
-  if (missing.length) sh.getRange(1, hdr.length + 1, 1, missing.length).setValues([missing]).setFontWeight("bold");
+  // Foaie mai veche sau cu coloane adăugate de mână: un antet care lipsește se pune imediat după cel dinaintea lui
+  // din listă (o coloană nouă, cu datele mutate la dreapta), altfel la final. Scripturile citesc foaia după antete.
+  var hdr = sh.getLastColumn() ? sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String) : [];
+  headers.forEach(function (h, i) {
+    if (hdr.indexOf(h) >= 0) return;
+    var at = i > 0 ? hdr.indexOf(headers[i - 1]) : -1;
+    if (at >= 0 && at < hdr.length - 1) {
+      sh.insertColumnAfter(at + 1);
+      hdr.splice(at + 1, 0, h);
+    } else {
+      hdr.push(h);
+    }
+    sh.getRange(1, hdr.indexOf(h) + 1).setValue(h).setFontWeight("bold");
+    if (name === CI_SHEET && h === CI_BOOKING_EMAIL) ciPrepareBookingEmailColumn(sh, hdr.indexOf(h) + 1);
+  });
   return sh;
+}
+
+// Coloana „E-mail Booking”: acceptă doar adrese …@guest.booking.com (scrise de mână) + o notă pe antet.
+function ciPrepareBookingEmailColumn(sh, col) {
+  var rule = SpreadsheetApp.newDataValidation().requireTextContains("@guest.booking.com").setAllowInvalid(false)
+    .setHelpText("Lipește adresa Booking a oaspetelui, de forma nume.123456@guest.booking.com (Extranet → rezervarea, sau Pulse).").build();
+  sh.getRange(2, col, Math.max(sh.getMaxRows() - 1, 1), 1).setDataValidation(rule);
+  sh.getRange(1, col).setNote("Adresa Booking a oaspetelui (Extranet → rezervarea → e-mail, sau Pulse). Cu o zi înainte de sosire, " +
+    "la 10:00, pleacă aici mesajul text cu fișa de cazare, apoi copia codului. Se poate pune și din panou sau lipind-o în chatul botului Telegram. " +
+    "Galben = lipsește la o sosire apropiată.");
+}
+
+// Rulată manual, dacă e nevoie: pune din nou validarea și nota pe coloana „E-mail Booking”.
+function checkinColoanaBooking() {
+  var sh = ciEnsureSheet(SpreadsheetApp.getActiveSpreadsheet(), CI_SHEET, CI_HEADERS);
+  var col = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String).indexOf(CI_BOOKING_EMAIL) + 1;
+  ciPrepareBookingEmailColumn(sh, col);
+  console.log("Coloana „" + CI_BOOKING_EMAIL + "” e coloana " + col + " din foaia „" + CI_SHEET + "”.");
 }
 
 // Citește foaia ca listă de obiecte {antet: valoare}. Coloanele adăugate de mână se păstrează la rescriere.
@@ -1171,6 +1464,7 @@ function ciNormCell(h, v) {
   if (v === "" || v == null) return "";
   if (h === "Check-in" || h === "Check-out") return ciIso(v);
   if (h === "Nr. rezervare" || h === "Telefon") return String(v).trim();
+  if (h === CI_BOOKING_EMAIL) return String(v).trim().toLowerCase();
   if (ciIsDate(v)) return v;
   return typeof v === "string" ? v.trim() : v;
 }
@@ -1196,16 +1490,54 @@ function ciSave(ctx) {
     PropertiesService.getScriptProperties().setProperty(CI_FORMS_PROCESSED_PROPERTY,
       JSON.stringify(ctx.formsProcessed.concat(ctx.formsProcessedNew).slice(-CI_PROCESSED_MAX)));
   }
+  try { ciPaintBookingEmails(ctx); } catch (e) { console.warn("Culoarea coloanei „" + CI_BOOKING_EMAIL + "”: " + e); }
 }
 
 function ciWriteTable(t) {
   var sh = t.sheet, width = t.header.length;
+  // „E-mail Booking” o scrie doar Mircea (de mână, din panou sau din Telegram): se ia valoarea din foaie de chiar acum,
+  // ca o adresă lipită în cele câteva secunde cât rulează sincronizarea să nu fie suprascrisă.
+  var manual = ciManualColumn(sh, t.header, CI_BOOKING_EMAIL);
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, width).clearContent();
   if (!t.rows.length) return;
   var values = t.rows.map(function (r) {
+    var nr = String(r["Nr. rezervare"]);
+    if (manual && manual.hasOwnProperty(nr)) r[CI_BOOKING_EMAIL] = manual[nr];
     return t.header.map(function (h) { return ciCell(h, r[h]); });
   });
   sh.getRange(2, 1, values.length, width).setValues(values);
+}
+
+// { nr. rezervare: valoarea din coloana col } citite acum din foaie (null dacă foaia nu are coloana).
+function ciManualColumn(sh, header, col) {
+  var c = header.indexOf(col), n = header.indexOf("Nr. rezervare");
+  if (c < 0 || n < 0 || sh.getLastRow() < 2) return c < 0 ? null : {};
+  var out = {};
+  sh.getRange(2, 1, sh.getLastRow() - 1, header.length).getValues().forEach(function (v) {
+    var nr = String(v[n] == null ? "" : v[n]).trim();
+    if (nr) out[nr] = ciNormCell(col, v[c]);
+  });
+  return out;
+}
+
+// Culoarea celulelor „E-mail Booking” din „Rezervări”: galben = lipsește la o sosire apropiată, roșu = adresă greșită.
+// Se scrie doar când se schimbă ceva.
+function ciPaintBookingEmails(ctx) {
+  var t = ctx.active, sh = t.sheet, c = t.header.indexOf(CI_BOOKING_EMAIL), n = t.header.indexOf("Nr. rezervare");
+  if (c < 0 || n < 0 || sh.getLastRow() < 2) return;
+  var byNr = {};
+  t.rows.forEach(function (r) { byNr[String(r["Nr. rezervare"])] = r; });
+  var rows = sh.getLastRow() - 1, range = sh.getRange(2, c + 1, rows, 1);
+  var nrs = sh.getRange(2, n + 1, rows, 1).getValues(), mails = range.getValues();
+  var want = nrs.map(function (v, i) {
+    var r = byNr[String(v[0] == null ? "" : v[0]).trim()];
+    var mail = String(mails[i][0] || "").trim();
+    if (mail && !CI_BOOKING_EMAIL_RE.test(mail.toLowerCase())) return ["#f4cccc"];
+    return [r && ciNeedsBookingEmail(ctx, r) ? "#fff2cc" : "#ffffff"];
+  });
+  var have = range.getBackgrounds();
+  var same = want.every(function (w, i) { return String(have[i][0]).toLowerCase() === w[0]; });
+  if (!same) range.setBackgrounds(want);
 }
 
 // Datele, telefonul și numărul rezervării se scriu ca text ("'"), altfel Sheets le transformă

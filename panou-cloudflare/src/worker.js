@@ -12,7 +12,7 @@ const FRESH_MS = 5.5 * 60 * 1000;          // pnData(false) primește datele pă
 const APPS_SCRIPT_TIMEOUT_MS = 90 * 1000;  // „Sincronizează” (checkinSync + datele) poate dura ~1 minut
 const CALENDAR_EVERY_MS = 55 * 60 * 1000;  // „Update calendar” pornit dacă nu a mai rulat de atât (cron la 5 min → ~orar)
 const GITHUB_TIMEOUT_MS = 20 * 1000;
-const FNS = new Set(["pnData", "pnSyncNow", "pnDismiss", "pnBlock", "pnUnblock", "pnSetRequestStatus"]);
+const FNS = new Set(["pnData", "pnSyncNow", "pnDismiss", "pnBlock", "pnUnblock", "pnSetRequestStatus", "pnSetBookingEmail"]);
 const SECURITY_HEADERS = {
   "cache-control": "no-store",
   "x-robots-tag": "noindex, nofollow",

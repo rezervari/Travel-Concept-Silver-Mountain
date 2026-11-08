@@ -56,7 +56,7 @@ function pnApi(req) {
   var expected = String(PropertiesService.getScriptProperties().getProperty(PN_API_TOKEN_PROPERTY) || "");
   if (expected.length < 32 || String(req.token || "") !== expected) return json({ ok: false, error: "auth" });
   var fns = { pnData: pnData, pnSyncNow: pnSyncNow, pnDismiss: pnDismiss, pnBlock: pnBlock, pnUnblock: pnUnblock,
-              pnSetRequestStatus: pnSetRequestStatus };
+              pnSetRequestStatus: pnSetRequestStatus, pnSetBookingEmail: pnSetBookingEmail };
   var fn = fns.hasOwnProperty(String(req.api)) ? fns[String(req.api)] : null;
   if (!fn) return json({ ok: false, error: "fn" });
   var args = Object.prototype.toString.call(req.args) === "[object Array]" ? req.args.slice(0, 3) : [];
@@ -131,6 +131,15 @@ function pnUnblock(id) {
 function pnSetRequestStatus(at, status) {
   pnCheck();
   calSetRequestStatus(at, status);
+  checkinSync();
+  return pnJson(pnBuild(false));
+}
+
+// Adresa Booking a oaspetelui (…@guest.booking.com), scrisă în „Rezervări”; apoi sincronizarea, ca mesajul cu fișa
+// să plece imediat dacă e deja timpul (de la 10:00, cu o zi înainte de sosire).
+function pnSetBookingEmail(nr, email) {
+  pnCheck();
+  ciSetBookingEmail(nr, email, "panou");
   checkinSync();
   return pnJson(pnBuild(false));
 }
@@ -227,9 +236,15 @@ function pnStay(ctx, r) {
   var cell = String(r["Cod pe yală"] || "");
   var code = (cell.match(/^(\d{4,9})#/) || [])[1] || "";
   var phone = String(r["Telefon"] || "");
+  var booking = r["Sursă"] === "Booking", phase = pnPhase(ctx, r);
   return {
     nr: String(r["Nr. rezervare"]),
     source: String(r["Sursă"] || ""),
+    bookingEmail: booking ? ciBookingAlias(r) || String(r[CI_BOOKING_EMAIL] || "") : "",
+    // câmpul pentru adresa Booking: rezervare Booking care încă n-a sosit (sau sosește azi) și n-a primit codul
+    aliasField: booking && (phase === "upcoming" || phase === "arriving") && !r["Cod trimis"] && r["Stare"] !== CI_STATE_CANCELLED,
+    aliasNeeded: ciNeedsBookingEmail(ctx, r),
+    aliasSent: ciHasFlag(r, "alias-fisa"),
     checkin: r["Check-in"],
     checkout: r["Check-out"],
     nights: r["Nopți"] || ciNights(r["Check-in"], r["Check-out"]),
@@ -272,7 +287,7 @@ function pnSteps(ctx, r, code, backup) {
   var deleteDue = pnIsIso(cout) && ctx.now >= ciAt(cout, CI_DELETE_HOUR);
   return [
     { key: "link", label: "Link fișă", st: sent || form ? "done" : linkDue ? "warn" : "todo",
-      at: pnTime(sent), info: ciIsDate(sent) ? "" : String(sent || "") },
+      at: pnTime(sent), info: ciIsDate(sent) ? "" : String(sent || ""), via: ciHasFlag(r, "alias-fisa") ? "adresa Booking" : "" },
     { key: "form", label: "Fișă", st: form ? "done" : formLate ? "warn" : "todo", at: pnTime(form), info: "" },
     { key: "code", label: backup ? "Cod de rezervă" : "Cod pe yală", st: code ? (backup ? "warn" : "done") : codeLate ? "warn" : "todo",
       at: null, info: "" },
@@ -323,19 +338,37 @@ function pnTodo(ctx, rows, openRequests, overlaps) {
         pnRange(r["Check-in"], r["Check-out"]) + " · " + (r["Sursă"] || "") + ". Verifică rezervarea și corectează foaia „Rezervări” dacă e nevoie."));
     }
 
+    // Adresa Booking lipsă, de la 2 zile înainte de sosire (aceeași regulă ca amintirea de pe Telegram).
+    if (ciNeedsBookingEmail(ctx, r)) {
+      var cin = r["Check-in"], soon = cin <= ciAddDays(ctx.today, 1);
+      var al = pnItem(base, "alias|" + nr, "alias", soon ? "high" : "normal", "Adaugă adresa Booking: " + who,
+        pnRange(cin, r["Check-out"]) + " · sosește " + (cin === ctx.today ? "azi" : soon ? "mâine" : "peste 2 zile") +
+        ". Pe ea pleacă mesajul cu fișa (cu o zi înainte, la 10:00) și copia codului. O găsești în Extranet sau Pulse, " +
+        "la rezervare; o poți lipi și în chatul Telegram.");
+      al.alias = nr;
+      out.push(al);
+    }
+
     // Reminder de lipit în chatul Booking (aceleași condiții ca ciArrivalReminders).
     if (r["Sursă"] === "Booking" && r["Check-in"] === ctx.today && !r["Fișă primită"] && !code &&
         ctx.now >= ciAt(ctx.today, CI_REMIND_HOUR)) {
-      var it = pnItem(base, "reminder|" + nr, "booking-chat", "high", "De trimis în chatul Booking: reminder fișă",
-        who + " sosește azi și nu a completat fișa. Dacă până la 16:00 tot nu o completează, pun automat un cod de rezervă.");
+      var sentAlias = ciHasFlag(r, "alias-reminder");
+      var it = pnItem(base, "reminder|" + nr, "booking-chat", "high",
+        sentAlias ? "Reminder fișă trimis pe adresa Booking" : "De trimis în chatul Booking: reminder fișă",
+        who + " sosește azi și nu a completat fișa. " +
+        (sentAlias ? "L-am trimis direct pe adresa Booking; verifică în Extranet că apare în conversație, altfel lipește-l tu. " : "") +
+        "Dacă până la 16:00 tot nu o completează, pun automat un cod de rezervă.");
       it.texts = [{ label: "Română", text: ciReminderChatText("ro") }, { label: "English", text: ciReminderChatText("en") }];
       out.push(it);
     }
 
     // Codul de rezervă pe care oaspetele nu-l primește automat (Booking sau fără e-mail).
     if (code && /REZERVĂ/.test(cell) && (r["Sursă"] === "Booking" || !r["E-mail"])) {
-      var b = pnItem(base, "rezerva|" + nr, "booking-chat", "high", "De trimis oaspetelui: codul de rezervă " + code + "#",
-        who + " · " + (cell.split(" · ")[2] || "") + ". Fișa nu a venit până la 16:00, așa că am pus pe yală un cod aleator.");
+      var aliasB = r["Sursă"] === "Booking" ? ciBookingAlias(r) : "";
+      var b = pnItem(base, "rezerva|" + nr, "booking-chat", "high",
+        (aliasB ? "Cod de rezervă trimis pe adresa Booking: " : "De trimis oaspetelui: codul de rezervă ") + code + "#",
+        who + " · " + (cell.split(" · ")[2] || "") + ". Fișa nu a venit până la 16:00, așa că am pus pe yală un cod aleator." +
+        (aliasB ? " L-am trimis direct pe adresa Booking; verifică în Extranet că apare în conversație, altfel lipește-l tu." : ""));
       b.texts = [{ label: "Română", text: ciBackupChatText("ro", code) }, { label: "English", text: ciBackupChatText("en", code) }];
       out.push(b);
     }
