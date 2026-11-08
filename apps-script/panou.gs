@@ -56,7 +56,7 @@ function pnApi(req) {
   var expected = String(PropertiesService.getScriptProperties().getProperty(PN_API_TOKEN_PROPERTY) || "");
   if (expected.length < 32 || String(req.token || "") !== expected) return json({ ok: false, error: "auth" });
   var fns = { pnData: pnData, pnSyncNow: pnSyncNow, pnDismiss: pnDismiss, pnBlock: pnBlock, pnUnblock: pnUnblock,
-              pnSetRequestStatus: pnSetRequestStatus, pnSetBookingEmail: pnSetBookingEmail };
+              pnSetRequestStatus: pnSetRequestStatus, pnSetBookingEmail: pnSetBookingEmail, pnPostAction: pnPostAction };
   var fn = fns.hasOwnProperty(String(req.api)) ? fns[String(req.api)] : null;
   if (!fn) return json({ ok: false, error: "fn" });
   var args = Object.prototype.toString.call(req.args) === "[object Array]" ? req.args.slice(0, 3) : [];
@@ -144,6 +144,14 @@ function pnSetBookingEmail(nr, email) {
   return pnJson(pnBuild(false));
 }
 
+// Postări (postari.gs): action = done / skip / undo / claimok pe platforma pf (fb / ig / gb / tt) a postării id.
+function pnPostAction(id, pf, action) {
+  pnCheck();
+  if (["done", "skip", "undo", "claimok"].indexOf(String(action)) < 0) throw new Error("Acțiune necunoscută.");
+  socAction(String(id || "").slice(0, 60), String(pf || "").slice(0, 4), String(action), "panou");
+  return pnJson(pnBuild(false));
+}
+
 /* ============================== DATELE PANOULUI ============================== */
 
 function pnBuild(force) {
@@ -170,7 +178,12 @@ function pnBuild(force) {
   }
   var heatTodo = [];
   if (heat && heat.configured) { try { heatTodo = salPanelTodo(ctx); } catch (e) {} }
-  var todo = pnLockTodo(ctx, lock).concat(pnSiteTodo(ctx), heatTodo, pnTodo(ctx, current, requests.open, cal ? cal.overlaps : []));
+  var social = null, socialTodo = [];   // postari.gs: calendarul postărilor (o eroare de acolo nu oprește panoul)
+  if (typeof socPanel === "function") {
+    try { social = socPanel(ss, ctx); socialTodo = socTodo(ctx, social); }
+    catch (e) { social = { ok: false, error: String(e && e.message || e).slice(0, 200) }; }
+  }
+  var todo = pnLockTodo(ctx, lock).concat(pnSiteTodo(ctx), heatTodo, pnTodo(ctx, current, requests.open, cal ? cal.overlaps : []), socialTodo);
   var errors = pnErrors(props, now);
   var stays = current.map(function (r) { return pnStay(ctx, r); });
   var inHouse = stays.filter(function (s) { return s.phase === "inhouse" || s.phase === "departing"; })[0];
@@ -187,7 +200,8 @@ function pnBuild(force) {
       inHouse: inHouse ? (inHouse.name || inHouse.nr) : "",
       requestsOpen: requests.open.length,
       battery: lock.ok ? lock.battery : null,
-      errors: errors.length
+      errors: errors.length,
+      social: social && social.ok ? social.pending : 0
     },
     todo: todo,
     stays: stays,
@@ -196,6 +210,7 @@ function pnBuild(force) {
     cancelled: pnCancelled(cancelled.rows),
     log: pnFeed(ss, requests.list),
     cal: cal,
+    social: social,
     health: {
       lastRun: Number(props.getProperty(PN_LAST_RUN_PROPERTY) || 0),
       trigger: ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === "checkinSync"; }),
@@ -537,6 +552,7 @@ function pnFeed(ss, requests) {
 }
 
 function pnLogCat(ev) {
+  if (/^(Postare|Sarcină|Link TikTok)/.test(ev)) return "social";
   if (/Eroare|nepus|neșters|necunoscut|necitită|fără rezervare|Lipsește/i.test(ev)) return "err";
   if (/Cod|Valabilitate/i.test(ev)) return "code";
   if (/Fișă|Reminder|Link fișă/i.test(ev)) return "form";
@@ -622,7 +638,8 @@ function pnSiteCalendarFile(ctx, force) {
 
 function pnSheetLinks(ss) {
   var out = {};
-  [CI_REQUESTS_SHEET, CI_SHEET, CI_SHEET_CANCELLED, CI_SHEET_LOG].forEach(function (name) {
+  [CI_REQUESTS_SHEET, CI_SHEET, CI_SHEET_CANCELLED, CI_SHEET_LOG, typeof SOC_SHEET === "string" ? SOC_SHEET : ""].forEach(function (name) {
+    if (!name) return;
     var sh = ss.getSheetByName(name);
     if (sh) out[name] = ss.getUrl() + "#gid=" + sh.getSheetId();
   });

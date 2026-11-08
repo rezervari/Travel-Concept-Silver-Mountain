@@ -149,6 +149,7 @@ details.past summary{cursor:pointer;color:var(--muted);font-size:13.5px;padding:
 .ev .cat.form{background:#7c5cd6}
 .ev .cat.code{background:var(--green)}
 .ev .cat.err{background:var(--red)}
+.ev .cat.social{background:#d6336c}
 .ev-top{display:flex;gap:8px;align-items:baseline}
 .ev-top b{font-weight:600;font-size:14px}
 .ev-top time{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
@@ -211,10 +212,47 @@ details.past summary{cursor:pointer;color:var(--muted);font-size:13.5px;padding:
 .field{width:100%;height:40px;margin:8px 0;padding:0 10px;border-radius:9px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-size:16px}
 .btn.arm{background:var(--red);border-color:var(--red);color:#fff}
 .btn.st-confirm{border-color:var(--green);color:var(--green)}
+/* Postări */
+.soc-days{margin-bottom:12px}
+.sday{position:relative;min-height:42px;padding:3px 4px;border-radius:7px;border:1px solid var(--line);background:var(--card);color:var(--ink);
+  text-align:left;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;font-size:12.5px;line-height:1.15}
+.sday .n{font-weight:600}
+.sday.past{opacity:.5}
+.sday.today{outline:2px solid var(--blue);outline-offset:-2px}
+.sday.has{background:var(--soft)}
+.sday .dots{display:flex;gap:3px;flex-wrap:wrap}
+.sdot{width:8px;height:8px;border-radius:50%;background:var(--blue)}
+.sdot.ok{background:var(--green)}
+.sdot.warn{background:var(--yellow)}
+.sdot.bad{background:var(--red)}
+.sdot.task{background:#7c5cd6}
+.post{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+.post.today{border-color:var(--blue);box-shadow:inset 3px 0 0 var(--blue)}
+.post.due{border-color:#f1c75a;background:var(--yellow-tint)}
+.post.flash{outline:3px solid var(--blue);outline-offset:-1px}
+.post-top{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:13px;color:var(--muted)}
+.post-top b{color:var(--ink);font-size:14px}
+.post-title{margin:4px 0 2px;font-size:15.5px;font-weight:600}
+.pf{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;margin:6px 6px 0 0;border-radius:6px;font-size:12.5px;font-weight:600;
+  background:var(--gray-tint);color:var(--muted)}
+.pf.sch{background:var(--blue-tint);color:var(--blue)}
+.pf.ok{background:var(--green-tint);color:var(--green)}
+.pf.warn{background:var(--yellow-tint);color:var(--yellow-ink);border:1px solid #f1c75a}
+.pf.bad{background:var(--red-tint);color:var(--red)}
+.pf svg.i{width:14px;height:14px}
+.post .claim{margin-top:8px;padding:6px 10px;border-radius:8px;background:var(--soft);font-size:13px;color:var(--muted)}
+.post .claim.bad{background:var(--red-tint);color:var(--red)}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;margin-top:10px}
+.thumbs a{display:block;aspect-ratio:4/3;border-radius:7px;overflow:hidden;background:var(--soft)}
+.thumbs img{width:100%;height:100%;object-fit:cover;display:block}
+.soc-warn{margin-bottom:10px;padding:8px 12px;border-radius:9px;background:var(--yellow-tint);color:var(--yellow-ink);font-size:13.5px}
+.soc-legend{display:flex;flex-wrap:wrap;gap:6px 12px;margin:-4px 0 12px;font-size:12px;color:var(--muted)}
+.soc-legend span{display:inline-flex;align-items:center;gap:5px}
+.soc-legend i{display:inline-block}
 /* Bara de jos (telefon) */
-.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(5,1fr);
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:grid;grid-template-columns:repeat(6,1fr);
   background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
-.tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 10px;border:0;background:none;color:var(--muted);font-size:11.5px;cursor:pointer}
+.tab{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 10px;border:0;background:none;color:var(--muted);font-size:11px;cursor:pointer;min-width:0}
 .tab svg.i{width:22px;height:22px}
 .tab.on{color:var(--blue)}
 .tab .count{position:absolute;top:4px;left:calc(50% + 6px);min-width:18px;height:18px;font-size:11px;background:var(--yellow);color:#003580}
@@ -222,7 +260,8 @@ body[data-tab="home"] [data-tab]:not([data-tab~="home"]),
 body[data-tab="req"] [data-tab]:not([data-tab~="req"]),
 body[data-tab="log"] [data-tab]:not([data-tab~="log"]),
 body[data-tab="sys"] [data-tab]:not([data-tab~="sys"]),
-body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
+body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]),
+body[data-tab="soc"] [data-tab]:not([data-tab~="soc"]){display:none}
 .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:30;max-width:calc(100% - 32px);padding:10px 16px;border-radius:10px;
   background:#262626;color:#fff;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
 .toast.on{opacity:1}
@@ -260,6 +299,7 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     <div class="primary">
       <section class="card" data-tab="home" id="secTodo"><h2>De făcut <span class="count" id="todoCount"></span></h2><div id="todo"></div></section>
       <section class="card" data-tab="cal" id="secCal"><h2>Calendar</h2><div id="cal"></div></section>
+      <section class="card" data-tab="soc" id="secSoc"><h2>Postări <span class="count" id="socCount"></span></h2><div id="soc"></div></section>
       <section class="card" data-tab="home" id="secStays"><h2>Sejururi</h2><div id="stays"></div></section>
       <section class="card" data-tab="req" id="secReq"><h2>Solicitări de pe site</h2><div id="requests"></div>
         <h3 class="sub">Anulate recent</h3><div id="cancelled"></div></section>
@@ -307,13 +347,18 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     unlock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0"/>',
     left: '<path d="M15 6l-6 6l6 6"/>',
     right: '<path d="M9 6l6 6l-6 6"/>',
-    x: '<path d="M18 6L6 18M6 6l12 12"/>'
+    x: '<path d="M18 6L6 18M6 6l12 12"/>',
+    mega: '<path d="M18 8a3 3 0 0 1 0 6"/><path d="M10 8v11a1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1v-5"/><path d="M12 8l4.5-3.8a.9.9 0 0 1 1.5.7v12.2a.9.9 0 0 1-1.5.7L12 14H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h8"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
+    hand: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 5.5v-2a1.5 1.5 0 1 1 3 0V12"/><path d="M14 5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M17 7.5a1.5 1.5 0 0 1 3 0V16a6 6 0 0 1-6 6h-2a7 7 0 0 1-5-3l-2.7-5.2a1.6 1.6 0 0 1 2.7-1.7L8 13"/>',
+    skip: '<path d="M5 12h14"/><path d="M13 6l6 6l-6 6"/>'
   };
   function ic(name) { return '<svg class="i" viewBox="0 0 24 24" aria-hidden="true">' + (P[name] || "") + "</svg>"; }
 
   var S = { data: INITIAL, tab: "home", logCat: "all", logNr: "", logLimit: 40, busy: false, showCodes: false, loadedAt: INITIAL.now || Date.now(),
             calMonth: "", calMode: "", calFirst: "", calLast: "", calPick: "", calReason: "",
-            alias: {}, aliasEdit: {} };   // adresa Booking: ce ai scris în câmp (nr → text) / câmpul deschis cu „Schimbă”
+            alias: {}, aliasEdit: {},     // adresa Booking: ce ai scris în câmp (nr → text) / câmpul deschis cu „Schimbă”
+            socMonth: "", socOpen: {}, socPast: false };   // Postări: luna din calendar, postările deschise, „Recente” desfăcut
   try { S.tab = sessionStorage.getItem("pn-tab") || "home"; } catch (e) {}
 
   function $(id) { return document.getElementById(id); }
@@ -347,7 +392,7 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     $("updated").textContent = "actualizat " + when(S.loadedAt);
     $("btnRefresh").innerHTML = ic("refresh");
     $("btnSync").innerHTML = ic("sync") + "<span>Sincronizează</span>";
-    renderNow(d); renderKpis(d); renderTodo(d); renderCal(d); renderStays(d); renderRequests(d); renderSystem(d); renderLog(d); renderTabs(d);
+    renderNow(d); renderKpis(d); renderTodo(d); renderCal(d); renderSoc(d); renderStays(d); renderRequests(d); renderSystem(d); renderLog(d); renderTabs(d);
   }
 
   function renderNow(d) {
@@ -386,16 +431,20 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     if (!d.todo.length) { $("todo").innerHTML = '<div class="empty">' + ic("check") + "Nimic de făcut acum.</div>"; return; }
     $("todo").innerHTML = d.todo.map(function (t) {
       var cls = t.kind === "alert" ? "alert" : t.level === "high" ? "high" : "";
-      var icon = t.kind === "request" ? "site" : t.kind === "booking-chat" ? "chat" : t.kind === "alert" ? "alert" : t.kind === "alias" ? "mail" : "history";
+      var icon = t.kind === "request" ? "site" : t.kind === "booking-chat" ? "chat" : t.kind === "alert" ? "alert" : t.kind === "alias" ? "mail" :
+                 t.kind === "social" ? "mega" : "history";
       var texts = t.texts.map(function (x) {
         return '<div class="copy"><div class="copy-head"><span>' + esc(x.label) + '</span><button type="button" class="btn btn-copy" data-copy="' +
           esc(x.text) + '">' + ic("copy") + "Copiază</button></div><div class=\"copy-text\">" + esc(x.text) + "</div></div>";
       }).join("");
       var links = t.links.map(linkBtn).join("");
       var acts = t.actions ? '<div class="row-actions">' + statusButtons(t.at, t.actions) + "</div>" : "";
+      // Postări (postari.gs): în locul lui „Gata”, butoanele care marchează postarea în foaie.
+      var soc = t.soc ? socButtons(t.soc) : "";
       return '<article class="todo ' + cls + '"><div class="todo-head"><span class="ic">' + ic(icon) + "</span><div><h3>" + esc(t.title) +
         "</h3><p>" + esc(t.detail) + "</p></div></div>" + texts + acts + (t.alias ? '<div class="alias">' + aliasField(t.alias) + "</div>" : "") +
-        '<div class="row-actions">' + links + '<button type="button" class="btn ghost" data-dismiss="' + esc(t.id) + '">' + ic("check") + "Gata</button></div></article>";
+        '<div class="row-actions">' + soc + links +
+        (t.soc ? "" : '<button type="button" class="btn ghost" data-dismiss="' + esc(t.id) + '">' + ic("check") + "Gata</button>") + "</div></article>";
     }).join("");
   }
 
@@ -646,7 +695,7 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
       (text ? '<span style="white-space:pre-line">' + esc(text) + "</span>" : "") + (extra || "") + "</div></div>";
   }
 
-  var CATS = [["all", "Toate"], ["site", "Site"], ["booking", "Rezervări"], ["form", "Fișe"], ["code", "Coduri"], ["err", "Erori"]];
+  var CATS = [["all", "Toate"], ["site", "Site"], ["booking", "Rezervări"], ["form", "Fișe"], ["code", "Coduri"], ["social", "Postări"], ["err", "Erori"]];
 
   function renderLog(d) {
     var chips = CATS.map(function (c) {
@@ -668,8 +717,8 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
   }
 
   function renderTabs(d) {
-    var tabs = [["home", "Acasă", "home", d.kpi.todo], ["cal", "Calendar", "cal", 0], ["req", "Solicitări", "inbox", d.kpi.requestsOpen],
-                ["log", "Jurnal", "list", 0], ["sys", "Sistem", "pulse", d.kpi.errors]];
+    var tabs = [["home", "Acasă", "home", d.kpi.todo], ["cal", "Calendar", "cal", 0], ["soc", "Postări", "mega", d.kpi.social || 0],
+                ["req", "Solicitări", "inbox", d.kpi.requestsOpen], ["log", "Jurnal", "list", 0], ["sys", "Sistem", "pulse", d.kpi.errors]];
     $("tabs").innerHTML = tabs.map(function (t) {
       return '<button type="button" class="tab' + (S.tab === t[0] ? " on" : "") + '" data-tab-btn="' + t[0] + '">' + ic(t[2]) + t[1] +
         (t[3] ? '<span class="count">' + t[3] + "</span>" : "") + "</button>";
@@ -759,7 +808,7 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     if (!t) return;
     // Cât o acțiune e în curs, butoanele cu efect nu mai pornesc alta (ex. „Închide perioada” apăsat de două ori).
     if (S.busy && (t.id === "btnRefresh" || t.id === "btnSync" ||
-        t.matches("[data-calsave],[data-status],[data-unblock],[data-dismiss],[data-alias-save]"))) return toast("Se salvează…");
+        t.matches("[data-calsave],[data-status],[data-unblock],[data-dismiss],[data-alias-save],[data-soc-act]"))) return toast("Se salvează…");
     if (t.hasAttribute("data-alias-save")) return saveAlias(t.getAttribute("data-alias-save"), t);
     if (t.hasAttribute("data-alias-edit")) {
       var en = t.getAttribute("data-alias-edit"), st0 = S.data.stays.filter(function (x) { return x.nr === en; })[0];
@@ -792,6 +841,22 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
                   function () { S.calMode = ""; S.calPick = S.calFirst; S.calFirst = S.calLast = S.calReason = ""; });
     }
     if (t.hasAttribute("data-unblock")) return call("pnUnblock", [t.getAttribute("data-unblock")], "Perioadă redeschisă");
+    if (t.hasAttribute("data-soc-act")) {
+      var sa = t.getAttribute("data-soc-act"), spf = t.getAttribute("data-soc-pf");
+      var smsg = { done: spf ? "Notat: " + (PF_NAMES[spf] || "") + " făcut" : "Notat", skip: "Notat: sărit", undo: "Marcat ca nefăcut", claimok: "Notat: postare modificată" }[sa];
+      return call("pnPostAction", [t.getAttribute("data-soc-id"), spf, sa], smsg);
+    }
+    if (t.hasAttribute("data-soc-open")) {
+      var so = t.getAttribute("data-soc-open");
+      if (S.socOpen[so]) delete S.socOpen[so]; else S.socOpen[so] = true;
+      return renderSoc(S.data);
+    }
+    if (t.hasAttribute("data-socnav")) {
+      var dir = t.getAttribute("data-socnav");
+      S.socMonth = dir === "0" ? monthKey(S.data.today) : addMonths(S.socMonth || monthKey(S.data.today), Number(dir));
+      return renderSoc(S.data);
+    }
+    if (t.hasAttribute("data-socday")) return socDay(t.getAttribute("data-socday"));
     if (t.hasAttribute("data-copy")) return copy(t.getAttribute("data-copy"), t);
     if (t.hasAttribute("data-dismiss")) {
       var id = t.getAttribute("data-dismiss");
@@ -943,6 +1008,146 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
     return '<div class="cal-detail">' + head + (list || '<div class="meta" style="margin-top:6px">Noapte liberă.</div>') + free + "</div>";
   }
 
+  /* ---------- postări (postari.gs) ---------- */
+
+  var PF_NAMES = { fb: "Facebook", ig: "Instagram", gb: "Google", tt: "TikTok" };
+
+  // Butoanele unei postări: Am postat pe … / Sar (sau Am modificat, la o postare cu nopți ocupate).
+  function socButtons(s) {
+    if (s.claim) return '<button type="button" class="btn primary" data-soc-act="claimok" data-soc-id="' + esc(s.id) + '" data-soc-pf="">' + ic("check") + "Am modificat</button>";
+    return (s.pending || []).map(function (k) {
+      return '<button type="button" class="btn' + (s.quiet ? "" : " primary") + '" data-soc-act="done" data-soc-id="' + esc(s.id) + '" data-soc-pf="' + k + '">' + ic("check") +
+        (s.isTask ? "Făcut" : "Am postat pe " + PF_NAMES[k]) + "</button>";
+    }).join("") + ((s.pending || []).length ? '<button type="button" class="btn ghost" data-soc-act="skip" data-soc-id="' + esc(s.id) + '" data-soc-pf="">' +
+      ic("skip") + (s.isTask ? "Sar peste" : "Nu postez") + "</button>" : "");
+  }
+
+  function pfClass(p, v) {
+    if (p.st === "Publicat" || p.st === "Făcut") return "ok";
+    if (p.st === "Programat") return "sch";
+    if (p.st === "Manual") return v.late ? "bad" : "warn";
+    return "";
+  }
+
+  function pfChip(p, v) {
+    var icon = p.st === "Publicat" || p.st === "Făcut" ? "check" : p.st === "Programat" ? "clock" : p.st === "Manual" ? "hand" : "skip";
+    // Iconița spune starea (ceas = programată, bifă = a plecat / făcut); textul doar unde contează.
+    var label = p.st === "Manual" ? (v.isTask ? "de făcut" : "la tine") : p.st === "Făcut" && p.at ? hm(p.at) : p.st === "Sărit" ? "sărit" : "";
+    return '<span class="pf ' + pfClass(p, v) + '" title="' + esc(p.name + ": " + p.st) + '">' + ic(icon) + esc(p.name) + (label ? " · " + esc(label) : "") + "</span>";
+  }
+
+  function socDotClass(v) {
+    if (v.pending.length) return v.late ? "bad" : v.due ? "warn" : v.isTask ? "task" : "";
+    var done = v.platforms.every(function (p) { return p.st === "Publicat" || p.st === "Făcut" || p.st === "Sărit"; });
+    return done ? "ok" : v.isTask ? "task" : "";
+  }
+
+  function renderSoc(d) {
+    var box = $("soc"), S2 = d.social, c = $("socCount");
+    c.textContent = S2 && S2.ok ? S2.pending || "" : "";
+    c.className = "count" + (S2 && S2.ok && S2.pending ? " hot" : "");
+    if (!S2) { box.innerHTML = '<div class="empty">Calendarul postărilor apare după instalarea postari.gs (postariInstall în editor).</div>'; return; }
+    if (!S2.ok) { box.innerHTML = '<div class="cal-warn">Nu pot citi foaia „Postări”: ' + esc(S2.error || "") + "</div>"; return; }
+    if (!S.socMonth) S.socMonth = monthKey(d.today);
+    var byDay = {};
+    S2.posts.forEach(function (v) { if (v.date) (byDay[v.date] = byDay[v.date] || []).push(v); });
+    var html = '<div class="cal-bar"><button type="button" class="btn" data-socnav="-1" aria-label="Luna anterioară">' + ic("left") + "</button>" +
+      '<button type="button" class="btn" data-socnav="0">Azi</button>' +
+      '<button type="button" class="btn" data-socnav="1" aria-label="Luna următoare">' + ic("right") + "</button><span class=\"grow\"></span>" +
+      linkBtn({ label: "Foaia „Postări”", href: S2.sheetUrl }) + "</div>";
+    html += '<div class="soc-days month">' + socMonthGrid(d, S.socMonth, byDay) + "</div>";
+    html += '<div class="soc-legend">' + [["", "programată"], ["warn", "de făcut de tine"], ["bad", "întârziată"], ["ok", "gata"], ["task", "sarcină"]]
+      .map(function (l) { return '<span><i class="sdot ' + l[0] + '"></i>' + l[1] + "</span>"; }).join("") + "</div>";
+    if (S2.emptySoon) {
+      html += '<div class="soc-warn">' + ic("alert") + " Nimic programat în următoarele 7 zile" + (S2.lastPlanned ? " (ultima postare: " + esc(dShort(S2.lastPlanned)) + ")" : "") +
+        ". Spune-i lui Claude ce vrei să postezi sau adaugă un rând în foaie.</div>";
+    }
+    if (S2.undated) html += '<div class="soc-warn">' + plural(S2.undated, "rând fără dată sau oră", "rânduri fără dată sau oră") + " în foaie: nu primesc amintiri.</div>";
+    var next = S2.posts.filter(function (v) { return v.phase === "today" || v.phase === "upcoming" || v.due; });
+    var past = S2.posts.filter(function (v) { return next.indexOf(v) < 0; }).reverse();
+    html += '<h3 class="sub">Azi și următoarele</h3>' + (next.length ? next.map(postCard).join("") : '<div class="empty">Nicio postare programată.</div>');
+    if (past.length) {
+      html += '<details class="past"' + (S.socPast ? " open" : "") + ' data-soc-past><summary>Recente (' + past.length + ")</summary>" + past.map(postCard).join("") + "</details>";
+    }
+    var L2 = S2.links || {};
+    html += '<h3 class="sub">Unde se programează</h3><div class="links">' + [
+      { label: "Business Suite (Facebook, Instagram)", href: L2.meta }, { label: "Profilul Google · Postări", href: L2.google },
+      { label: "TikTok", href: L2.tiktok }].filter(function (l) { return l.href; }).map(linkBtn).join("") + "</div>";
+    box.innerHTML = html;
+  }
+
+  function socMonthGrid(d, first, byDay) {
+    var start = isoParts(first), y = start.getUTCFullYear(), m = start.getUTCMonth();
+    var days = new Date(Date.UTC(y, m + 1, 0)).getUTCDate(), lead = (start.getUTCDay() + 6) % 7;
+    var cells = ["L", "Ma", "Mi", "J", "V", "S", "D"].map(function (w) { return '<div class="wd">' + w + "</div>"; });
+    for (var i = 0; i < lead; i++) cells.push("<div></div>");
+    for (var day = 1; day <= days; day++) {
+      var iso = first.slice(0, 8) + ("0" + day).slice(-2), list = byDay[iso] || [];
+      var cls = ["sday"];
+      if (list.length) cls.push("has");
+      if (iso < d.today) cls.push("past");
+      if (iso === d.today) cls.push("today");
+      cells.push('<button type="button" class="' + cls.join(" ") + '" data-socday="' + iso + '" title="' +
+        esc(list.map(function (v) { return (v.time || "") + " " + v.title; }).join(" · ") || "fără postări") + '"><span class="n">' + day + '</span><span class="dots">' +
+        list.map(function (v) { return '<i class="sdot ' + socDotClass(v) + '"></i>'; }).join("") + "</span></button>");
+    }
+    return "<h3>" + LUNI_LUNGI[m] + " " + y + '</h3><div class="grid7">' + cells.join("") + "</div>";
+  }
+
+  function postCard(v) {
+    var open = !!S.socOpen[v.id];
+    var rel = v.phase === "today" ? "azi" : v.date ? (function () { var n = nightsBetween(S.data.today, v.date); return n === 1 ? "mâine" : n > 1 ? "peste " + n + " zile" : n === -1 ? "ieri" : "acum " + (-n) + " zile"; })() : "";
+    var claim = "";
+    if (v.claim) {
+      var c = v.claim;
+      claim = '<div class="claim' + (c.todo ? " bad" : "") + '">' + (c.todo ? ic("alert") + " " : "") + "Promite nopțile " + esc(dShort(c.from)) + " – " + esc(dShort(c.last)) +
+        (c.free != null ? " · libere " + c.free + " din " + c.total : "") + (c.occupied ? " · ocupate: " + esc(c.occupied) : "") +
+        (c.todo ? ". " + esc(c.how) : c.watching ? " · verific la fiecare 10 minute" : " · nu mai verific (perioada a început)") + "</div>";
+    }
+    var acts = socButtons({ id: v.id, pending: v.pending, isTask: v.isTask, quiet: !v.due }) +
+      (v.claim && v.claim.todo ? socButtons({ id: v.id, claim: true }) : "");
+    var detail = "";
+    if (open) {
+      var texts = [];
+      if (v.note) texts.push('<div class="notes">' + esc(v.note) + "</div>");
+      if (v.hook) texts.push(copyBox("Text pe prima poză", v.hook));
+      if (v.ttText) texts.push(copyBox("Descriere TikTok", v.ttText));
+      if (v.photos.length) texts.push('<div class="thumbs">' + v.photos.map(function (u, i) {
+        return '<a href="' + esc(u) + '" title="Poza ' + (i + 1) + ' la mărime completă"><img src="' + esc(u) + '" alt="Poza ' + (i + 1) + '" loading="lazy"></a>';
+      }).join("") + "</div>");
+      if (v.link) texts.push('<div class="row-actions">' + linkBtn({ label: "Postarea pe TikTok", href: v.link }) + "</div>");
+      var undo = v.platforms.filter(function (p) { return p.st === "Făcut" || p.st === "Sărit"; }).map(function (p) {
+        return '<button type="button" class="btn ghost" data-confirm data-soc-act="undo" data-soc-id="' + esc(v.id) + '" data-soc-pf="' + p.key + '">' +
+          ic("history") + esc(p.name) + ": marchează nefăcut</button>";
+      }).join("");
+      if (claim && v.claim.links.length) texts.push('<div class="row-actions">' + v.claim.links.map(function (l) { return linkBtn({ label: l.text, href: l.url }); }).join("") + "</div>");
+      detail = texts.join("") + (undo ? '<div class="row-actions">' + undo + "</div>" : "");
+    }
+    var cls = ["post"];
+    if (v.phase === "today") cls.push("today");
+    if (v.due) cls.push("due");
+    return '<article class="' + cls.join(" ") + '" id="post-' + esc(v.id) + '"><div class="post-top"><b>' + esc(dShort(v.date)) + (v.time ? " · " + esc(v.time) : "") + "</b>" +
+      (rel ? "<span>" + esc(rel) + "</span>" : "") + (v.isTask ? '<span class="badge">sarcină</span>' : "") + "</div>" +
+      '<div class="post-title">' + esc(v.title) + "</div><div>" + v.platforms.map(function (p) { return pfChip(p, v); }).join("") + "</div>" + claim + detail +
+      '<div class="row-actions">' + acts + '<button type="button" class="btn ghost" data-soc-open="' + esc(v.id) + '">' + ic(open ? "x" : "eye") +
+      (open ? "Închide" : "Detalii") + "</button></div></article>";
+  }
+
+  function copyBox(label, text) {
+    return '<div class="copy"><div class="copy-head"><span>' + esc(label) + '</span><button type="button" class="btn btn-copy" data-copy="' +
+      esc(text) + '">' + ic("copy") + "Copiază</button></div><div class=\"copy-text\">" + esc(text) + "</div></div>";
+  }
+
+  function socDay(iso) {
+    var v = (S.data.social && S.data.social.posts || []).filter(function (x) { return x.date === iso; })[0];
+    if (!v) return toast("Nicio postare în " + dShort(iso) + ".");
+    S.socOpen[v.id] = true;
+    if (v.phase === "past" && !v.due) S.socPast = true;
+    renderSoc(S.data);
+    var el = $("post-" + v.id);
+    if (el) { el.scrollIntoView({ block: "center" }); el.classList.add("flash"); setTimeout(function () { el.classList.remove("flash"); }, 1500); }
+  }
+
   function go2log() {
     if (window.innerWidth < 1000) setTab("log"); else render();
     $("secLog").scrollIntoView({ block: "start" });
@@ -977,6 +1182,9 @@ body[data-tab="cal"] [data-tab]:not([data-tab~="cal"]){display:none}
       });
     }
   });
+  document.addEventListener("toggle", function (ev) {   // „Recente” din Postări rămâne deschis la reîncărcarea datelor
+    if (ev.target && ev.target.hasAttribute && ev.target.hasAttribute("data-soc-past")) S.socPast = ev.target.open;
+  }, true);
   document.addEventListener("keydown", function (ev) {
     var el = ev.target;
     if (ev.key === "Enter" && el && el.hasAttribute && el.hasAttribute("data-alias-input") && !S.busy) {

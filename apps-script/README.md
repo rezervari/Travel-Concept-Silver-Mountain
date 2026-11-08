@@ -421,3 +421,20 @@ Scrii botului @A13TravelConceptBot o cheltuială pe un rând („spălătorie 23
 - **`tgSetup`**: cât timp webhook-ul e pornit, nu mai merge (folosește `getUpdates`). Pentru el rulezi întâi `finTgStop`.
 - **Pozele**: rămân în chatul Telegram. În tabel apare „foto Telegram”, iar `file_id` stă în nota celulei. Salvarea în Drive ar cere permisiunea Drive pentru tot proiectul.
 - **Siguranță la butoane**: un buton modifică rândul doar dacă data, categoria și suma sunt încă cele de atunci. Dacă rândul s-a mutat sau l-ai schimbat de mână, botul refuză. Anularea merge 6 ore.
+
+# Calendarul postărilor (`postari.gs`)
+
+Foaia **„Postări”** (în același Sheet cu „Rezervări”): un rând = o postare sau o sarcină cu dată. Coloanele platformelor (Facebook, Instagram, Google, TikTok) au o listă:
+
+- **Programat**: pleacă singură (Meta Business Suite / profilul Google). La 10 minute după oră, scriptul o trece pe **Publicat**.
+- **Manual**: o faci tu (TikTok). Pe Telegram vine o amintire cu o oră înainte (pozele ca album, textul pe prima poză și descrierea, gata de copiat, butoanele Am postat / Amintește-mi în 30 min / Nu postez) și încă una la o oră după ora postării. După 3 ore nu mai vin amintiri; postarea rămâne la „De făcut” în panou și în rezumatul de la 08:00, cel mult 7 zile.
+- **Făcut / Sărit**: marcate din Telegram, din panou sau direct în foaie. Gol = nu se postează acolo.
+- Un rând fără poze și fără text TikTok, doar cu platforme „Manual”, e o **sarcină** („Pornește 2FA pe TikTok”): amintirea are butonul „Făcut”.
+
+**Nopțile promise** („Nopți libere de la” / „Ultima noapte promisă”, inclusiv): dacă o rezervare sau o blocare nouă ocupă una dintre ele (din `booked-dates.json` de pe site, până la prima noapte promisă), vine o alertă cu sunet pe Telegram și „Postare de modificat” la „De făcut”, până apeși „Am modificat”. Prima verificare doar notează ce era deja ocupat.
+
+**Telegram**: `/postari` arată ce ai de făcut și ce urmează în 14 zile. Un link `tiktok.com` lipit în chat ajunge în coloana „Link TikTok” a postării recente (și marchează TikTok ca făcut). Butoanele trec prin `finTgCallback` → `socTgCallback`, deci prin implementarea „Calendar”. Rezumatul de la 08:00 are paragraful 📣 (azi, mâine, calendar gol); lunea și bilanțul săptămânii trecute (postări pe platforme, solicitări de pe site venite din rețele) + planul săptămânii.
+
+**Panou**: tabul „Postări” (calendarul lunii, cu culori pe stări, apoi lista cu detalii: texte de copiat, poze, butoane) și „De făcut” pe Acasă. Acțiunile trec prin `pnPostAction` (în `pnApi` și în `FNS` din Worker-ul `a13-panou`).
+
+Instalare: fișierul `postari.gs` în proiect → `postariInstall` (foaia, listele, culorile, primele postări; se poate rula din nou fără dubluri) → `finTgCommands` (meniul botului cu `/postari`) → „Calendar” și „Panou” pe versiune nouă → `npx wrangler@4 deploy` din `panou-cloudflare/`. Pasul `socSync` rulează în `checkinSync` (cod salvat, fără versiune nouă). Coloana „Alerte” o scrie scriptul (amintiri trimise, ore, nopțile ocupate la ultima verificare): nu se editează.

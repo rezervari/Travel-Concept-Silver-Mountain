@@ -166,6 +166,9 @@ function tgDailySummary() {
   d.stays.filter(function (s) { return s.checkin === tomorrow; }).forEach(function (s) {
     out.push("📅 Mâine sosește: <b>" + tgEsc(s.name || s.nr) + "</b> (" + tgEsc(s.source) + ")\n" + tgSteps(s));
   });
+  if (typeof socSummary === "function") {   // postari.gs: postările de azi / mâine; lunea și bilanțul săptămânii
+    try { var soc = socSummary(d); if (soc) out.push(soc); } catch (e) { console.warn("Rezumat · postări: " + e); }
+  }
 
   out.push(d.todo.length ? "📋 <b>De făcut: " + d.todo.length + "</b>\n" + d.todo.slice(0, 6).map(function (t) { return "• " + tgEsc(t.title); }).join("\n")
                          : "📋 Nimic de făcut.");

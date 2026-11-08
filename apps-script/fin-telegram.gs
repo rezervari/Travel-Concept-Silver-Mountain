@@ -78,14 +78,20 @@ function finTgSetup() {
   }
   tgApi("setWebhook", { url: FIN_TG_RELAY_URL, secret_token: p.getProperty(FIN_TG_SECRET_PROP),
                         allowed_updates: ["message", "callback_query"], max_connections: 5 });
+  finTgCommands();
+  finTgStatus();
+  finTgSend("✅ <b>Cheltuielile pe Telegram sunt pornite.</b>\n\n" + finTgHelpText());
+}
+
+// Meniul de comenzi al botului (se poate rula și singură, din editor, după ce se adaugă o comandă).
+function finTgCommands() {
   tgApi("setMyCommands", { commands: [
     { command: "luna", description: "Cheltuielile lunii (ex. /luna oct)" },
     { command: "lipsa", description: "Facturile lunare netrecute" },
+    { command: "postari", description: "Postările următoare și ce ai de făcut" },
     { command: "anuleaza", description: "Anulează ultima cheltuială trecută de aici" },
     { command: "ajutor", description: "Cum trimiți o cheltuială" }
   ] });
-  finTgStatus();
-  finTgSend("✅ <b>Cheltuielile pe Telegram sunt pornite.</b>\n\n" + finTgHelpText());
 }
 
 // Starea webhook-ului (fără cheie în log): adresa, câte mesaje așteaptă, ultima eroare.
@@ -150,7 +156,13 @@ function finTgMessage(msg) {
     if (c === "luna") return finTgSend(finTgMonthText(finTgSheets(), finTgMonthArg(cmd[2], now)));
     if (c === "lipsa") return finTgSendMissing(finTgMissing(finTgSheets()), false);
     if (c === "anuleaza") return finTgUndoLast();
+    if (c === "postari" && typeof socTgList === "function") return socTgList();
     return finTgSend(finTgHelpText());
+  }
+
+  if (/tiktok\.com\//i.test(text) && typeof socTgLink === "function") {   // linkul unei postări TikTok (postari.gs)
+    finTgSetState(null);
+    return socTgLink(text);
   }
 
   if (/@guest\.booking\.com/i.test(text)) {   // adresa Booking a unui oaspete, nu o cheltuială
@@ -232,6 +244,10 @@ function finTgCallback(cb) {
   var m = /^([a-z]+):?(.*)$/.exec(data) || [];
   var kind = m[1], parts = String(m[2] || "").split(":");
   var chatId = cb.message && cb.message.chat && cb.message.chat.id, msgId = cb.message && cb.message.message_id;
+
+  if (kind === "sp" && typeof socTgCallback === "function") {  // postările (postari.gs): Am postat / Amintește-mi / Nu postez
+    return socTgCallback(cb, parts);
+  }
 
   if (kind === "ba") {                                          // rezervarea aleasă pentru adresa Booking lipită
     var email = finTgCacheGet("fin_tg_alias_" + parts[0]);
@@ -493,7 +509,9 @@ function finTgHelpText() {
     "Altă categorie, Altă dată sau Anulează.\n\n/luna · totalul lunii (sau /luna oct)\n/lipsa · facturile lunare netrecute\n" +
     "/anuleaza · anulează ultima cheltuială trecută de aici\n\n" +
     "Adresa Booking a unui oaspete (<code>nume.123456@guest.booking.com</code>, din Extranet sau Pulse): lipește-o aici " +
-    "și o pun la rezervarea lui; dacă sunt mai multe rezervări fără adresă, te întreb la care.";
+    "și o pun la rezervarea lui; dacă sunt mai multe rezervări fără adresă, te întreb la care.\n\n" +
+    "Postări: /postari arată ce urmează și ce ai de făcut. După ce postezi pe TikTok, poți lipi aici linkul postării " +
+    "și îl pun în foaia „Postări”.";
 }
 
 function finTgConfirmText(S, r, filled, now) {
