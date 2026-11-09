@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-09T18:01:15.402Z",
+  "updatedAt": "2026-11-09T22:51:07.947Z",
   "ranges": [
     {
       "start": "2026-11-09T00:00:00.000Z",
@@ -24,8 +24,8 @@
       "until": "2028-05-09"
     },
     "Airbnb": {
-      "events": 1,
-      "until": "2026-11-10"
+      "events": 0,
+      "until": null
     },
     "Travelminit": {
       "events": 0,
