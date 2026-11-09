@@ -35,7 +35,8 @@ var TG_EVENT_RULES = [
   [/^Status solicitare: /, "info", "📋"],
   [/^(Gateway yală din nou online|TTLock răspunde din nou|Baterii yală schimbate|Calendarul de pe site se actualizează din nou)$/, "info", "✅"],
   [/^(Încălzire|Geam închis$|Senzor din nou online$|Baterie schimbată$)/, "info", "🌡️"],
-  [/^Rezervare de test/, "info", "🧪"]
+  [/^Rezervare de test/, "info", "🧪"],
+  [/^E-mail recenzie trimis$/, "info", "⭐"]
 ];
 
 /* ============================== INSTALARE ============================== */

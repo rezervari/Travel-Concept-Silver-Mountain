@@ -112,6 +112,9 @@ main{max-width:1440px;margin:0 auto;padding:16px 16px 96px}
 .code-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;border-radius:9px;background:var(--soft);font-size:13.5px}
 .code-line b{font-size:16px;letter-spacing:.08em;font-variant-numeric:tabular-nums}
 .notes{margin-top:8px;color:var(--muted);font-size:12.5px}
+.review-line{display:flex;align-items:center;gap:6px;margin-top:8px;color:var(--muted);font-size:12.5px}
+.review-line svg{width:15px;height:15px;flex:none}
+.review-line.sent{color:var(--green)}
 /* Adresa Booking a oaspetelui (…@guest.booking.com) */
 .alias{margin-top:10px;padding:10px 12px;border-radius:9px;border:1px solid var(--line);background:var(--soft)}
 .alias.need{border-color:#f1c75a;background:var(--yellow-tint)}
@@ -514,6 +517,17 @@ body[data-tab="soc"] [data-tab]:not([data-tab~="soc"]){display:none}
 
   var PHASE = { upcoming: "", arriving: "Sosește azi", inhouse: "În apartament", departing: "Pleacă azi", past: "Încheiat", unknown: "Fără dată" };
 
+  // E-mailul de mulțumire + recenzie Google (la 7 zile după plecare): starea lui pe sejururile încheiate.
+  function reviewLine(rv) {
+    if (!rv || !rv.st) return "";
+    var lang = rv.lang ? " · " + rv.lang : "";
+    var text = { sent: "trimis " + when(rv.at) + lang, planned: "pleacă " + when(rv.at) + lang, off: "oprit („Nu trimite”)",
+                 noemail: "fără adresă de e-mail, nu pleacă", expired: "nu a plecat (a trecut termenul)",
+                 disabled: "oprit pentru toți (CI_REVIEW_ENABLED = 0)" }[rv.st];
+    if (!text) return "";
+    return '<div class="review-line' + (rv.st === "sent" ? " sent" : "") + '">' + ic("mail") + "<span>Mulțumire + recenzie Google: " + esc(text) + "</span></div>";
+  }
+
   function stayCard(s) {
     var src = /booking/i.test(s.source) ? "booking" : /site/i.test(s.source) ? "site" : "";
     var phase = s.phase === "upcoming" ? (s.days === 1 ? "mâine" : "peste " + s.days + " zile") : PHASE[s.phase];
@@ -535,7 +549,7 @@ body[data-tab="soc"] [data-tab]:not([data-tab~="soc"]){display:none}
       '<div class="stay-dates"><b>' + esc(dShort(s.checkin)) + "</b> → <b>" + esc(dShort(s.checkout)) + "</b>" +
       (s.nights ? ' <span style="color:var(--muted);font-size:14px">· ' + plural(Number(s.nights), "noapte", "nopți") + "</span>" : "") + "</div>" +
       '<div class="stay-who">' + esc(s.name || "Numele vine din fișa de cazare") + (s.guests ? " · " + esc(s.guests) : "") + "</div>" +
-      stateWarn + aliasBlock(s) + '<ol class="steps">' + steps + "</ol>" + code +
+      stateWarn + aliasBlock(s) + '<ol class="steps">' + steps + "</ol>" + code + reviewLine(s.review) +
       (s.notes ? '<div class="notes">' + esc(s.notes) + "</div>" : "") +
       '<div class="row-actions">' + links.map(linkBtn).join("") +
       '<button type="button" class="btn ghost" data-history="' + esc(s.nr) + '">' + ic("history") + "Istoric</button></div></article>";

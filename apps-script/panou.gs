@@ -276,6 +276,7 @@ function pnStay(ctx, r) {
     backup: /REZERVĂ/.test(cell),
     window: code ? (cell.split(" · ")[2] || "") : "",
     steps: pnSteps(ctx, r, code, /REZERVĂ/.test(cell)),
+    review: typeof ciReviewPanel === "function" ? ciReviewPanel(ctx, r) : null,   // e-mailul de mulțumire de după sejur
     wa: phone ? "https://wa.me/" + waNumber(phone) : "",
     tel: phone ? "tel:+" + waNumber(phone) : ""
   };

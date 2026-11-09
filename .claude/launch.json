@@ -4,8 +4,30 @@
     {
       "name": "site",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["--yes", "http-server", "-p", "8080", "-c-1", "--silent"],
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "-p",
+        "8080",
+        "-c-1",
+        "--silent"
+      ],
       "port": 8080
+    },
+    {
+      "name": "apps-script-files",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "apps-script",
+        "-p",
+        "8081",
+        "-c-1",
+        "--cors",
+        "--silent"
+      ],
+      "port": 8081
     }
   ]
 }

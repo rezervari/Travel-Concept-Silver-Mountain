@@ -249,6 +249,10 @@ function finTgCallback(cb) {
     return socTgCallback(cb, parts);
   }
 
+  if (kind === "rv" && typeof ciReviewTgCallback === "function") {  // e-mailul de după sejur (checkin.gs): Nu trimite / limba / Vezi
+    return ciReviewTgCallback(cb, parts);
+  }
+
   if (kind === "ba") {                                          // rezervarea aleasă pentru adresa Booking lipită
     var email = finTgCacheGet("fin_tg_alias_" + parts[0]);
     if (!email) return finTgAnswer(cb.id, "Cererea a expirat. Lipește din nou adresa.");

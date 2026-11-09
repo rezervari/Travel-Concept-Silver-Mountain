@@ -22,7 +22,7 @@ var CI_SHEET_CANCELLED = "Anulate";
 var CI_SHEET_LOG = "Jurnal";
 var CI_REQUESTS_SHEET = "Solicitări";       // foaia scrisă de rezervari.gs (SHEET_NAME)
 var CI_HEADERS = ["Nr. rezervare", "Sursă", "Check-in", "Check-out", "Nopți", "Nume", "Telefon", "E-mail", "E-mail Booking",
-                  "Oaspeți", "Stare", "Fișă primită", "Link fișă trimis", "Cod pe yală", "Cod trimis",
+                  "Oaspeți", "Limba", "Stare", "Fișă primită", "Link fișă trimis", "Cod pe yală", "Cod trimis",
                   "Cod șters", "Note", "Link", "Actualizat", "Alerte"];
 // Adresa Booking a oaspetelui (…@guest.booking.com): o pune Mircea (în foaie, din panou sau lipită în chatul Telegram).
 // Booking o redirecționează spre e-mailul real al oaspetelui și o arată în conversația din Extranet. Pe ea pleacă doar
@@ -504,7 +504,7 @@ function ciSetStatusDropdown(ss) {
 function ciArrivals(ctx) {
   [["fișe", ciProcessForms], ["coduri", ciIssuePendingCodes], ["valabilitate", ciSyncCodeWindows],
    ["adresă Booking", ciBookingEmailReminders], ["link fișă", ciSendFormLinks], ["reminder fișă", ciArrivalReminders],
-   ["cod rezervă", ciBackupCodes], ["ștergere coduri", ciDeleteExpiredCodes]]
+   ["cod rezervă", ciBackupCodes], ["ștergere coduri", ciDeleteExpiredCodes], ["recenzie", ciReviewRequests]]
     .forEach(function (s) {
       try { s[1](ctx); }
       catch (e) { ciStepError(ctx, s[0], String(e && e.message || e).slice(0, 300)); }
@@ -640,6 +640,10 @@ function ciProcessForms(ctx) {
     if (!row["Nume"]) row["Nume"] = f.name;
     if (!row["E-mail"]) row["E-mail"] = f.email;
     if (!row["Telefon"]) row["Telefon"] = f.phone;    // site: rămâne telefonul din rezervare; Booking: cel din fișă
+    if (!ciLangValue(row) && !ciReviewOff(row)) {      // limba e-mailului de după sejur, din cetățenie
+      var lang = ciLangFromCitizenship(f.citizenship);
+      if (lang) row[CI_LANG] = lang;
+    }
     ciTouch(row);
     ctx.forms[nr] = f;
     ciLog(ctx, "Fișă primită", nr, f.name);
@@ -683,7 +687,8 @@ function ciParseForm(m) {
     checkin: ciIso(val(/^DATA SOSIRII/i)),
     checkout: ciIso(val(/^DATA PLECARII/i)),
     phone: val(/^NUMAR TELEFON/i),
-    email: email
+    email: email,
+    citizenship: val(/^CETATENIA/i)
   };
 }
 
@@ -1378,6 +1383,489 @@ function ciBookingCodeText(r, code) {
   ].join("\n");
 }
 
+/* ============================== DUPĂ SEJUR: MULȚUMIRE + RECENZIE GOOGLE ============================== */
+
+// La 7 zile după plecare, la 10:00, oaspeții de pe site și de pe Booking primesc UN SINGUR e-mail de mulțumire, cu butonul
+// spre recenzia Google. Adresa = cea din rezervarea de pe site sau din fișa de cazare; niciodată adresa Booking
+// (…@guest.booking.com — Booking trimite singur invitația lui) și niciodată oaspeții Airbnb / Travelminit (nu sunt în foaie;
+// Airbnb interzice să le cerem recenzii în altă parte). Cu o zi înainte, la 10:00, vine pe Telegram (fără sunet) anunțul
+// cu butoanele „Nu trimite”, limba și „Vezi e-mailul”. Google interzice să cerem recenzii doar oaspeților mulțumiți:
+// „Nu trimite” e pentru cazuri speciale (o problemă nerezolvată, o adresă greșită), nu pentru a alege cine scrie recenzii.
+// Coloana „Limba”: RO / EN (din cetățenia din fișă, altfel după prefixul telefonului; se poate schimba de mână) sau
+// „Nu trimite”. Marcaje în „Alerte”: recenzie-anunt:<ms> (anunțul a plecat), recenzie:<ms> (e-mailul a plecat).
+// Oprit pentru toți: Script Property CI_REVIEW_ENABLED = 0.
+var CI_LANG = "Limba";
+var CI_LANG_OFF = "Nu trimite";
+var CI_LANG_VALUES = ["RO", "EN", CI_LANG_OFF];
+var CI_REVIEW_DAYS = 7;          // zile după plecare
+var CI_REVIEW_HOUR = 10;         // ora trimiterii (anunțul pe Telegram: cu o zi înainte, la aceeași oră)
+var CI_REVIEW_LAST_HOUR = 20;    // seara târziu / noaptea nu pleacă (rămâne pentru a doua zi, de la 10:00)
+var CI_REVIEW_GAP_H = 18;        // între anunț și trimitere: cel puțin 18 ore (timp pentru „Nu trimite”)
+var CI_REVIEW_MAX_DAYS = 21;     // la 3 săptămâni după plecare nu se mai trimite nimic
+var CI_REVIEW_SOURCES = ["Site", "Booking"];
+var CI_REVIEW_ENABLED_PROPERTY = "CI_REVIEW_ENABLED";
+// Linkul Umami „Recenzii Google - e-mail” (302 spre pagina de recenzie Google): numără clicurile din e-mail.
+var CI_REVIEW_URL = "https://cloud.umami.is/q/afnp2u9GG";   // → https://g.page/r/CckJdjX1QN4cEBM/review (NU se șterge din Umami)
+var CI_REVIEW_IMG = "https://a13.travelconcept.ro/hero-apartament.jpg";   // livingul iarna (poza de sus de pe site)
+var CI_REVIEW_LOGO = "https://a13.travelconcept.ro/icon-192.png";        // logoul „13” (PNG: Gmail/Outlook nu arată SVG)
+var CI_REVIEW_RING = "#ffffff";                                           // conturul logoului din antet (același albastru)
+var CI_PRIVACY_URL = "https://a13.travelconcept.ro/confidentialitate.html";
+
+function ciReviewRequests(ctx) {
+  if (!ciReviewEnabled()) return;
+  var hour = Number(Utilities.formatDate(new Date(ctx.now), CI_TZ, "HH"));
+  ctx.active.rows.forEach(function (r) {
+    if (!ciReviewEligible(r) || ciFlagTime(r, "recenzie") >= 0) return;
+    var t = ciReviewTimes(r);
+    if (ctx.now < t.notice || ctx.now >= t.expire) return;
+    var to = ciReviewEmail(r);
+    if (!to || ciReviewOff(r)) return;
+    if (!ciLangValue(r)) {   // limba încă necunoscută: după telefon (se vede și se poate schimba în foaie)
+      r[CI_LANG] = ciLangFromPhone(r["Telefon"]) || "RO";
+      ciTouch(r);
+    }
+    var noticed = ciFlagTime(r, "recenzie-anunt");
+    if (noticed < 0) {
+      ciReviewNotice(ctx, r, to, ciReviewWhen(t, ctx.now));
+      ciMarkOnce(r, "recenzie-anunt:" + ctx.now);
+      return;
+    }
+    if (ctx.now < ciReviewWhen(t, noticed) || hour < CI_REVIEW_HOUR || hour >= CI_REVIEW_LAST_HOUR) return;
+    var lang = ciReviewLang(r);
+    var test = ciMailGuest(to, ciReviewSubject(lang), ciReviewText(r, lang), ciReviewHtml(r, lang));
+    ciMarkOnce(r, "recenzie:" + ctx.now);
+    ciLog(ctx, "E-mail recenzie trimis", r["Nr. rezervare"], (test ? "MOD TEST: la proprietar, pentru " : "") + to + " · " + lang.toUpperCase());
+  });
+}
+
+function ciReviewEnabled() {
+  return PropertiesService.getScriptProperties().getProperty(CI_REVIEW_ENABLED_PROPERTY) !== "0";
+}
+
+function ciReviewEligible(r) {
+  return CI_REVIEW_SOURCES.indexOf(String(r["Sursă"] || "")) >= 0 && r["Stare"] !== CI_STATE_CANCELLED &&
+         /^\d{4}-\d{2}-\d{2}$/.test(String(r["Check-out"] || "")) && /^\d{4}-\d{2}-\d{2}$/.test(String(r["Check-in"] || ""));
+}
+
+// { notice: anunțul (cu o zi înainte), send: trimiterea, expire: după asta nu mai pleacă nimic } — ms, ora României.
+function ciReviewTimes(r) {
+  var cout = r["Check-out"];
+  return {
+    notice: ciAt(ciAddDays(cout, CI_REVIEW_DAYS - 1), CI_REVIEW_HOUR),
+    send: ciAt(ciAddDays(cout, CI_REVIEW_DAYS), CI_REVIEW_HOUR),
+    expire: ciAt(ciAddDays(cout, CI_REVIEW_MAX_DAYS), CI_REVIEW_HOUR)
+  };
+}
+
+// Când pleacă e-mailul, dacă anunțul a plecat la momentul noticed: nu înainte de ziua a 7-a, la 10:00, cel puțin
+// 18 ore după anunț și doar între 10:00 și 20:00 (altfel a doua zi, la 10:00).
+function ciReviewWhen(t, noticed) {
+  var at = Math.max(t.send, noticed + CI_REVIEW_GAP_H * 3600000);
+  var iso = Utilities.formatDate(new Date(at), CI_TZ, "yyyy-MM-dd"), h = Number(Utilities.formatDate(new Date(at), CI_TZ, "HH"));
+  if (h < CI_REVIEW_HOUR) return ciAt(iso, CI_REVIEW_HOUR);
+  if (h >= CI_REVIEW_LAST_HOUR) return ciAt(ciAddDays(iso, 1), CI_REVIEW_HOUR);
+  return at;
+}
+
+// Adresa pe care pleacă e-mailul („” dacă nu e una bună): cea din rezervare / fișă, niciodată adresa Booking.
+function ciReviewEmail(r) {
+  var e = String(r["E-mail"] || "").trim();
+  if (!/^[^\s@,;<>]+@[^\s@,;<>]+\.[a-z]{2,}$/i.test(e) || /@guest\.booking\.com$/i.test(e)) return "";
+  return e;
+}
+
+function ciLangValue(r) {
+  var v = String(r[CI_LANG] || "").trim().toUpperCase();
+  return v === "RO" || v === "EN" ? v : "";
+}
+
+function ciReviewOff(r) { return String(r[CI_LANG] || "").trim().toLowerCase() === CI_LANG_OFF.toLowerCase(); }
+
+function ciReviewLang(r) { return (ciLangValue(r) || ciLangFromPhone(r["Telefon"]) || "RO").toLowerCase(); }
+
+// Cetățenia din fișa de cazare → RO (România, Republica Moldova) / EN (restul) / „” (necompletată).
+function ciLangFromCitizenship(s) {
+  s = String(s || "").trim();
+  if (!s) return "";
+  return /rom|moldov|^(ro|md|rou|mda)$/i.test(s) ? "RO" : "EN";
+}
+
+// Prefixul telefonului → RO (+40, +373, număr românesc fără prefix) / EN (alt prefix) / „” (fără telefon).
+function ciLangFromPhone(p) {
+  var d = String(p || "").replace(/[^\d+]/g, "");
+  if (!d) return "";
+  if (/^(\+|00)/.test(d)) return /^(\+|00)(40|373)/.test(d) ? "RO" : "EN";
+  if (/^0\d{9}$/.test(d) || /^40\d{9}$/.test(d) || /^7\d{8}$/.test(d)) return "RO";
+  return "";
+}
+
+// Momentul (ms) scris în „Alerte” ca key:<ms>; -1 dacă nu există.
+function ciFlagTime(r, key) {
+  var parts = String(r["Alerte"] || "").split(";");
+  for (var i = 0; i < parts.length; i++) {
+    if (parts[i].indexOf(key + ":") === 0) return Number(parts[i].slice(key.length + 1)) || 0;
+  }
+  return -1;
+}
+
+/* ---------- anunțul pe Telegram + butoanele ---------- */
+
+function ciReviewNotice(ctx, r, to, when) {
+  var nr = r["Nr. rezervare"], lang = ciReviewLang(r);
+  var html = ciReviewNoticeHtml(r, to, lang, when, "planned");
+  var sent = false;
+  if (typeof tgReady === "function" && tgReady()) {
+    try {
+      tgApi("sendMessage", { chat_id: PropertiesService.getScriptProperties().getProperty(TG_CHAT_PROPERTY), text: html,
+                             parse_mode: "HTML", disable_web_page_preview: true, disable_notification: true,
+                             reply_markup: { inline_keyboard: ciReviewKeyboard(nr, lang, "planned") } });
+      sent = true;
+    } catch (e) {
+      console.warn("Telegram (anunț recenzie): " + (typeof tgClean === "function" ? tgClean(e) : e));
+    }
+  }
+  if (!sent) {   // fără Telegram: anunțul vine pe e-mail; oprirea se face din foaie
+    MailApp.sendEmail(Session.getEffectiveUser().getEmail(), "[Check-in A13] E-mail de recenzie programat: " + nr,
+      ciReviewNoticePlain(r, to, lang, when) + "\n\nCa să NU plece, scrie „" + CI_LANG_OFF + "” în coloana „" + CI_LANG +
+      "” a rezervării, în foaia „" + CI_SHEET + "”: " + ctx.ss.getUrl(), { name: "Check-in " + BRAND });
+  }
+  ciLog(ctx, "E-mail recenzie programat", nr, to + " · " + lang.toUpperCase() + " · " + ciClock(when));
+}
+
+// state: planned / off / sent
+function ciReviewNoticeHtml(r, to, lang, when, state) {
+  var who = [r["Nume"], r["Sursă"], ciShortRange(r) + " (" + ciNightsLabel(r) + ")"].filter(function (x) { return x; });
+  var head = state === "off" ? "⛔ <b>Nu se trimite</b> e-mailul de mulțumire + recenzie Google"
+           : state === "sent" ? "⭐ <b>A plecat</b> e-mailul de mulțumire + recenzie Google"
+           : "✉\ufe0f <b>E-mail de mulțumire + recenzie Google</b>\nPleacă <b>" + tgEsc(ciReviewWhenLabel(when)) + "</b>";
+  var out = head + "\n" + tgEsc(who.join(" · ")) + "\nCătre: <code>" + tgEsc(to) + "</code> · " + (lang === "en" ? "în engleză" : "în română");
+  if (state === "planned") {
+    out += "\n\nApasă „Nu trimite” doar într-un caz special (o problemă nerezolvată, o adresă greșită): " +
+           "Google nu permite să le cerem recenzii doar oaspeților mulțumiți.";
+  }
+  return out;
+}
+
+function ciReviewNoticePlain(r, to, lang, when) {
+  return "Pleacă " + ciReviewWhenLabel(when) + " e-mailul de mulțumire + recenzie Google către " + to +
+         " (" + (lang === "en" ? "în engleză" : "în română") + "), pentru rezervarea " + r["Nr. rezervare"] + " (" + r["Sursă"] + ", " +
+         r["Check-in"] + " → " + r["Check-out"] + ").";
+}
+
+function ciReviewKeyboard(nr, lang, state) {
+  if (state === "sent") return [];
+  if (state === "off") return [[{ text: "Trimite totuși", callback_data: "rv:y:" + nr }]];
+  return [[{ text: "Nu trimite", callback_data: "rv:n:" + nr },
+           lang === "en" ? { text: "În română", callback_data: "rv:r:" + nr } : { text: "În engleză", callback_data: "rv:e:" + nr }],
+          [{ text: "Vezi e-mailul", callback_data: "rv:p:" + nr }]];
+}
+
+// „mâine, marți 10 noiembrie, la 10:00” / „azi, la 15:20” / „joi 12 noiembrie, la 10:00”
+function ciReviewWhenLabel(ms) {
+  var iso = Utilities.formatDate(new Date(ms), CI_TZ, "yyyy-MM-dd"), hm = Utilities.formatDate(new Date(ms), CI_TZ, "HH:mm");
+  var today = Utilities.formatDate(new Date(), CI_TZ, "yyyy-MM-dd");
+  var day = weekday(iso) + " " + parseDay(iso).getUTCDate() + " " + LUNI[parseDay(iso).getUTCMonth()];
+  var pre = iso === today ? "azi" : iso === ciAddDays(today, 1) ? "mâine, " + day : day;
+  return pre + ", la " + hm;
+}
+
+function ciShortRange(r) { return r["Check-in"].slice(8, 10) + "." + r["Check-in"].slice(5, 7) + " → " + r["Check-out"].slice(8, 10) + "." + r["Check-out"].slice(5, 7); }
+
+function ciNightsLabel(r) {
+  var n = ciReviewNights(r);
+  return n + (n === 1 ? " noapte" : " nopți");
+}
+
+// Din finTgCallback (fin-telegram.gs), butoanele „rv:<acțiune>:<nr. rezervare>”.
+function ciReviewTgCallback(cb, parts) {
+  var chatId = cb.message && cb.message.chat && cb.message.chat.id, msgId = cb.message && cb.message.message_id;
+  var act = { n: "off", y: "on", e: "en", r: "ro", p: "preview" }[parts[0]] || "";
+  var res;
+  try {
+    res = ciReviewAction(parts.slice(1).join(":"), act, "Telegram");
+  } catch (e) {
+    finTgAnswer(cb.id, String(e && e.message || e).slice(0, 190));
+    return;
+  }
+  finTgAnswer(cb.id, res.toast);
+  if (act !== "preview" && chatId && msgId) {
+    try { finTgEdit(chatId, msgId, res.html, res.keyboard); } catch (e) {}
+  }
+}
+
+// Acțiunile din Telegram: off („Nu trimite”), on („Trimite totuși”), ro / en (limba), preview (îți trimite e-mailul).
+// Scrie doar celula „Limba”, sub lacătul scriptului (ca sincronizarea automată să nu o suprascrie).
+function ciReviewAction(nr, act, via) {
+  if (["off", "on", "ro", "en", "preview"].indexOf(act) < 0) throw new Error("Acțiune necunoscută.");
+  nr = String(nr || "").trim();
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) throw new Error("Sincronizarea automată rulează chiar acum. Încearcă din nou peste un minut.");
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = ciEnsureSheet(ss, CI_SHEET, CI_HEADERS);
+    var header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+    var values = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, header.length).getValues() : [];
+    var at = -1, row = {};
+    values.forEach(function (v, i) { if (String(v[header.indexOf("Nr. rezervare")]).trim() === nr) at = i; });
+    if (at < 0) throw new Error("Nu găsesc rezervarea " + nr + " în foaia „Rezervări”.");
+    header.forEach(function (h, k) { row[h] = ciNormCell(h, values[at][k]); });
+    if (!ciReviewEligible(row)) throw new Error("Rezervarea " + nr + " nu primește e-mailul (anulată sau fără date).");
+    var to = ciReviewEmail(row);
+    if (!to) throw new Error("Rezervarea " + nr + " nu are o adresă de e-mail bună.");
+    var sentAt = ciFlagTime(row, "recenzie"), t = ciReviewTimes(row), noticed = ciFlagTime(row, "recenzie-anunt");
+    var when = ciReviewWhen(t, noticed >= 0 ? noticed : t.notice);
+
+    if (act === "preview") {
+      var lang = ciReviewLang(row);
+      MailApp.sendEmail(Session.getEffectiveUser().getEmail(), "[PREVIZUALIZARE → " + to + "] " + ciReviewSubject(lang),
+        "Previzualizare: așa arată e-mailul care pleacă la " + to + ".\n\n" + ciReviewText(row, lang),
+        { name: BRAND + " (previzualizare)", htmlBody: ciReviewHtml(row, lang).replace(/(<body[^>]*>)/i, "$1" + ciPreviewBanner(to)) });
+      return { toast: "Ți-am trimis e-mailul pe Gmail, ca previzualizare." };
+    }
+    if (sentAt >= 0) throw new Error("E-mailul a plecat deja, " + ciClock(sentAt) + ".");
+    if (ciReviewExpired(t)) throw new Error("A trecut termenul: e-mailul nu se mai trimite pentru acest sejur.");
+
+    var cur = ciReviewOff(row) ? CI_LANG_OFF : ciLangValue(row);
+    var val = act === "off" ? CI_LANG_OFF : act === "ro" ? "RO" : act === "en" ? "EN" : (ciLangFromPhone(row["Telefon"]) || "RO");
+    if (act === "on" && !ciReviewOff(row)) val = cur || val;
+    if (val !== cur) {
+      sh.getRange(at + 2, header.indexOf(CI_LANG) + 1).setValue(val);
+      row[CI_LANG] = val;
+      var ctx = { ss: ss, events: [] };
+      ciLog(ctx, act === "off" ? "E-mail recenzie oprit" : act === "on" ? "E-mail recenzie pornit" : "E-mail recenzie: limba " + val,
+            nr, "din " + via);
+      ciAppendLog(ctx);
+      SpreadsheetApp.flush();
+    }
+    var off = ciReviewOff(row), lang2 = ciReviewLang(row), state = off ? "off" : "planned";
+    return {
+      toast: off ? "Nu se trimite." : act === "on" ? "Pleacă " + ciReviewWhenLabel(when) + "." : "Limba: " + (lang2 === "en" ? "engleză" : "română") + ".",
+      html: ciReviewNoticeHtml(row, to, lang2, when, state),
+      keyboard: ciReviewKeyboard(nr, lang2, state)
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function ciReviewExpired(t) { return new Date().getTime() >= t.expire; }
+
+function ciPreviewBanner(to) {
+  return '<div style="background:#fff6d9;border-bottom:3px solid #febb02;padding:12px 16px;font-family:Arial,sans-serif;font-size:14px;color:#7a5800;">' +
+         '<strong>PREVIZUALIZARE</strong> — acesta e e-mailul care pleacă la <strong>' + esc(to) + '</strong>.</div>';
+}
+
+// Pentru panou (pnStay): starea e-mailului la un sejur încheiat, sau null.
+function ciReviewPanel(ctx, r) {
+  if (!ciReviewEligible(r) || r["Check-out"] > ctx.today) return null;
+  var sent = ciFlagTime(r, "recenzie"), noticed = ciFlagTime(r, "recenzie-anunt"), t = ciReviewTimes(r);
+  var lang = ciLangValue(r) || ciLangFromPhone(r["Telefon"]) || "RO";
+  if (sent >= 0) return { st: "sent", at: sent, lang: lang };
+  if (ctx.now >= t.expire) return noticed >= 0 ? { st: "expired" } : null;
+  if (!ciReviewEnabled()) return { st: "disabled" };
+  if (ciReviewOff(r)) return { st: "off" };
+  if (!ciReviewEmail(r)) return { st: "noemail" };
+  return { st: "planned", at: ciReviewWhen(t, noticed >= 0 ? noticed : t.notice), lang: lang };
+}
+
+/* ---------- e-mailul ---------- */
+
+var CI_REVIEW_T = {
+  ro: {
+    subject: "Mulțumim! Cum a fost sejurul la Silver Mountain?",
+    preheader: "Un minut din timpul tău îi ajută pe alți călători să ne găsească.",
+    header: "După sejur",
+    eyebrow: "Mulțumim",
+    h1: "Mulțumim că ai fost oaspetele nostru!",
+    intro: "Sperăm că zilele petrecute la " + "<strong>Apartamentul A13 Travel Concept</strong> din complexul <strong>Silver Mountain</strong>" +
+           " au fost exact cum ți le-ai dorit: liniște, aer de munte și timp pentru cei dragi.",
+    stay: function (range, nights) { return "Sejurul tău · " + range + " · " + nights + (nights === 1 ? "\u00a0noapte" : "\u00a0nopți"); },
+    cardTitle: "Ne ajuți cu un minut?",
+    cardText: "Suntem o cazare mică, administrată direct de noi, iar recenziile oaspeților sunt felul în care alți călători ne găsesc. " +
+              "Ne-ar ajuta mult să spui pe Google, sincer, cum a fost sejurul tău.",
+    button: "Scrie o recenzie pe Google",
+    small: "Durează aproximativ un minut · ai nevoie doar de un cont Google",
+    reply: "Ceva nu a fost cum trebuia sau ai o idee pentru noi? <strong>Răspunde direct la acest e-mail</strong> — citim fiecare mesaj și ne ajută să fim mai buni.",
+    bye: "Te așteptăm cu drag în Poiana Brașov!",
+    team: "Echipa A13 Travel Concept",
+    signPlace: "Silver Mountain · Poiana Brașov",
+    footerPlace: "Complex Silver Mountain · Poiana Brașov",
+    once: "Îți scriem o singură dată după sejur, fără oferte sau newslettere.",
+    privacy: "Politica de confidențialitate",
+    imgAlt: "Living luminos cu șemineu și ieșire la balcon în apartamentul A13 Travel Concept, Silver Mountain, Poiana Brașov"
+  },
+  en: {
+    subject: "Thank you! How was your stay at Silver Mountain?",
+    preheader: "One minute of your time helps other travellers find us.",
+    header: "After your stay",
+    eyebrow: "Thank you",
+    h1: "Thank you for staying with us!",
+    intro: "We hope your days at <strong>Apartment A13 Travel Concept</strong> in the <strong>Silver Mountain</strong> complex" +
+           " were everything you wished for: peace and quiet, mountain air and time with the people you love.",
+    stay: function (range, nights) { return "Your stay · " + range + " · " + nights + (nights === 1 ? "\u00a0night" : "\u00a0nights"); },
+    cardTitle: "Could you spare a minute?",
+    cardText: "We are a small, owner-run apartment, and guest reviews are how other travellers find us. " +
+              "It would mean a lot if you shared on Google, honestly, how your stay was.",
+    button: "Write a review on Google",
+    small: "It takes about a minute · you only need a Google account",
+    reply: "Was something not quite right, or do you have an idea for us? <strong>Just reply to this email</strong> — we read every message and it helps us improve.",
+    bye: "We hope to welcome you back to Poiana Brașov!",
+    team: "The A13 Travel Concept team",
+    signPlace: "Silver Mountain · Poiana Brașov, Romania",
+    footerPlace: "Silver Mountain complex · Poiana Brașov, Romania",
+    once: "We write to you only once after your stay — no offers, no newsletters.",
+    privacy: "Privacy policy",
+    imgAlt: "Bright living room with a fireplace and balcony access in Apartment A13 Travel Concept, Silver Mountain, Poiana Brașov"
+  }
+};
+
+// „28 octombrie – 4 noiembrie 2026” / „28 October – 4 November 2026” (fără rupturi între zi, lună și an)
+function ciReviewRange(r, lang) {
+  var a = parseDay(r["Check-in"]), b = parseDay(r["Check-out"]);
+  var months = lang === "en" ? CI_EN_MONTHS : LUNI;
+  var left = a.getUTCDate() + "\u00a0" + months[a.getUTCMonth()] + (a.getUTCFullYear() !== b.getUTCFullYear() ? "\u00a0" + a.getUTCFullYear() : "");
+  return left + " – " + b.getUTCDate() + "\u00a0" + months[b.getUTCMonth()] + "\u00a0" + b.getUTCFullYear();
+}
+
+function ciReviewNights(r) { return Math.round((ciUtc(r["Check-out"]) - ciUtc(r["Check-in"])) / 86400000); }
+
+function ciReviewSubject(lang) { return CI_REVIEW_T[lang === "en" ? "en" : "ro"].subject; }
+
+// Logoul ca imagine; dacă imaginile sunt blocate, apare „13” galben pe albastru (textul alternativ).
+function ciReviewLogo(size, radius) {
+  return '<img src="' + CI_REVIEW_LOGO + '" width="' + size + '" height="' + size + '" alt="13" ' +
+    'style="display:block;width:' + size + 'px;height:' + size + 'px;border:0;outline:none;border-radius:' + radius + 'px;' +
+    'background:' + C.blueDark + ';font-family:' + FONT + ';font-size:' + Math.round(size * 0.42) + 'px;line-height:' + size + 'px;' +
+    'font-weight:800;color:' + C.yellow + ';text-align:center;">';
+}
+
+// Antetul: ca headerBar (rezervari.gs), dar cu logoul apartamentului în locul insignei „A13”.
+function ciReviewHeader(rightLabel) {
+  return (
+    '<tr><td bgcolor="' + C.blueDark + '" style="background:' + C.blueDark + ';border-radius:12px 12px 0 0;padding:16px 28px;" class="px">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>' +
+        '<td valign="middle" width="48" style="width:48px;">' +
+          '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>' +
+            '<td bgcolor="' + CI_REVIEW_RING + '" style="background:' + CI_REVIEW_RING + ';border-radius:12px;padding:2px;">' + ciReviewLogo(44, 10) + '</td>' +
+          '</tr></table>' +
+        '</td>' +
+        '<td valign="middle" style="padding-left:14px;font-family:' + FONT + ';">' +
+          '<div style="font-size:16px;line-height:20px;font-weight:800;color:' + C.white + ';letter-spacing:.2px;">' + esc(BRAND) + '</div>' +
+          '<div style="font-size:12px;line-height:16px;color:' + C.headerSub + ';margin-top:2px;">Silver Mountain · Poiana Brașov</div>' +
+        '</td>' +
+        (rightLabel
+          ? '<td valign="middle" align="right" style="font-family:' + FONT + ';font-size:12px;line-height:16px;color:' + C.headerSub + ';white-space:nowrap;">' + esc(rightLabel) + '</td>'
+          : '') +
+      '</tr></table>' +
+    '</td></tr>'
+  );
+}
+
+// Semnătura de la final: logoul + echipa + locul.
+function ciReviewSignature(t) {
+  return (
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 0;"><tr>' +
+      '<td valign="middle" width="56" style="width:56px;">' + ciReviewLogo(56, 13) + '</td>' +
+      '<td valign="middle" style="padding-left:14px;font-family:' + FONT + ';">' +
+        '<div style="font-size:15px;line-height:20px;font-weight:800;color:' + C.blueDark + ';">' + esc(t.team) + '</div>' +
+        '<div style="font-size:13px;line-height:18px;color:' + C.gray + ';margin-top:2px;">' + esc(t.signPlace) + '</div>' +
+      '</td>' +
+    '</tr></table>'
+  );
+}
+
+function ciReviewHtml(r, lang) {
+  lang = lang === "en" ? "en" : "ro";
+  var t = CI_REVIEW_T[lang];
+  var inner =
+    ciReviewHeader(t.header) +
+    '<tr><td style="padding:0;line-height:0;font-size:0;" bgcolor="' + C.blueDark + '">' +
+      '<img src="' + CI_REVIEW_IMG + '" width="600" alt="' + esc(t.imgAlt) + '" ' +
+      'style="display:block;width:100%;max-width:600px;height:auto;border:0;outline:none;">' +
+    '</td></tr>' +
+    bodyOpen() +
+      eyebrow(t.eyebrow) +
+      h1(esc(t.h1)) +
+      p(t.intro) +
+      '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:2px 0 26px;"><tr>' +
+        '<td bgcolor="' + C.bg + '" style="background:' + C.bg + ';border-radius:16px;padding:7px 14px;font-size:13px;line-height:18px;color:' + C.gray + ';">' +
+          esc(t.stay(ciReviewRange(r, lang), ciReviewNights(r))) +
+        '</td></tr></table>' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="' + C.blueTint + '" style="background:' + C.blueTint + ';border-radius:14px;">' +
+        '<tr><td align="center" style="padding:28px 26px 22px;font-family:' + FONT + ';">' +
+          '<div style="font-size:21px;line-height:28px;font-weight:800;color:' + C.blueDark + ';margin:0 0 10px;">' + esc(t.cardTitle) + '</div>' +
+          '<div style="font-size:15px;line-height:24px;color:' + C.ink + ';margin:0 0 18px;">' + esc(t.cardText) + '</div>' +
+          ciButtonFull(CI_REVIEW_URL, esc(t.button), C.yellow, C.blueDark) +
+          '<div style="font-size:12px;line-height:18px;color:' + C.gray + ';margin-top:6px;">' + esc(t.small) + '</div>' +
+        '</td></tr>' +
+      '</table>' +
+      divider() +
+      p(t.reply, "color:" + C.gray + ";font-size:14px;line-height:22px;") +
+      p(esc(t.bye), "margin:18px 0 0;") +
+      ciReviewSignature(t) +
+    bodyClose() +
+    footer(esc(t.footerPlace) + "<br>Travel Concept International SRL · CUI RO15288158 · " +
+           '<a href="mailto:travel@travelconcept.ro" style="color:' + C.headerSub + ';">travel@travelconcept.ro</a><br>' +
+           '<span style="display:block;margin-top:10px;">' + esc(t.once) + ' <a href="' + CI_PRIVACY_URL + '" style="color:' + C.headerSub + ';text-decoration:underline;">' +
+           esc(t.privacy) + '</a></span>');
+  return layout(t.preheader, inner).replace('<html lang="ro"', '<html lang="' + lang + '"');
+}
+
+function ciReviewText(r, lang) {
+  lang = lang === "en" ? "en" : "ro";
+  var t = CI_REVIEW_T[lang];
+  function plain(s) { return String(s).replace(/<[^>]+>/g, "").replace(/\u00a0/g, " "); }
+  return [
+    t.h1, "",
+    plain(t.intro), "",
+    plain(t.stay(ciReviewRange(r, lang), ciReviewNights(r))), "",
+    t.cardTitle,
+    t.cardText,
+    t.button + ": " + CI_REVIEW_URL, "",
+    plain(t.reply), "",
+    t.bye,
+    t.team, "",
+    "--",
+    t.once + " " + t.privacy + ": " + CI_PRIVACY_URL
+  ].join("\n");
+}
+
+// Îți trimite e-mailul în ambele limbi (sejur fictiv), ca să-l vezi pe telefon / în Gmail.
+function checkinRecenzieExemple() {
+  var today = Utilities.formatDate(new Date(), CI_TZ, "yyyy-MM-dd");
+  var r = { "Nr. rezervare": "EXEMPLU", "Sursă": "Booking", "Check-in": ciAddDays(today, -14), "Check-out": ciAddDays(today, -7) };
+  var owner = Session.getEffectiveUser().getEmail();
+  ["ro", "en"].forEach(function (lang) {
+    MailApp.sendEmail(owner, "[EXEMPLU " + lang.toUpperCase() + "] " + ciReviewSubject(lang), ciReviewText(r, lang),
+                      { name: BRAND, htmlBody: ciReviewHtml(r, lang) });
+  });
+}
+
+// Doar citire: ce sejururi primesc e-mailul și când (în log-ul de execuție). Nu trimite nimic.
+function checkinRecenzieVerifica() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet(), now = new Date().getTime();
+  var ctx = { now: now, today: Utilities.formatDate(new Date(now), CI_TZ, "yyyy-MM-dd") };
+  var rows = ciLoadTable(ss, CI_SHEET, CI_HEADERS).rows;
+  console.log("E-mailul de recenzie: " + (ciReviewEnabled() ? "pornit" : "OPRIT (" + CI_REVIEW_ENABLED_PROPERTY + " = 0)") +
+              ", mod " + (ciTestMode() ? "TEST (pleacă la proprietar)" : "real"));
+  rows.forEach(function (r) {
+    if (!ciReviewEligible(r)) return;
+    var t = ciReviewTimes(r), info = ciReviewPanel(ctx, r);
+    var st = info ? info.st + (info.at ? " " + ciClock(info.at) : "") : (now < t.notice ? "după plecare: anunț " + ciClock(t.notice) : "—");
+    console.log(r["Nr. rezervare"] + " · " + r["Sursă"] + " · " + r["Check-in"] + " → " + r["Check-out"] + " · " +
+                (ciReviewEmail(r) ? "e-mail da" : "fără e-mail") + " · limba " + (ciLangValue(r) || (ciReviewOff(r) ? CI_LANG_OFF : "?")) + " · " + st);
+  });
+}
+
+// Coloana „Limba”: listă RO / EN / Nu trimite + o notă pe antet.
+function ciPrepareLangColumn(sh, col) {
+  var rule = SpreadsheetApp.newDataValidation().requireValueInList(CI_LANG_VALUES, true).setAllowInvalid(false)
+    .setHelpText("Limba e-mailului de mulțumire de după sejur (RO / EN) sau „" + CI_LANG_OFF + "”.").build();
+  sh.getRange(2, col, Math.max(sh.getMaxRows() - 1, 1), 1).setDataValidation(rule);
+  sh.getRange(1, col).setNote("Limba e-mailului de mulțumire + recenzie Google, care pleacă la 7 zile după plecare, la 10:00 " +
+    "(din cetățenia din fișă, altfel după telefon). „" + CI_LANG_OFF + "” = nu pleacă. Cu o zi înainte vine anunțul pe Telegram.");
+}
+
 /* ============================== FOI: CITIRE / SCRIERE ============================== */
 
 function ciOpen() {
@@ -1408,7 +1896,10 @@ function ciEnsureSheet(ss, name, headers) {
     sh = ss.insertSheet(name);
     sh.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight("bold");
     sh.setFrozenRows(1);
-    if (name === CI_SHEET) ciPrepareBookingEmailColumn(sh, headers.indexOf(CI_BOOKING_EMAIL) + 1);
+    if (name === CI_SHEET) {
+      ciPrepareBookingEmailColumn(sh, headers.indexOf(CI_BOOKING_EMAIL) + 1);
+      ciPrepareLangColumn(sh, headers.indexOf(CI_LANG) + 1);
+    }
     return sh;
   }
   // Foaie mai veche sau cu coloane adăugate de mână: un antet care lipsește se pune imediat după cel dinaintea lui
@@ -1425,6 +1916,7 @@ function ciEnsureSheet(ss, name, headers) {
     }
     sh.getRange(1, hdr.indexOf(h) + 1).setValue(h).setFontWeight("bold");
     if (name === CI_SHEET && h === CI_BOOKING_EMAIL) ciPrepareBookingEmailColumn(sh, hdr.indexOf(h) + 1);
+    if (name === CI_SHEET && h === CI_LANG) ciPrepareLangColumn(sh, hdr.indexOf(h) + 1);
   });
   return sh;
 }
@@ -1501,11 +1993,13 @@ function ciWriteTable(t) {
   // „E-mail Booking” o scrie doar Mircea (de mână, din panou sau din Telegram): se ia valoarea din foaie de chiar acum,
   // ca o adresă lipită în cele câteva secunde cât rulează sincronizarea să nu fie suprascrisă.
   var manual = ciManualColumn(sh, t.header, CI_BOOKING_EMAIL);
+  var manualLang = ciManualColumn(sh, t.header, CI_LANG);   // „Limba” scrisă de mână între timp (doar dacă nu e goală)
   if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, width).clearContent();
   if (!t.rows.length) return;
   var values = t.rows.map(function (r) {
     var nr = String(r["Nr. rezervare"]);
     if (manual && manual.hasOwnProperty(nr)) r[CI_BOOKING_EMAIL] = manual[nr];
+    if (manualLang && manualLang[nr]) r[CI_LANG] = manualLang[nr];
     return t.header.map(function (h) { return ciCell(h, r[h]); });
   });
   sh.getRange(2, 1, values.length, width).setValues(values);

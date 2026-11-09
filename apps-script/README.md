@@ -104,6 +104,30 @@ După o modificare a `checkin.gs`: lipești codul nou și salvezi — atât.
     schimbi tu în `Confirmată`.
 - **Note** și coloanele adăugate de tine se păstrează (coloanele proprii nu se mută în „Anulate”).
 - Rezervările cu sosirea trecută nu se mai importă; cele deja în foaie rămân.
+- **Limba** — limba e-mailului de după sejur: `RO` / `EN` (din cetățenia din fișa de cazare, altfel după prefixul
+  telefonului) sau `Nu trimite`. O poți schimba de mână (listă).
+
+## E-mailul de după sejur: mulțumire + recenzie Google (`ciReviewRequests`, în `checkin.gs`)
+
+- **Cine îl primește:** rezervările „Site” și „Booking” din „Rezervări” (nu anulate, nu „Test”), pe adresa din
+  rezervarea de pe site sau din fișa de cazare. Niciodată pe adresa Booking (`…@guest.booking.com`): Booking trimite
+  singur invitația lui. Oaspeții Airbnb / Travelminit nu sunt în foaie (iar Airbnb interzice să le cerem recenzii în altă parte).
+- **Când:** la 7 zile după plecare, la 10:00, o singură dată. Cu o zi înainte, la 10:00, vine pe Telegram (fără sunet)
+  anunțul cu butoanele **Nu trimite** / **În engleză** sau **În română** / **Vezi e-mailul** (previzualizarea îți vine pe
+  Gmail). Între anunț și trimitere trec cel puțin 18 ore; e-mailul pleacă doar între 10:00 și 20:00; după 21 de zile de
+  la plecare nu mai pleacă nimic. Fără Telegram, anunțul vine pe e-mail (oprirea se face din coloana „Limba”).
+- **Google nu permite** să cerem recenzii doar oaspeților mulțumiți: „Nu trimite” e pentru cazuri speciale (o problemă
+  nerezolvată, o adresă greșită), nu pentru a alege cine scrie recenzii. E-mailul nu conține oferte.
+- **Butonul din e-mail** duce prin linkul Umami „Recenzii Google - e-mail” (`https://cloud.umami.is/q/afnp2u9GG` →
+  `g.page/r/…/review`): clicurile se văd în Umami → Links. Linkul NU se șterge din Umami.
+- **Marcaje în „Alerte”:** `recenzie-anunt:<ms>` (anunțul a plecat), `recenzie:<ms>` (e-mailul a plecat). În panou,
+  pe sejururile încheiate: „Mulțumire + recenzie Google: pleacă … / trimis … / oprit / fără adresă de e-mail”.
+- **Funcții din editor:** `checkinRecenzieVerifica` (doar citire: ce sejururi îl primesc și când),
+  `checkinRecenzieExemple` (îți trimite e-mailul în română și în engleză, cu un sejur fictiv).
+- **Oprit pentru toți:** Script Property `CI_REVIEW_ENABLED` = `0`. Modul test al check-in-ului (`CHECKIN_TEST_MODE` ≠ `0`)
+  îl trimite și pe acesta doar la tine.
+- Butoanele din Telegram trec prin implementarea „Calendar” (`finTgCallback` → `ciReviewTgCallback`); după o modificare
+  a codului: „Calendar” + „Panou” pe versiune nouă și `npx wrangler@4 deploy` din `panou-cloudflare/` (pagina panoului).
 
 # Yala TTLock (`ttlock.gs`) — Faza 2, pasul 1: legătura (doar citire)
 
