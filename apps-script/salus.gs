@@ -404,8 +404,9 @@ function salState() {
   catch (e) { return {}; }
 }
 
-// Sejururile reale: Booking și site din „Rezervări” (fără anulate și teste), Airbnb „Reserved” și Travelminit din iCal
-// (citite de calendar.gs). Blocările nu pornesc încălzirea. Fiecare: { key, label, start, end, from, to } (from/to în ms).
+// Sejururile reale: Booking, Airbnb și site din „Rezervări” (fără anulate și teste), Airbnb „Reserved” (doar cele care nu
+// sunt deja în foaie) și Travelminit din iCal (citite de calendar.gs). Blocările nu pornesc încălzirea.
+// Fiecare: { key, label, start, end, from, to } (from/to în ms).
 function salStays(ctx) {
   var list = [];
   ctx.active.rows.forEach(function (r) {
@@ -416,8 +417,10 @@ function salStays(ctx) {
   });
   if (typeof calPlatformEvents === "function") {
     var p = calPlatformEvents(false);
+    var known = typeof calAirbnbKnown === "function" ? calAirbnbKnown(ctx.active.rows) : null;
     ((p.Airbnb && p.Airbnb.events) || []).forEach(function (e) {
-      if (/reserved/i.test(e.summary)) list.push({ key: "airbnb:" + e.start, label: "Airbnb " + e.start, start: e.start, end: e.end });
+      if (!/reserved/i.test(e.summary) || (known && calIsKnownAirbnb(known, e))) return;
+      list.push({ key: "airbnb:" + e.start, label: "Airbnb " + e.start, start: e.start, end: e.end });
     });
     ((p.Travelminit && p.Travelminit.events) || []).forEach(function (e) {
       list.push({ key: "travelminit:" + e.start, label: "Travelminit " + e.start, start: e.start, end: e.end });

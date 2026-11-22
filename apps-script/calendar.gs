@@ -275,17 +275,20 @@ function calSetRequestStatus(at, status) {
 
 /* ============================== SUPRAPUNERI (OVERBOOKING) ============================== */
 
-// Doar rezervări reale: Booking și site din „Rezervări”, Airbnb „Reserved” din iCal, plus solicitările „Așteaptă plata”
-// active. Blocările („Not available”, „CLOSED”) nu contează: sunt de obicei copia altei rezervări.
+// Doar rezervări reale: Booking, Airbnb și site din „Rezervări”, Airbnb „Reserved” din iCal (doar cele care nu sunt deja
+// în foaie), plus solicitările „Așteaptă plata” active. Blocările („Not available”, „CLOSED”) nu contează: sunt de obicei
+// copia altei rezervări.
 function calOverlaps(ss, now, platforms) {
   var today = Utilities.formatDate(new Date(now), CI_TZ, "yyyy-MM-dd"), list = [];
-  ciLoadTable(ss, CI_SHEET, CI_HEADERS).rows.forEach(function (r) {
+  var rows = ciLoadTable(ss, CI_SHEET, CI_HEADERS).rows, airbnbKnown = calAirbnbKnown(rows);
+  rows.forEach(function (r) {
     if (r["Stare"] === CI_STATE_CANCELLED || r["Sursă"] === "Test" || !calIsIso(r["Check-in"]) || !calIsIso(r["Check-out"])) return;
     if (r["Check-out"] <= today) return;
     list.push({ key: "rez:" + r["Nr. rezervare"], label: r["Sursă"] + " " + (r["Nume"] || r["Nr. rezervare"]), start: r["Check-in"], end: r["Check-out"] });
   });
   ((platforms.Airbnb && platforms.Airbnb.events) || []).forEach(function (e) {
-    if (/reserved/i.test(e.summary) && e.end > today) list.push({ key: "airbnb:" + e.start + ":" + e.end, label: "Airbnb (rezervare)", start: e.start, end: e.end });
+    if (!/reserved/i.test(e.summary) || e.end <= today || calIsKnownAirbnb(airbnbKnown, e)) return;
+    list.push({ key: "airbnb:" + e.start + ":" + e.end, label: "Airbnb (rezervare)", start: e.start, end: e.end });
   });
   calHolds(ss, now).forEach(function (h) {
     if (h.active && h.end > today) list.push({ key: "plata:" + h.id, label: "Așteaptă plata: " + (h.name || h.id), start: h.start, end: h.end });
@@ -327,7 +330,7 @@ function calPlatformEvents(force) {
   CAL_PLATFORMS.forEach(function (p) {
     var url = String(props.getProperty(p[1]) || "").trim();
     if (!url) { out[p[0]] = { ok: false, missing: true, events: [] }; return; }
-    var key = "cal_ics_" + p[0], hit = force ? null : cache.get(key);
+    var key = "cal_ics2_" + p[0], hit = force ? null : cache.get(key);   // „2”: evenimentele au acum și codul Airbnb
     if (hit) { out[p[0]] = JSON.parse(hit); return; }
     var st;
     try {
@@ -346,7 +349,8 @@ function calPlatformEvents(force) {
   return out;
 }
 
-// Ca ciParseIcs, plus SUMMARY (Airbnb: „Reserved” = rezervare, „Airbnb (Not available)” = blocare).
+// Ca ciParseIcs, plus SUMMARY (Airbnb: „Reserved” = rezervare, „Airbnb (Not available)” = blocare) și, la Airbnb,
+// codul rezervării din DESCRIPTION („Reservation URL: …/hosting/reservations/details/HM…”).
 function calParseIcs(text) {
   var unfolded = [];
   String(text).split(/\r\n|\n|\r/).forEach(function (line) {
@@ -359,7 +363,7 @@ function calParseIcs(text) {
     if (line.indexOf("END:VEVENT") === 0) {
       if (cur && cur.start && !cur.cancelled) {
         events.push({ start: cur.start, end: cur.end && cur.end > cur.start ? cur.end : ciAddDays(cur.start, 1),
-                      summary: cur.summary.replace(/\\,/g, ",").replace(/\\;/g, ";").slice(0, 80) });
+                      summary: cur.summary.replace(/\\,/g, ",").replace(/\\;/g, ";").slice(0, 80), code: cur.code || "" });
       }
       cur = null;
       return;
@@ -368,9 +372,26 @@ function calParseIcs(text) {
     if (line.indexOf("DTSTART") === 0) cur.start = ciIcsDate(line);
     else if (line.indexOf("DTEND") === 0) cur.end = ciIcsDate(line);
     else if (line.indexOf("SUMMARY") === 0) cur.summary = line.slice(line.indexOf(":") + 1).trim();
+    else if (line.indexOf("DESCRIPTION") === 0) cur.code = (line.match(/reservations\/details\/(HM[A-Z0-9]+)/) || [])[1] || "";
     else if (line.indexOf("STATUS:CANCELLED") === 0) cur.cancelled = true;
   });
   return events;
+}
+
+// Rezervările Airbnb din „Rezervări” (codul HM… și datele). Evenimentul „Reserved” din iCal-ul Airbnb care e aceeași
+// rezervare nu se mai numără a doua oară (calendarul din panou, suprapunerile, încălzirea).
+function calAirbnbKnown(rows) {
+  var known = { codes: {}, dates: {} };
+  rows.forEach(function (r) {
+    if (r["Sursă"] !== "Airbnb" || r["Stare"] === CI_STATE_CANCELLED) return;
+    known.codes[String(r["Nr. rezervare"])] = true;
+    if (r["Check-in"] && r["Check-out"]) known.dates[r["Check-in"] + "|" + r["Check-out"]] = true;
+  });
+  return known;
+}
+
+function calIsKnownAirbnb(known, e) {
+  return !!((e.code && known.codes[e.code]) || known.dates[e.start + "|" + e.end]);
 }
 
 /* ============================== DATELE PENTRU PANOU ============================== */
@@ -390,14 +411,15 @@ function calPanelData(ss, ctx, force, rows) {
     if (h.end > from) events.push({ src: "Plată", kind: "hold", start: h.start, end: h.end, label: h.name, at: h.at, until: h.until, active: h.active });
   });
 
-  var platforms = calPlatformEvents(force), sources = {};
+  var platforms = calPlatformEvents(force), sources = {}, airbnbKnown = calAirbnbKnown(rows);
   CAL_PLATFORMS.forEach(function (p) {
     var st = platforms[p[0]];
     sources[p[0]] = { ok: st.ok, missing: !!st.missing, error: st.error || "", count: st.events.length, at: st.at || null };
     st.events.forEach(function (e) {
       if (e.end <= from) return;
-      // Rezervările Booking din „Rezervări” apar și în iCal-ul Booking: le arătăm o singură dată (cu nume).
+      // Rezervările Booking / Airbnb din „Rezervări” apar și în iCal-ul platformei: le arătăm o singură dată (cu nume).
       if (p[0] === "Booking" && bookingRows[e.start + "|" + e.end]) return;
+      if (p[0] === "Airbnb" && calIsKnownAirbnb(airbnbKnown, e)) return;
       var reserved = p[0] === "Airbnb" && /reserved/i.test(e.summary);
       events.push({ src: p[0], kind: reserved ? "res" : "closed", start: e.start, end: e.end, label: e.summary });
     });

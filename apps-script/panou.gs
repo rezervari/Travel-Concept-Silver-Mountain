@@ -270,6 +270,7 @@ function pnStay(ctx, r) {
     state: String(r["Stare"] || ""),
     notes: String(r["Note"] || ""),
     link: String(r["Link"] || ""),
+    linkLabel: r["Sursă"] === "Airbnb" ? "Conversația Airbnb" : "Extranet",
     phase: pnPhase(ctx, r),
     days: pnIsIso(r["Check-in"]) ? Math.round((ciUtc(r["Check-in"]) - ciUtc(ctx.today)) / 86400000) : null,
     code: code,
@@ -346,10 +347,10 @@ function pnTodo(ctx, rows, openRequests, overlaps) {
   rows.forEach(function (r) {
     var nr = String(r["Nr. rezervare"]), who = r["Nume"] || nr, state = String(r["Stare"] || "");
     var cell = String(r["Cod pe yală"] || ""), code = (cell.match(/^(\d{4,9})#/) || [])[1] || "";
-    var extranet = r["Link"] ? [{ label: "Rezervarea în Extranet", href: String(r["Link"]) }] : [];
+    var extranet = r["Link"] ? [{ label: r["Sursă"] === "Airbnb" ? "Conversația Airbnb" : "Rezervarea în Extranet", href: String(r["Link"]) }] : [];
     var base = { nr: nr, texts: [], links: extranet };
 
-    if (state.indexOf(CI_STATE_CHECK) === 0 || state === CI_STATE_NO_CHECKOUT) {
+    if (state.indexOf(CI_STATE_CHECK) === 0 || state === CI_STATE_NO_CHECKOUT || state === CI_STATE_NO_CHECKOUT_AIRBNB) {
       out.push(pnItem(base, "stare|" + nr + "|" + state, "check", "normal", who + ": " + state,
         pnRange(r["Check-in"], r["Check-out"]) + " · " + (r["Sursă"] || "") + ". Verifică rezervarea și corectează foaia „Rezervări” dacă e nevoie."));
     }

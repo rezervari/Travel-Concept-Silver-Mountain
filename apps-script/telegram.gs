@@ -26,7 +26,7 @@ var TG_MAX_CHARS = 3900;   // limita Telegram e 4096 de caractere pe mesaj
 // alertă (anulări, suprapuneri, plată neîncasată, fișă fără rezervare, cod trimis, gateway offline / baterie / TTLock).
 var TG_EVENT_RULES = [
   [/^Rezervare nouă$/, "alert", "🛎️"],
-  [/^(Date modificate|Plecare modificată|Lipsește din calendarul Booking|E-mail Booking necunoscut)$/, "alert", "⚠️"],
+  [/^(Date modificate|Plecare modificată|Lipsește din calendarul (Booking|Airbnb)|E-mail (Booking|Airbnb) necunoscut|E-mail Airbnb necitit)$/, "alert", "⚠️"],
   [/^(Rezervare confirmată|Rezervare reconfirmată)$/, "info", "✅"],
   [/^(Fișă primită|Încă o fișă|Fișă necitită)$/, "info", "📝"],
   [/^(Link fișă trimis|Reminder fișă trimis)$/, "info", "✉️"],
@@ -312,11 +312,14 @@ function tgReady() {
   return !!tgToken() && !!p.getProperty(TG_CHAT_PROPERTY) && p.getProperty(TG_ENABLED_PROPERTY) !== "0";
 }
 
-// Butoane pentru un număr de rezervare Booking (10 cifre): Extranet.
+// Butoane pentru un număr de rezervare: Booking (10 cifre) → Extranet; Airbnb (HM…) → rezervarea pe Airbnb.
 function tgNrButtons(nr) {
-  return /^\d{8,12}$/.test(String(nr || ""))
-    ? [{ text: "Extranet", url: "https://admin.booking.com/hotel/hoteladmin/extranet_ng/manage/booking.html?res_id=" + nr + "&hotel_id=" + CI_BOOKING_HOTEL_ID }]
-    : [];
+  nr = String(nr || "");
+  if (/^\d{8,12}$/.test(nr)) {
+    return [{ text: "Extranet", url: "https://admin.booking.com/hotel/hoteladmin/extranet_ng/manage/booking.html?res_id=" + nr + "&hotel_id=" + CI_BOOKING_HOTEL_ID }];
+  }
+  if (/^HM[A-Z0-9]{8}$/.test(nr)) return [{ text: "Airbnb", url: "https://www.airbnb.com.ro/hosting/reservations/details/" + nr }];
+  return [];
 }
 
 function tgEsc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }

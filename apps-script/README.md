@@ -67,6 +67,16 @@ Din 10 în 10 minute, scriptul ține la zi foaia **„Rezervări”** din acela�
   începe în ziua sosirii). E-mailurile citite primesc eticheta **A13-procesat** în Gmail.
 - **Site** — solicitările din foaia „Solicitări” la care pui în coloana **Status** „Confirmată” (după plată) sau
   „Anulată”. Coloana are acum o listă de alegere; datele corectate în „Solicitări” se preiau și în „Rezervări”.
+- **Airbnb** — e-mailurile de la `automated@airbnb.com`: „Rezervare confirmată: <nume> sosește pe …” (are numele,
+  sosirea și plecarea cu orele, oaspeții, codul `HM…` și linkul conversației) și „Anulată: rezervarea HM… din perioada …”.
+  Căutarea Gmail e `subject:(rezervare OR rezervarea OR reservation)` (cu diacritice nu găsește nimic); tipul se
+  recunoaște după antetul `X-Template`. Calendarul iCal Airbnb (`ICS_AIRBNB`, citit de `calendar.gs`) are codul `HM…`
+  la fiecare „Reserved”: o rezervare din calendar care lipsește din foaie se adaugă (fără nume, până vine e-mailul),
+  datele se aliniază la calendar, iar una care nu mai apare (înainte de sosire) devine
+  `De verificat: nu mai apare în calendarul Airbnb`. Fișa pleacă prin mesajul programat din Airbnb (coloana „Link fișă
+  trimis” = „prin mesajul programat din Airbnb”). Rezervările Airbnb nu primesc e-mailul de recenzie Google.
+  Rândul Airbnb din foaie și evenimentul „Reserved” din iCal sunt aceeași rezervare: panoul, alarma de suprapunere și
+  încălzirea o numără o singură dată (`calAirbnbKnown`).
 - **Anulările** se mută în foaia **„Anulate”**. Tot ce face scriptul se notează în foaia **„Jurnal”**.
 
 Faza 1 **nu** trimite mesaje oaspeților și nu atinge yala (coloanele „Fișă…” / „Cod…” rămân goale).
@@ -94,14 +104,15 @@ După o modificare a `checkin.gs`: lipești codul nou și salvezi — atât.
 
 ## Foaia „Rezervări”
 
-- **Nr. rezervare** — numărul Booking sau `SITE-AAAALLZZ-hhmmss` (din „Primită la” al solicitării).
+- **Nr. rezervare** — numărul Booking, codul Airbnb (`HM…`) sau `SITE-AAAALLZZ-hhmmss` (din „Primită la” al solicitării).
 - **Stare** — o scrie scriptul:
   - `Confirmată`;
   - `Fără dată de plecare (aștept calendarul Booking)` — rezervare nouă care încă nu apare în iCal (se completează singură);
   - `De verificat: nu mai apare în calendarul Booking` — datele s-au schimbat sau rezervarea a dispărut din calendar;
     scriptul NU o anulează singur;
-  - `De verificat` — a venit alt tip de e-mail Booking despre rezervare (de ex. o modificare); rămâne așa până îl
-    schimbi tu în `Confirmată`.
+  - `De verificat` — a venit alt tip de e-mail Booking (sau Airbnb, cu codul în subiect) despre rezervare (de ex. o
+    modificare); rămâne așa până îl schimbi tu în `Confirmată`;
+  - Airbnb: `Fără dată de plecare (aștept calendarul Airbnb)` și `De verificat: nu mai apare în calendarul Airbnb`.
 - **Note** și coloanele adăugate de tine se păstrează (coloanele proprii nu se mută în „Anulate”).
 - Rezervările cu sosirea trecută nu se mai importă; cele deja în foaie rămân.
 - **Limba** — limba e-mailului de după sejur: `RO` / `EN` (din cetățenia din fișa de cazare, altfel după prefixul

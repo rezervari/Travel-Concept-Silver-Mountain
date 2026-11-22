@@ -89,6 +89,7 @@ main{max-width:1440px;margin:0 auto;padding:16px 16px 96px}
 .badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;background:var(--gray-tint);color:var(--muted)}
 .badge.booking{background:var(--blue-tint);color:var(--blue)}
 .badge.site{background:var(--yellow-tint);color:var(--yellow-ink)}
+.badge.airbnb{background:var(--c-airbnb);color:var(--c-airbnb-ink)}
 .badge.phase{background:transparent;padding:0;color:var(--ink)}
 .badge.ok{background:var(--green-tint);color:var(--green)}
 .badge.warn{background:var(--yellow-tint);color:var(--yellow-ink)}
@@ -529,18 +530,18 @@ body[data-tab="soc"] [data-tab]:not([data-tab~="soc"]){display:none}
   }
 
   function stayCard(s) {
-    var src = /booking/i.test(s.source) ? "booking" : /site/i.test(s.source) ? "site" : "";
+    var src = /booking/i.test(s.source) ? "booking" : /airbnb/i.test(s.source) ? "airbnb" : /site/i.test(s.source) ? "site" : "";
     var phase = s.phase === "upcoming" ? (s.days === 1 ? "mâine" : "peste " + s.days + " zile") : PHASE[s.phase];
     var steps = s.steps.map(function (st) {
       var mark = st.st === "done" ? "✓" : st.st === "warn" ? "!" : "";
-      var sub = st.at ? when(st.at) + (st.via ? " · " + st.via : "") : st.info ? (/Booking/.test(st.info) ? "mesaj Booking" : st.info) : "";
+      var sub = st.at ? when(st.at) + (st.via ? " · " + st.via : "") : st.info ? (/Booking/.test(st.info) ? "mesaj Booking" : /Airbnb/.test(st.info) ? "mesaj Airbnb" : st.info) : "";
       return '<li class="step st-' + st.st + '"><span class="dt">' + mark + "</span>" + esc(st.label) + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</li>";
     }).join("");
     var stateWarn = s.state && s.state !== "Confirmată" ? '<div class="state-warn">' + esc(s.state) + "</div>" : "";
     var code = s.code ? '<div class="code-line">' + ic("key") + (s.backup ? "Cod de rezervă " : "Cod ") + "<b>" + esc(s.code) + "#</b>" +
       '<span style="color:var(--muted)">' + esc(s.window) + '</span><button type="button" class="btn btn-copy" style="margin-left:auto" data-copy="' + esc(s.code) + '">' + ic("copy") + "Copiază</button></div>" : "";
     var links = [];
-    if (s.link) links.push({ label: "Extranet", href: s.link });
+    if (s.link) links.push({ label: s.linkLabel || "Extranet", href: s.link });
     if (s.wa) links.push({ label: "WhatsApp", href: s.wa, kind: "wa" });
     if (s.tel) links.push({ label: "Sună", href: s.tel, kind: "tel" });
     if (s.email && !/guest\.booking\.com$/i.test(s.email)) links.push({ label: "E-mail", href: "mailto:" + s.email, kind: "mail" });

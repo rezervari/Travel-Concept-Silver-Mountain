@@ -7,7 +7,9 @@
  *      așa că data plecării se ia din calendarul iCal Booking (evenimentul care începe în ziua sosirii).
  *      Firele citite primesc eticheta „A13-procesat” în Gmail.
  *   2. Site: solicitările din foaia „Solicitări” marcate în coloana Status cu „Confirmată” sau „Anulată”.
- *   3. Rezervările anulate se mută în foaia „Anulate”. Tot ce face scriptul se notează în foaia „Jurnal”.
+ *   3. Airbnb: e-mailurile „Rezervare confirmată: <nume> sosește pe …” / „Anulată: rezervarea HM… din perioada …”
+ *      (de la automated@airbnb.com), verificate cu calendarul iCal Airbnb (evenimentele „Reserved” au codul HM…).
+ *   4. Rezervările anulate se mută în foaia „Anulate”. Tot ce face scriptul se notează în foaia „Jurnal”.
  *
  * Faza 1 NU trimite mesaje oaspeților și nu atinge yala: coloanele „Fișă…” / „Cod…” rămân goale.
  * Linkul iCal Booking e secret și NU stă în cod: Project Settings → Script Properties → ICS_BOOKING.
@@ -45,6 +47,14 @@ var CI_REQUEST_STATUSES = ["Nouă", "De verificat", "Fără e-mail (cotă)", "A�
 var CI_LUNI = ["ianuarie", "februarie", "martie", "aprilie", "mai", "iunie", "iulie", "august",
                "septembrie", "octombrie", "noiembrie", "decembrie"];
 
+// Airbnb (e-mailurile vin de la automated@airbnb.com, în română). Căutarea Gmail cu diacritice („confirmată”) nu găsește
+// nimic, de aceea subiectul se caută după cuvintele fără diacritice; tipul se recunoaște după antetul X-Template.
+var CI_AIRBNB_QUERY = 'from:automated@airbnb.com subject:(rezervare OR rezervarea OR reservation) -label:' + CI_GMAIL_LABEL;
+var CI_AIRBNB_CODE_RE = /\b(HM[A-Z0-9]{8})\b/;
+var CI_AIRBNB_HOST = "https://www.airbnb.com.ro";
+var CI_LUNI_SCURT = { ian: 1, jan: 1, feb: 2, mar: 3, apr: 4, mai: 5, may: 5, iun: 6, jun: 6, iul: 7, jul: 7, aug: 8,
+                      sep: 9, oct: 10, noi: 11, nov: 11, dec: 12 };
+
 // Faza 2 — sosirea: fișa de cazare, codul de pe yală (prin ttlock.gs), e-mailurile.
 var CI_FORM_EMBED = "https://fisacazare.ro/app/embed?id=xnyDvg&sid=0&p=1&t=1&js=1"; // fișa, se poate precompleta
 var CI_FORM_PUBLIC = "https://fisacazare.ro/forms/a13-travel-concept-silver-mountain-XM.qQg";
@@ -73,6 +83,8 @@ var CI_BATTERY_OK = 50;         // peste atât (baterii schimbate) incidentul se
 var CI_STATE_OK = "Confirmată";
 var CI_STATE_NO_CHECKOUT = "Fără dată de plecare (aștept calendarul Booking)";
 var CI_STATE_MISSING_ICAL = "De verificat: nu mai apare în calendarul Booking";
+var CI_STATE_MISSING_AIRBNB = "De verificat: nu mai apare în calendarul Airbnb";
+var CI_STATE_NO_CHECKOUT_AIRBNB = "Fără dată de plecare (aștept calendarul Airbnb)";
 var CI_STATE_CHECK = "De verificat";
 var CI_STATE_CANCELLED = "Anulată";
 
@@ -85,7 +97,9 @@ function checkinSync() {
   try {
     var ctx = ciOpen();
     ciProcessBookingEmails(ctx);
+    try { ciProcessAirbnbEmails(ctx); } catch (e) { ciStepError(ctx, "e-mailuri Airbnb", String(e && e.message || e).slice(0, 300)); }
     ciSyncSiteRequests(ctx);
+    try { ciCheckAirbnbCalendar(ctx); } catch (e) { ciStepError(ctx, "calendar Airbnb", String(e && e.message || e).slice(0, 300)); }
     if (typeof calSync === "function") {   // calendar.gs: blocările temporare „Așteaptă plata” + suprapuneri
       try { calSync(ctx); } catch (e) { ciStepError(ctx, "calendar", String(e && e.message || e).slice(0, 300)); }
     }
@@ -224,7 +238,7 @@ function ciProcessBookingEmails(ctx) {
     ciHandleBookingMessage(ctx, m);
     ctx.processedNew.push(m.getId());
   });
-  ctx.threadsToLabel = threads;
+  ctx.threadsToLabel = ctx.threadsToLabel.concat(threads);
 }
 
 function ciHandleBookingMessage(ctx, m) {
@@ -309,10 +323,12 @@ function ciBookingCancelled(ctx, info, body, cancelledAt) {
 function ciCancelAlert(row, where) {
   var ci = row["Check-in"], co = row["Check-out"];
   var nights = /^\d{4}-\d{2}-\d{2}$/.test(co) ? ci + " – " + ciAddDays(co, -1) : "începând cu " + ci;
+  var others = ["Booking", "Airbnb", "Travelminit"].filter(function (p) { return p !== row["Sursă"]; });
   ciAlertOwner("Rezervare anulată " + where + ": " + row["Nr. rezervare"] + " (" + ci + (co ? " → " + co : "") + ")",
     "Rezervarea " + row["Nr. rezervare"] + (row["Nume"] ? " (" + row["Nume"] + ")" : "") + " a fost anulată " + where + ".\n" +
     "Am mutat-o în foaia „Anulate”" + (row["Cod șters"] ? " și am șters codul de pe yală" : "") + ".\n\n" +
-    "Dacă ai blocat manual nopțile " + nights + " pe Airbnb sau Travelminit, deblochează-le acum; altfel rămân închise peste tot.");
+    "Dacă ai blocat manual nopțile " + nights + " pe " + others.slice(0, -1).join(", ") + " sau " + others[others.length - 1] +
+    ", deblochează-le acum; altfel rămân închise peste tot.");
 }
 
 function ciExtranetLink(body, nr) {
@@ -320,6 +336,243 @@ function ciExtranetLink(body, nr) {
   if (m) return m[0].replace(/[).,;]+$/, "");
   return "https://admin.booking.com/hotel/hoteladmin/extranet_ng/manage/booking.html?res_id=" + nr +
          "&hotel_id=" + CI_BOOKING_HOTEL_ID + "&lang=ro";
+}
+
+/* ============================== AIRBNB: E-MAILURI ============================== */
+
+// Confirmarea (X-Template BOOKING_CONFIRMATION_TO_HOST; înainte de 2026 „…reservation_host_confirmation”) are tot:
+// numele (în subiect), sosirea și plecarea cu orele, oaspeții, codul HM… și linkul conversației (hosting/thread/<id>).
+// Anularea (X-Template CANCELLATIONS_…): „Anulată: rezervarea HM… din perioada 24–28 aug. 2026”.
+// Alt e-mail Airbnb cu codul unei rezervări din foaie în SUBIECT (de ex. o modificare) → rezervarea devine „De verificat”.
+// Mementourile („Memento despre rezervare: …”) au codul doar în corp și se ignoră.
+function ciProcessAirbnbEmails(ctx) {
+  var threads = GmailApp.search(CI_AIRBNB_QUERY, 0, 50);
+  var messages = [];
+  threads.forEach(function (t) {
+    t.getMessages().forEach(function (m) {
+      if (ctx.processed.indexOf(m.getId()) < 0) messages.push(m);
+    });
+  });
+  messages.sort(function (a, b) { return a.getDate() - b.getDate(); });   // confirmarea înaintea anulării ei
+  messages.forEach(function (m) {
+    ciHandleAirbnbMessage(ctx, m);
+    ctx.processedNew.push(m.getId());
+  });
+  ctx.threadsToLabel = ctx.threadsToLabel.concat(threads);
+}
+
+function ciHandleAirbnbMessage(ctx, m) {
+  var subject = ciNfc(String(m.getSubject() || "")).replace(/\s+/g, " ").trim();
+  var template = "";
+  try { template = String(m.getHeader("X-Template") || ""); } catch (e) {}
+  var body = ciAirbnbText(m.getPlainBody());
+  var subjectCode = (subject.match(CI_AIRBNB_CODE_RE) || [])[1] || "";
+  var when = m.getDate();
+
+  if (/BOOKING_CONFIRMATION|reservation_host_confirmation/i.test(template) || /^(Rezervare confirmat|Reservation confirmed)/i.test(subject)) {
+    var info = ciParseAirbnbConfirmation(subject, body, when);
+    if (!info.code || !info.checkin) { ciLog(ctx, "E-mail Airbnb necitit", info.code, subject.slice(0, 120)); return; }
+    ciAirbnbNew(ctx, info);
+    return;
+  }
+  if (/CANCEL/i.test(template) || /^(Anulat|Canceled|Cancelled)/i.test(subject)) {
+    var code = subjectCode || (body.match(CI_AIRBNB_CODE_RE) || [])[1] || "";
+    if (code) ciAirbnbCancelled(ctx, code, subject, body, when);
+    return;
+  }
+  if (subjectCode) {
+    var row = ciFind(ctx.active, subjectCode);
+    if (row) {
+      row["Stare"] = CI_STATE_CHECK;
+      ciAddNote(row, "E-mail Airbnb: " + subject);
+      ciTouch(row);
+      ciLog(ctx, "E-mail Airbnb necunoscut", subjectCode, subject);
+    }
+  }
+}
+
+// Corpul text al e-mailurilor Airbnb: fără caracterele invizibile din antet și cu spațiile strânse (coloanele
+// „Check-in   Check-out” sunt despărțite de zeci de spații).
+function ciAirbnbText(s) {
+  return ciNfc(String(s || "")).replace(/\r/g, "").replace(/[­͏​-‏⁠﻿]/g, "")
+    .replace(/[ \t ]+/g, " ").split("\n").map(function (l) { return l.trim(); }).join("\n");
+}
+
+function ciNfc(s) { return s.normalize ? s.normalize("NFC") : s; }   // lipsește în motorul vechi (Rhino) al proiectului
+
+// „Rezervare confirmată: Popescu Ion sosește pe 28 nov.” + corpul (în ordinea din e-mail: data și ora sosirii, apoi ale
+// plecării) → { code, name, checkin, checkout, inHour, outHour, guests, thread }. Datele din e-mail n-au anul:
+// se ia anul e-mailului (sau următorul, dacă data ar ieși în trecut).
+function ciParseAirbnbConfirmation(subject, body, received) {
+  var name = ((subject.match(/:\s*(.+?)\s+(sosește|soseste|arrives)\b/i) || [])[1] || "").trim();
+  var lines = body.split("\n").filter(function (l) { return l; });
+  var start = -1;
+  for (var i = 0; i < lines.length; i++) if (/^Check-?in\b/i.test(lines[i])) { start = i; break; }
+  var dates = [], hours = [], guests = "";
+  if (start >= 0) {
+    for (var j = start + 1; j < lines.length && j < start + 15; j++) {
+      var l = lines[j];
+      if (/^(OASPE[ȚT]I|Oaspe[țt]i|GUESTS?)$/i.test(l)) { guests = lines[j + 1] || ""; break; }
+      dates = dates.concat(ciAirbnbDayMonths(l));
+      var t, re = /\b(\d{1,2}):(\d{2})\b/g;
+      while ((t = re.exec(l))) hours.push(ciPad(t[1]) + ":" + t[2]);
+    }
+  }
+  var ref = Utilities.formatDate(received || new Date(), CI_TZ, "yyyy-MM-dd");
+  var checkin = dates[0] ? ciAirbnbIso(dates[0], ref) : "";
+  var checkout = dates[1] && checkin ? ciAirbnbIso(dates[1], checkin) : "";
+  var thread = (body.match(/hosting\/thread\/(\d+)/) || [])[1] || "";
+  var code = (body.match(/COD DE CONFIRMARE\s*\n?\s*(HM[A-Z0-9]{8})/i) || body.match(CI_AIRBNB_CODE_RE) || [])[1] || "";
+  return {
+    code: code, name: name, checkin: checkin, checkout: checkout && checkout > checkin ? checkout : "",
+    inHour: hours[0] || "", outHour: hours[1] || "",
+    guests: guests.replace(/,\s*/g, " + ").replace(/\s+/g, " ").trim(),
+    thread: thread
+  };
+}
+
+// Toate datele „28 nov.” / „1 dec.” (sau „Nov 28”) dintr-un rând → [{ day, month }].
+function ciAirbnbDayMonths(line) {
+  var out = [], m, re = /(\d{1,2})\s+([A-Za-zĂÂÎȘȚăâîșț]{3,})\.?|\b([A-Za-z]{3,})\.?\s+(\d{1,2})\b/g;
+  while ((m = re.exec(line))) {
+    var day = m[1] || m[4], mon = CI_LUNI_SCURT[String(m[2] || m[3]).toLowerCase().slice(0, 3)];
+    if (mon && +day >= 1 && +day <= 31) out.push({ day: +day, month: mon, year: 0 });
+  }
+  return out;
+}
+
+// { day, month, year? } → „AAAA-LL-ZZ”; fără an: anul datei de referință, sau următorul dacă ar ieși înaintea ei.
+function ciAirbnbIso(d, refIso) {
+  var y = d.year || +refIso.slice(0, 4);
+  var iso = y + "-" + ciPad(d.month) + "-" + ciPad(d.day);
+  if (!d.year && iso < ciAddDays(refIso, -2)) iso = (y + 1) + "-" + ciPad(d.month) + "-" + ciPad(d.day);
+  return iso;
+}
+
+// „din perioada 24–28 aug. 2026” / „28 nov. – 1 dec. 2026” / „30 dec. 2026 – 2 ian. 2027” → { checkin, checkout }.
+function ciParseAirbnbRange(text, received) {
+  var m = String(text).match(/(\d{1,2})\s*(?:([A-Za-zĂÂÎȘȚăâîșț]{3,})\.?\s*(\d{4})?)?\s*[–—-]\s*(\d{1,2})\s+([A-Za-zĂÂÎȘȚăâîșț]{3,})\.?\s*(\d{4})?/);
+  if (!m) return { checkin: "", checkout: "" };
+  var m2 = CI_LUNI_SCURT[m[5].toLowerCase().slice(0, 3)], m1 = m[2] ? CI_LUNI_SCURT[m[2].toLowerCase().slice(0, 3)] : m2;
+  if (!m1 || !m2) return { checkin: "", checkout: "" };
+  var ref = Utilities.formatDate(received || new Date(), CI_TZ, "yyyy-MM-dd");
+  var y2 = m[6] ? +m[6] : 0, y1 = m[3] ? +m[3] : (y2 && m1 > m2 ? y2 - 1 : y2);
+  // Anularea poate veni după sejur: cu anul scris în subiect se ia anul acela; altfel cel al e-mailului.
+  var checkin = y1 ? y1 + "-" + ciPad(m1) + "-" + ciPad(m[1]) : ciAirbnbIso({ day: +m[1], month: m1 }, ref);
+  var checkout = y2 ? y2 + "-" + ciPad(m2) + "-" + ciPad(m[4]) : ciAirbnbIso({ day: +m[4], month: m2 }, checkin);
+  return { checkin: checkin, checkout: checkout > checkin ? checkout : "" };
+}
+
+function ciAirbnbLink(code, thread) {
+  return thread ? CI_AIRBNB_HOST + "/hosting/thread/" + thread : CI_AIRBNB_HOST + "/hosting/reservations/details/" + code;
+}
+
+function ciAirbnbNew(ctx, info) {
+  if (ciFind(ctx.cancelled, info.code)) return;
+  var row = ciFind(ctx.active, info.code), fresh = !row;
+  if (fresh) {
+    if (info.checkin < ctx.today) return;   // e-mail vechi (sejur trecut): nimic de făcut
+    row = ciNewRow();
+    row["Nr. rezervare"] = info.code;
+    row["Sursă"] = "Airbnb";
+    row["Check-in"] = info.checkin;
+    row["Check-out"] = info.checkout;
+    row["Stare"] = info.checkout ? CI_STATE_OK : CI_STATE_NO_CHECKOUT_AIRBNB;
+    ctx.active.rows.push(row);
+  }
+  // Rândul poate exista deja din calendarul Airbnb (fără nume): completez doar ce lipsește.
+  if (!row["Check-in"]) row["Check-in"] = info.checkin;
+  if (!row["Check-out"] && info.checkout) row["Check-out"] = info.checkout;
+  row["Nopți"] = ciNights(row["Check-in"], row["Check-out"]) || row["Nopți"];
+  if (!row["Nume"] && info.name) row["Nume"] = info.name;
+  if (!row["Oaspeți"] && info.guests) row["Oaspeți"] = info.guests;
+  if (info.thread || !row["Link"]) row["Link"] = ciAirbnbLink(info.code, info.thread);
+  if (info.outHour && info.outHour !== ciPad(CI_CHECKOUT_HOUR) + ":00") ciAddNote(row, "Check-out Airbnb: " + info.outHour);
+  ciTouch(row);
+  if (fresh) {
+    ciLog(ctx, "Rezervare nouă", info.code, "Airbnb, " + (info.name ? info.name + ", " : "") + "sosire " + info.checkin +
+          (info.checkout ? ", plecare " + info.checkout : "") + (info.guests ? ", " + info.guests : ""));
+  }
+}
+
+function ciAirbnbCancelled(ctx, code, subject, body, when) {
+  var name = ((body.match(/oaspetele (?:tău|tau) (.+?) a (?:trebuit să anuleze|anulat)/i) || [])[1] || "").trim();
+  var row = ciFind(ctx.active, code);
+  if (row) {
+    ciRemove(ctx.active, row);
+    ciDeleteCodeNow(ctx, row, "anulare Airbnb");
+  } else {
+    if (ciFind(ctx.cancelled, code)) return;
+    var range = ciParseAirbnbRange(subject, when);
+    if (!range.checkin) range = ciParseAirbnbRange(body, when);
+    if (!range.checkin || range.checkin < ctx.today) return;   // anulare veche sau de necitit: nu e treaba noastră
+    row = ciNewRow();
+    row["Nr. rezervare"] = code;
+    row["Sursă"] = "Airbnb";
+    row["Check-in"] = range.checkin;
+    row["Check-out"] = range.checkout;
+    row["Nopți"] = ciNights(range.checkin, range.checkout);
+    row["Link"] = ciAirbnbLink(code, "");
+  }
+  if (name && !row["Nume"]) row["Nume"] = name;
+  row["Stare"] = CI_STATE_CANCELLED;
+  row["Anulată la"] = when;
+  ciTouch(row);
+  ctx.cancelled.rows.push(row);
+  ciLog(ctx, "Rezervare anulată", code, "Airbnb, sosire " + row["Check-in"]);
+  ciCancelAlert(row, "pe Airbnb");
+}
+
+/* ============================== AIRBNB: CALENDAR (iCal) ============================== */
+
+// Calendarul Airbnb (ICS_AIRBNB, citit de calendar.gs, cache 10 min): evenimentele „Reserved” au codul HM… .
+//   1. O rezervare din calendar care lipsește din foaie (e-mailul a întârziat sau s-a pierdut) se adaugă, fără nume.
+//   2. Rezervările Airbnb din foaie care n-au început: datele se aliniază la calendar; dacă nu mai apar, devin
+//      „De verificat” (nu se anulează nimic automat; anularea vine prin e-mail).
+// Calendar lipsă / căzut sau fără coduri (format vechi) → nu trag nicio concluzie.
+function ciCheckAirbnbCalendar(ctx) {
+  if (typeof calPlatformEvents !== "function") return;
+  var st = calPlatformEvents(false).Airbnb;
+  if (!st || !st.ok) return;
+  var reserved = (st.events || []).filter(function (e) { return /reserved/i.test(e.summary || ""); });
+  if (reserved.length && !reserved.some(function (e) { return e.code; })) return;
+
+  reserved.forEach(function (e) {
+    if (!e.code || e.start < ctx.today || ciFind(ctx.active, e.code) || ciFind(ctx.cancelled, e.code)) return;
+    var row = ciNewRow();
+    row["Nr. rezervare"] = e.code;
+    row["Sursă"] = "Airbnb";
+    row["Check-in"] = e.start;
+    row["Check-out"] = e.end;
+    row["Nopți"] = ciNights(e.start, e.end);
+    row["Stare"] = CI_STATE_OK;
+    row["Link"] = ciAirbnbLink(e.code, "");
+    ciTouch(row);
+    ctx.active.rows.push(row);
+    ciLog(ctx, "Rezervare nouă", e.code, "Airbnb (din calendar), sosire " + e.start + ", plecare " + e.end);
+  });
+
+  ctx.active.rows.forEach(function (r) {
+    if (r["Sursă"] !== "Airbnb" || r["Stare"] === CI_STATE_CANCELLED) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(r["Check-in"]) || r["Check-in"] <= ctx.today) return;   // sejur început: nu mai verific
+    var nr = String(r["Nr. rezervare"]);
+    var ev = reserved.filter(function (e) { return e.code === nr; })[0];
+    if (ev) {
+      if (ev.start !== r["Check-in"] || ev.end !== r["Check-out"]) {
+        ciLog(ctx, "Date modificate", nr, "Airbnb: " + r["Check-in"] + " → " + (r["Check-out"] || "?") + " devine " + ev.start + " → " + ev.end);
+        r["Check-in"] = ev.start;
+        r["Check-out"] = ev.end;
+        r["Nopți"] = ciNights(ev.start, ev.end);
+        ciTouch(r);
+      }
+      // „De verificat” pus de un e-mail Airbnb necunoscut rămâne până îl schimbi tu în foaie.
+      if (r["Stare"] === CI_STATE_MISSING_AIRBNB || r["Stare"] === CI_STATE_NO_CHECKOUT_AIRBNB) { r["Stare"] = CI_STATE_OK; ciTouch(r); }
+    } else if (r["Stare"] !== CI_STATE_MISSING_AIRBNB && r["Stare"] !== CI_STATE_CHECK) {
+      r["Stare"] = CI_STATE_MISSING_AIRBNB;
+      ciTouch(r);
+      ciLog(ctx, "Lipsește din calendarul Airbnb", nr, r["Check-in"] + " → " + r["Check-out"]);
+    }
+  });
 }
 
 /* ============================== BOOKING: CALENDAR (iCal) ============================== */
@@ -780,6 +1033,13 @@ function ciSendFormLinks(ctx) {
         ciLog(ctx, "Link fișă trimis", r["Nr. rezervare"], t ? "MOD TEST: la proprietar" : "pe adresa Booking " + alias);
       } else if (!r["Link fișă trimis"]) {
         r["Link fișă trimis"] = "prin mesajul programat din Booking";
+        ciTouch(r);
+      }
+      return;
+    }
+    if (r["Sursă"] === "Airbnb") {   // fișa pleacă prin mesajul programat din Airbnb („Informatii oaspeti”, ziua sosirii, 08:00)
+      if (!r["Link fișă trimis"]) {
+        r["Link fișă trimis"] = "prin mesajul programat din Airbnb";
         ciTouch(r);
       }
       return;
