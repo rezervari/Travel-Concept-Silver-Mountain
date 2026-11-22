@@ -232,10 +232,15 @@ După Faza 1 și legătura TTLock, `checkinSync` (același declanșator, la 10 m
   12:00 sau la o oră după check-out, dacă e mai târziu), textele către oaspete și încălzirea (21 °C de la check-out).
   Dacă o schimbi după ce codul e pus, valabilitatea se mută automat și oaspetele primește codul din nou.
 - **Reminder la 13:00** (ziua sosirii, fișă necompletată): site = e-mail de reminder către oaspete; Booking = textul
-  (RO + EN) direct pe adresa Booking, dacă există, plus același text la tine, gata de lipit în chatul Booking.
+  (RO + EN) direct pe adresa Booking, dacă există, plus același text la tine, gata de lipit în chatul Booking;
+  Airbnb = textul (RO + EN) la tine, gata de lipit în conversația Airbnb.
 - **Cod de rezervă la 16:00** (fișă tot necompletată): un cod aleator de 6 cifre pe yală (16:00 → ora de check-out), etichetat
   „· REZERVĂ”. Site = e-mail cu codul la oaspete; Booking = textul direct pe adresa Booking (dacă există) + la tine
-  textul de lipit; fără nicio adresă = doar textul de lipit. Dacă fișa vine mai târziu, codul rămâne cel de rezervă.
+  textul de lipit; Airbnb = textul de lipit în conversația Airbnb; fără nicio adresă = doar textul de lipit. Dacă fișa
+  vine mai târziu, codul rămâne cel de rezervă.
+- La rezervările Airbnb, alertele (Telegram + e-mail) au linkul conversației Airbnb: în Telegram devine butonul
+  **„Conversația Airbnb”** (în panou: linkul „Conversația Airbnb” de pe elementul de la „De făcut”). Textele de lipit nu
+  conțin numere de telefon (Airbnb le ascunde în mesaje).
 
 **Adresa Booking a oaspetelui** (`…@guest.booking.com`, din Extranet → rezervarea sau din Pulse): o pui în coloana
 **„E-mail Booking”** din „Rezervări” (imediat după „E-mail”; acceptă doar `@guest.booking.com`), **din panou** (câmpul de

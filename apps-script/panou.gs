@@ -367,12 +367,14 @@ function pnTodo(ctx, rows, openRequests, overlaps) {
       out.push(al);
     }
 
-    // Reminder de lipit în chatul Booking (aceleași condiții ca ciArrivalReminders).
-    if (r["Sursă"] === "Booking" && r["Check-in"] === ctx.today && !r["Fișă primită"] && !code &&
+    // Reminder de lipit în chatul Booking / conversația Airbnb (aceleași condiții ca ciArrivalReminders).
+    var chatSrc = r["Sursă"] === "Booking" || r["Sursă"] === "Airbnb";
+    if (chatSrc && r["Check-in"] === ctx.today && !r["Fișă primită"] && !code &&
         ctx.now >= ciAt(ctx.today, CI_REMIND_HOUR)) {
       var sentAlias = ciHasFlag(r, "alias-reminder");
       var it = pnItem(base, "reminder|" + nr, "booking-chat", "high",
-        sentAlias ? "Reminder fișă trimis pe adresa Booking" : "De trimis în chatul Booking: reminder fișă",
+        sentAlias ? "Reminder fișă trimis pe adresa Booking"
+                  : r["Sursă"] === "Airbnb" ? "De trimis în conversația Airbnb: reminder fișă" : "De trimis în chatul Booking: reminder fișă",
         who + " sosește azi și nu a completat fișa. " +
         (sentAlias ? "L-am trimis direct pe adresa Booking; verifică în Extranet că apare în conversație, altfel lipește-l tu. " : "") +
         "Dacă până la 16:00 tot nu o completează, pun automat un cod de rezervă.");
@@ -380,11 +382,12 @@ function pnTodo(ctx, rows, openRequests, overlaps) {
       out.push(it);
     }
 
-    // Codul de rezervă pe care oaspetele nu-l primește automat (Booking sau fără e-mail).
+    // Codul de rezervă pe care oaspetele nu-l primește automat (Booking, Airbnb sau fără e-mail).
     if (code && /REZERVĂ/.test(cell) && (r["Sursă"] === "Booking" || !r["E-mail"])) {
       var aliasB = r["Sursă"] === "Booking" ? ciBookingAlias(r) : "";
       var b = pnItem(base, "rezerva|" + nr, "booking-chat", "high",
-        (aliasB ? "Cod de rezervă trimis pe adresa Booking: " : "De trimis oaspetelui: codul de rezervă ") + code + "#",
+        (aliasB ? "Cod de rezervă trimis pe adresa Booking: "
+                : r["Sursă"] === "Airbnb" ? "De trimis în conversația Airbnb: codul de rezervă " : "De trimis oaspetelui: codul de rezervă ") + code + "#",
         who + " · " + (cell.split(" · ")[2] || "") + ". Fișa nu a venit până la 16:00, așa că am pus pe yală un cod aleator." +
         (aliasB ? " L-am trimis direct pe adresa Booking; verifică în Extranet că apare în conversație, altfel lipește-l tu." : ""));
       b.texts = [{ label: "Română", text: ciBackupChatText("ro", code, r) }, { label: "English", text: ciBackupChatText("en", code, r) }];
@@ -467,6 +470,9 @@ function pnAlert(key, r, code) {
     case "fara-email":
       return r["Fișă primită"] ? null : ["Link fișă netrimis: lipsește e-mailul", "Trimite-i oaspetelui linkul spre fișa de cazare.",
                                         ["Link fișă", CI_FORM_PUBLIC]];
+    case "telefon-airbnb":
+      return ["Fișă Airbnb cu alt telefon", "Telefonul din fișă diferă de cel din Airbnb (poate fi al altui adult). Codul " +
+              (code ? code + "# " : "") + "e făcut din telefonul din fișă. Verifică în conversația Airbnb că fișa e a acestui oaspete."];
     default:
       return null;
   }

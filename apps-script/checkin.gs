@@ -1096,6 +1096,7 @@ function ciSendFormLinks(ctx) {
 
 // În ziua sosirii, de la 13:00: dacă fișa nu e completată, îi amintim oaspetelui s-o completeze.
 // Site (avem e-mail): reminder direct oaspetelui. Booking (fără e-mail): text gata de lipit în chat, la proprietar.
+// Airbnb: text gata de lipit în conversația Airbnb (butonul „Conversația Airbnb” din Telegram / panou duce acolo).
 // Dacă fișa a venit, dar codul tot nu e pus (eroare TTLock), te anunț o singură dată.
 function ciArrivalReminders(ctx) {
   ctx.active.rows.forEach(function (r) {
@@ -1129,6 +1130,15 @@ function ciArrivalReminders(ctx) {
       return;
     }
 
+    if (r["Sursă"] === "Airbnb") {
+      ciAlertOnce(r, "reminder-fisa", "Reminder fișă de trimis în Airbnb: " + (r["Nume"] || r["Nr. rezervare"]),
+        "Rezervarea Airbnb " + r["Nr. rezervare"] + " sosește azi, dar fișa de cazare nu e completată. " +
+        "Trimite-i oaspetelui, în conversația Airbnb, mesajul de mai jos (în limba lui). " +
+        "Dacă până la ora 16:00 tot nu o completează, pun automat pe yală un cod de rezervă și ți-l trimit, tot de lipit în conversație.\n\n" +
+        "— RO —\n" + ciReminderChatText("ro") + "\n\n— EN —\n" + ciReminderChatText("en"));
+      return;
+    }
+
     if (!r["E-mail"]) {
       ciAlertOnce(r, "reminder-fisa", "Reminder fișă: " + r["Nr. rezervare"] + " nu are e-mail",
         "Rezervarea sosește azi și nu are fișa completată, dar nu am e-mailul oaspetelui. Trimite-i linkul: " + CI_FORM_PUBLIC);
@@ -1143,7 +1153,8 @@ function ciArrivalReminders(ctx) {
 }
 
 // În ziua sosirii, de la 16:00: dacă fișa tot nu a venit, pun un cod de rezervă aleator pe yală (nu știm telefonul).
-// Oaspetele îl primește ca de obicei (site: e-mail; Booking: text de lipit în chat, la proprietar). Fișa rămâne de completat.
+// Oaspetele îl primește ca de obicei (site: e-mail; Booking: text de lipit în chat, la proprietar; Airbnb: text de lipit
+// în conversația Airbnb, la proprietar). Fișa rămâne de completat.
 function ciBackupCodes(ctx) {
   ctx.active.rows.forEach(function (r) {
     if (r["Check-in"] !== ctx.today || r["Cod pe yală"] || r["Fișă primită"] || r["Stare"] === CI_STATE_CANCELLED) return;
@@ -1182,11 +1193,13 @@ function ciBackupCodes(ctx) {
                                 ciBackupChatText("ro", code, r) + "\n\n" + ciBackupChatText("en", code, r));
         ciLog(ctx, "Cod de rezervă trimis", nr, t ? "MOD TEST: la proprietar" : "pe adresa Booking " + alias);
       }
+      var airbnb = r["Sursă"] === "Airbnb";
       ciAlertOnce(r, "rezerva-trimite",
-        (alias ? "Cod de rezervă trimis pe adresa Booking: " : "Cod de rezervă de trimis oaspetelui: ") + (r["Nume"] || nr),
+        (alias ? "Cod de rezervă trimis pe adresa Booking: " : airbnb ? "Cod de rezervă de trimis în Airbnb: " : "Cod de rezervă de trimis oaspetelui: ") + (r["Nume"] || nr),
         "Fișa nu a fost completată până la ora 16:00, așa că am pus pe yală un cod de rezervă: " + code + "#  (" + ciWindowLabel(r) + ").\n" +
         (alias ? "L-am trimis direct pe adresa Booking a oaspetelui (" + alias + "). Verifică în Extranet că apare în conversație; dacă nu, lipește-i tu mesajul de mai jos."
-               : r["Sursă"] === "Booking" ? "Trimite-i din chatul Booking mesajul de mai jos." : "Trimite-i oaspetelui mesajul de mai jos.") + "\n\n" +
+               : r["Sursă"] === "Booking" ? "Trimite-i din chatul Booking mesajul de mai jos."
+               : airbnb ? "Trimite-i oaspetelui, în conversația Airbnb, mesajul de mai jos (în limba lui)." : "Trimite-i oaspetelui mesajul de mai jos.") + "\n\n" +
         "— RO —\n" + ciBackupChatText("ro", code, r) + "\n\n— EN —\n" + ciBackupChatText("en", code, r));
       r["Cod trimis"] = new Date();
       ciTouch(r);
@@ -1408,11 +1421,19 @@ function ciAlertOwner(subject, text) {
   MailApp.sendEmail(Session.getEffectiveUser().getEmail(), "[Check-in A13] " + subject, text, { name: "Check-in " + BRAND });
 }
 
-// Alertă o singură dată pe rezervare și tip (coloana „Alerte”).
+// Alertă o singură dată pe rezervare și tip (coloana „Alerte”). La Airbnb se adaugă linkul conversației (în Telegram
+// devine butonul „Conversația Airbnb”).
 function ciAlertOnce(r, key, subject, text) {
   if (ciHasFlag(r, key)) return;
-  ciAlertOwner(subject, text + "\n\nRezervarea: " + r["Nr. rezervare"] + " (" + r["Sursă"] + "), " + r["Check-in"] + " → " + r["Check-out"]);
+  ciAlertOwner(subject, text + "\n\nRezervarea: " + r["Nr. rezervare"] + " (" + r["Sursă"] + "), " + r["Check-in"] + " → " + r["Check-out"] +
+               ciAirbnbThreadLine(r));
   ciMarkOnce(r, key);
+}
+
+// „\nConversația Airbnb: https://www.airbnb.com.ro/hosting/thread/…” pentru o rezervare Airbnb cu linkul conversației; altfel „”.
+function ciAirbnbThreadLine(r) {
+  var link = String(r["Link"] || "");
+  return r["Sursă"] === "Airbnb" && /^https:\/\/www\.airbnb\.[a-z.]+\/hosting\/thread\/\d+$/.test(link) ? "\nConversația Airbnb: " + link : "";
 }
 
 // Coloana „Alerte” ține ce s-a trimis deja (alerte și reminder-e), ca să nu se repete la fiecare rulare.

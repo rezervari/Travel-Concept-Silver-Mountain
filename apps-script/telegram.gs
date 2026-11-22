@@ -98,10 +98,13 @@ function tgEvents(rows) {
 }
 
 // Din ciAlertOwner: aceleași alerte ca pe e-mail. Textele „— RO — / — EN —” devin blocuri care se copiază dintr-o atingere.
+// Rândul „Conversația Airbnb: <link>” (pus de ciAlertOnce la rezervările Airbnb) devine butonul „Conversația Airbnb”.
 function tgAlert(subject, text) {
   try {
     if (!tgReady()) return;
     text = String(text || "");
+    var thread = (text.match(/\nConversația Airbnb: (https:\/\/www\.airbnb\.[a-z.]+\/hosting\/thread\/\d+)/) || [])[1] || "";
+    if (thread) text = text.replace(/\nConversația Airbnb: \S+/, "");
     var body, ro = text.indexOf("— RO —"), en = text.indexOf("— EN —");
     if (ro >= 0 && en > ro) {
       var tailAt = text.indexOf("\n\nRezervarea:", en);
@@ -116,8 +119,9 @@ function tgAlert(subject, text) {
     }
     var info = /^Cod trimis/.test(subject);
     var icon = info ? "🔑" : ro >= 0 ? "💬" : /^SUPRAPUNERE/.test(subject) ? "🚨" : "⚠️";
-    var nr = (text.match(/Rezervarea:? (\d{8,12})\b/) || subject.match(/\b(\d{8,12})\b/) || [])[1] || "";
-    tgSend(icon + " <b>" + tgEsc(subject) + "</b>\n" + body, { level: info ? "info" : "alert", buttons: tgNrButtons(nr), panel: true });
+    var nr = (text.match(/Rezervarea:? (\d{8,12}|HM[A-Z0-9]{8})\b/) || subject.match(/\b(\d{8,12}|HM[A-Z0-9]{8})\b/) || [])[1] || "";
+    var buttons = thread ? [{ text: "Conversația Airbnb", url: thread }] : tgNrButtons(nr);
+    tgSend(icon + " <b>" + tgEsc(subject) + "</b>\n" + body, { level: info ? "info" : "alert", buttons: buttons, panel: true });
   } catch (e) {
     console.warn("Telegram (alertă): " + tgClean(e));
   }
