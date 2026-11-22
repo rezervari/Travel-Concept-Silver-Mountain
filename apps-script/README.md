@@ -219,12 +219,21 @@ După Faza 1 și legătura TTLock, `checkinSync` (același declanșator, la 10 m
   (coloana „E-mail Booking”, vezi mai jos), pleacă acolo un e-mail **text** RO + EN cu fișa și ghidul; altfel rămâne
   **mesajul programat din Extranet** (scriptul doar notează asta).
 - **Fișa completată** → codul = **ultimele 6 cifre ale telefonului**, pus pe yală prin gateway, valabil din ziua
-  sosirii **16:00** până în ziua plecării **11:00**; oaspetele primește pe e-mail codul + ghidul (Booking: pe e-mailul
+  sosirii **16:00** până în ziua plecării **11:00** (sau ora de check-out a rezervării, vezi mai jos); oaspetele primește pe e-mail codul + ghidul (Booking: pe e-mailul
   trecut în fișă + o copie text pe adresa Booking). Textele spun explicit: codul se tastează pe **tastatura yalei**
   (atinsă cu degetul ca să se aprindă), **nu** în cutiuța cu cifru de 4 cifre de lângă ușă (cheia de rezervă).
+  Airbnb: fișa se potrivește cu rândul Airbnb după data sosirii, ca la Booking; telefonul din fișă se compară cu
+  ultimele 4 cifre din calendarul Airbnb („Phone Number (Last 4 Digits)”). Dacă diferă, codul se pune oricum (poate fi
+  telefonul altui adult), iar tu primești o dată alerta „Fișă Airbnb cu alt telefon” (Telegram + e-mail).
+- **Ora de check-out a rezervării** — implicit **11:00**. Altă oră se scrie în coloana „Note”, ca parte separată (cu
+  „;” între părți): `Check-out Airbnb: 12:00` (o pune scriptul din e-mailul de confirmare Airbnb, când ora e alta decât
+  11:00) sau `Check-out: 13:00` (un check-out târziu aprobat, scris de mână, pentru orice sursă). Contează ultima;
+  ore acceptate 06:00–20:59. Ora aceasta e folosită pentru codul de pe yală (și cel de rezervă), ștergerea lui (la
+  12:00 sau la o oră după check-out, dacă e mai târziu), textele către oaspete și încălzirea (21 °C de la check-out).
+  Dacă o schimbi după ce codul e pus, valabilitatea se mută automat și oaspetele primește codul din nou.
 - **Reminder la 13:00** (ziua sosirii, fișă necompletată): site = e-mail de reminder către oaspete; Booking = textul
   (RO + EN) direct pe adresa Booking, dacă există, plus același text la tine, gata de lipit în chatul Booking.
-- **Cod de rezervă la 16:00** (fișă tot necompletată): un cod aleator de 6 cifre pe yală (16:00 → 11:00), etichetat
+- **Cod de rezervă la 16:00** (fișă tot necompletată): un cod aleator de 6 cifre pe yală (16:00 → ora de check-out), etichetat
   „· REZERVĂ”. Site = e-mail cu codul la oaspete; Booking = textul direct pe adresa Booking (dacă există) + la tine
   textul de lipit; fără nicio adresă = doar textul de lipit. Dacă fișa vine mai târziu, codul rămâne cel de rezervă.
 
@@ -239,7 +248,7 @@ doar text, fără linkul de fișă precompletat, Google Maps sau WhatsApp. Cu 2 
 adresa lipsește: o amintire (Telegram + e-mail), un element la „De făcut” și celula galbenă în foaie (roșie = adresă
 greșită). Scriptul nu suprascrie niciodată această coloană; după ce a plecat mesajul cu fișa, adresa se mai schimbă doar
 din foaie. Rulată manual, `checkinColoanaBooking` pune din nou validarea și nota pe coloană.
-- **După plecare (12:00)** sau **la anulare** → codul se șterge de pe yală; la anulare primești și nopțile de
+- **După plecare (12:00, sau la o oră după un check-out mai târziu)** sau **la anulare** → codul se șterge de pe yală; la anulare primești și nopțile de
   deblocat pe Airbnb/Travelminit.
 
 Erorile (ex. gateway offline) se notează în foaia „Jurnal” și îți vin pe e-mail cel mult o dată la 6 h; scriptul

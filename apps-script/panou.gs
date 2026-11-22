@@ -239,11 +239,12 @@ function pnLinks() {
   ].map(function (l) { return { label: l[0], href: l[1] }; });
 }
 
-// Un sejur rămâne „activ” până în ziua plecării la 12:00 și cât timp codul lui n-a fost șters de pe yală.
+// Un sejur rămâne „activ” până în ziua plecării la 12:00 (sau la o oră după un check-out mai târziu, ciDeleteAt)
+// și cât timp codul lui n-a fost șters de pe yală.
 function pnEnded(ctx, r) {
   var cin = r["Check-in"], cout = r["Check-out"];
   if (!pnIsIso(cout)) return pnIsIso(cin) && cin < ciAddDays(ctx.today, -14);
-  if (ctx.now < ciAt(cout, CI_DELETE_HOUR)) return false;
+  if (ctx.now < ciDeleteAt(r)) return false;
   return !ciCodeId(r) || !!r["Cod șters"];
 }
 
@@ -301,7 +302,7 @@ function pnSteps(ctx, r, code, backup) {
   var linkDue = dates && ctx.now >= ciAt(ciAddDays(cin, -1), CI_FORM_SEND_HOUR);
   var formLate = dates && (cin < ctx.today || (arrivalDay && ctx.now >= ciAt(cin, CI_REMIND_HOUR)));
   var codeLate = dates && (cin < ctx.today || (arrivalDay && ctx.now >= ciAt(cin, CI_CHECKIN_HOUR)));
-  var deleteDue = pnIsIso(cout) && ctx.now >= ciAt(cout, CI_DELETE_HOUR);
+  var deleteDue = pnIsIso(cout) && ctx.now >= ciDeleteAt(r);
   return [
     { key: "link", label: "Link fișă", st: sent || form ? "done" : linkDue ? "warn" : "todo",
       at: pnTime(sent), info: ciIsDate(sent) ? "" : String(sent || ""), via: ciHasFlag(r, "alias-fisa") ? "adresa Booking" : "" },
@@ -386,7 +387,7 @@ function pnTodo(ctx, rows, openRequests, overlaps) {
         (aliasB ? "Cod de rezervă trimis pe adresa Booking: " : "De trimis oaspetelui: codul de rezervă ") + code + "#",
         who + " · " + (cell.split(" · ")[2] || "") + ". Fișa nu a venit până la 16:00, așa că am pus pe yală un cod aleator." +
         (aliasB ? " L-am trimis direct pe adresa Booking; verifică în Extranet că apare în conversație, altfel lipește-l tu." : ""));
-      b.texts = [{ label: "Română", text: ciBackupChatText("ro", code) }, { label: "English", text: ciBackupChatText("en", code) }];
+      b.texts = [{ label: "Română", text: ciBackupChatText("ro", code, r) }, { label: "English", text: ciBackupChatText("en", code, r) }];
       out.push(b);
     }
 

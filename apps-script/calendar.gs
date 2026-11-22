@@ -330,7 +330,7 @@ function calPlatformEvents(force) {
   CAL_PLATFORMS.forEach(function (p) {
     var url = String(props.getProperty(p[1]) || "").trim();
     if (!url) { out[p[0]] = { ok: false, missing: true, events: [] }; return; }
-    var key = "cal_ics2_" + p[0], hit = force ? null : cache.get(key);   // „2”: evenimentele au acum și codul Airbnb
+    var key = "cal_ics3_" + p[0], hit = force ? null : cache.get(key);   // „3”: codul Airbnb + ultimele 4 cifre ale telefonului
     if (hit) { out[p[0]] = JSON.parse(hit); return; }
     var st;
     try {
@@ -363,7 +363,8 @@ function calParseIcs(text) {
     if (line.indexOf("END:VEVENT") === 0) {
       if (cur && cur.start && !cur.cancelled) {
         events.push({ start: cur.start, end: cur.end && cur.end > cur.start ? cur.end : ciAddDays(cur.start, 1),
-                      summary: cur.summary.replace(/\\,/g, ",").replace(/\\;/g, ";").slice(0, 80), code: cur.code || "" });
+                      summary: cur.summary.replace(/\\,/g, ",").replace(/\\;/g, ";").slice(0, 80), code: cur.code || "",
+                      phone4: cur.phone4 || "" });
       }
       cur = null;
       return;
@@ -372,7 +373,11 @@ function calParseIcs(text) {
     if (line.indexOf("DTSTART") === 0) cur.start = ciIcsDate(line);
     else if (line.indexOf("DTEND") === 0) cur.end = ciIcsDate(line);
     else if (line.indexOf("SUMMARY") === 0) cur.summary = line.slice(line.indexOf(":") + 1).trim();
-    else if (line.indexOf("DESCRIPTION") === 0) cur.code = (line.match(/reservations\/details\/(HM[A-Z0-9]+)/) || [])[1] || "";
+    else if (line.indexOf("DESCRIPTION") === 0) {
+      // Airbnb: „Reservation URL: …/hosting/reservations/details/HM…\nPhone Number (Last 4 Digits): 1234”
+      cur.code = (line.match(/reservations\/details\/(HM[A-Z0-9]+)/) || [])[1] || "";
+      cur.phone4 = (line.match(/Last 4 Digits\)?\s*:\s*(\d{4})\b/i) || [])[1] || "";
+    }
     else if (line.indexOf("STATUS:CANCELLED") === 0) cur.cancelled = true;
   });
   return events;

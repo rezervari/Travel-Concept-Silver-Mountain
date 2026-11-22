@@ -66,8 +66,8 @@ var CI_FORMS_PROCESSED_PROPERTY = "CI_PROCESSED_FORMS";  // ID-urile e-mailurilo
 var CI_TEST_MODE_PROPERTY = "CHECKIN_TEST_MODE";       // "0" = mesajele pleacă la oaspeți; altfel doar la proprietar
 var CI_FORM_SEND_HOUR = 10;   // linkul spre fișă: cu o zi înainte de sosire, de la 10:00 (sau imediat, dacă e mai târziu)
 var CI_CHECKIN_HOUR = 16;     // codul e valabil din ziua sosirii, de la 16:00 ...
-var CI_CHECKOUT_HOUR = 11;    // ... până în ziua plecării, la 11:00
-var CI_DELETE_HOUR = 12;      // în ziua plecării, de la 12:00, codul se șterge de pe yală
+var CI_CHECKOUT_HOUR = 11;    // ... până în ziua plecării, la 11:00 (altă oră a rezervării: în „Note”, vezi ciOut)
+var CI_DELETE_HOUR = 12;      // în ziua plecării, de la 12:00 (sau la o oră după check-out, dacă e mai târziu), codul se șterge
 var CI_REMIND_HOUR = 13;      // în ziua sosirii, de la 13:00: reminder pentru fișă (oaspete sau text de lipit în chat Booking)
                               // dacă fișa tot lipsește, codul de rezervă se pune la CI_CHECKIN_HOUR = 16:00
 
@@ -892,15 +892,48 @@ function ciProcessForms(ctx) {
     row["Fișă primită"] = m.getDate();
     if (!row["Nume"]) row["Nume"] = f.name;
     if (!row["E-mail"]) row["E-mail"] = f.email;
-    if (!row["Telefon"]) row["Telefon"] = f.phone;    // site: rămâne telefonul din rezervare; Booking: cel din fișă
+    if (!row["Telefon"]) row["Telefon"] = f.phone;    // site: rămâne telefonul din rezervare; Booking / Airbnb: cel din fișă
     if (!ciLangValue(row) && !ciReviewOff(row)) {      // limba e-mailului de după sejur, din cetățenie
       var lang = ciLangFromCitizenship(f.citizenship);
       if (lang) row[CI_LANG] = lang;
     }
     ciTouch(row);
     ctx.forms[nr] = f;
-    ciLog(ctx, "Fișă primită", nr, f.name);
+    var check = row["Sursă"] === "Airbnb" ? ciCheckAirbnbPhone(row, f) : "";
+    ciLog(ctx, "Fișă primită", nr, f.name + (check ? " · " + check : ""));
   });
+}
+
+// Oaspete Airbnb: ultimele 4 cifre ale telefonului din fișă vs. cele din calendarul Airbnb („Phone Number (Last 4 Digits)”).
+// Nu oprește codul: codul = ultimele 6 cifre din fișă, pe care oaspetele le știe (poate fi și telefonul altui adult din
+// grup), și pleacă pe e-mailul din fișă. Dacă diferă, te anunț o dată, ca să verifici că fișa e a acestui oaspete.
+// → text pentru Jurnal („telefon ca în Airbnb” / „telefon diferit de Airbnb”) sau „” dacă nu am cu ce compara.
+function ciCheckAirbnbPhone(row, f) {
+  var nr = String(row["Nr. rezervare"]);
+  var four = ciAirbnbPhone4(nr), digits = String(f.phone || "").replace(/\D/g, "");
+  if (!four || digits.length < 4) return "";
+  if (digits.slice(-4) === four) return "telefon ca în Airbnb";
+  ciAlertOnce(row, "telefon-airbnb", "Fișă Airbnb cu alt telefon: " + (row["Nume"] || nr),
+    "Fișa de cazare pentru rezervarea Airbnb " + nr + " (" + (f.name || "fără nume") + ") are un telefon terminat în " + digits.slice(-4) +
+    ", iar în Airbnb rezervarea are telefonul terminat în " + four + ".\n" +
+    "Poate fi telefonul altui adult din grup. Codul se pune oricum, din ultimele 6 cifre ale telefonului din fișă, și pleacă pe " +
+    "e-mailul din fișă (" + (f.email || "fără e-mail") + "). Dacă fișa nu e a acestui oaspete, șterge codul din aplicația TTLock " +
+    "și scrie-i oaspetelui în conversația Airbnb.");
+  return "telefon diferit de Airbnb";
+}
+
+// Ultimele 4 cifre ale telefonului unui oaspete Airbnb, din calendarul iCal Airbnb (citit de calendar.gs, cache 10 min).
+// „” dacă nu le știm (calendar lipsă / căzut, rezervare negăsită).
+function ciAirbnbPhone4(code) {
+  if (typeof calPlatformEvents !== "function") return "";
+  try {
+    var st = calPlatformEvents(false).Airbnb;
+    if (!st || !st.ok) return "";
+    var ev = (st.events || []).filter(function (e) { return e.code === code; })[0];
+    return ev && /^\d{4}$/.test(String(ev.phone4 || "")) ? String(ev.phone4) : "";
+  } catch (e) {
+    return "";
+  }
 }
 
 function ciMatchForm(ctx, f) {
@@ -955,7 +988,8 @@ function ciHtmlLines(html) {
 }
 
 // Fișă primită, cod încă nepus (prima dată sau după o eroare): ultimele 6 cifre ale telefonului, valabil
-// din ziua sosirii 16:00 până în ziua plecării 11:00. Oaspetele primește codul doar după ce TTLock confirmă.
+// din ziua sosirii 16:00 până în ziua plecării, la ora de check-out a rezervării (11:00 sau cea din „Note”, ciOut).
+// Oaspetele primește codul doar după ce TTLock confirmă.
 function ciIssuePendingCodes(ctx) {
   ctx.active.rows.forEach(function (r) {
     if (!r["Fișă primită"] || r["Cod pe yală"] || r["Stare"] === CI_STATE_CANCELLED) return;
@@ -965,7 +999,7 @@ function ciIssuePendingCodes(ctx) {
         "Fișa a sosit, dar rezervarea " + nr + " (sosire " + r["Check-in"] + ") nu are încă data plecării în foaie, deci nu știu până când să fie valabil codul.");
       return;
     }
-    var end = ciAt(r["Check-out"], CI_CHECKOUT_HOUR);
+    var end = ciOutAt(r);
     if (end <= ctx.now) return;
     var digits = String(r["Telefon"] || "").replace(/\D/g, "");
     if (digits.length < 6) {
@@ -992,21 +1026,23 @@ function ciIssuePendingCodes(ctx) {
   });
 }
 
-// Datele rezervării s-au schimbat după ce s-a pus codul: se mută valabilitatea și oaspetele primește codul din nou.
+// Datele rezervării (sau ora de check-out din „Note”) s-au schimbat după ce s-a pus codul: se mută valabilitatea și
+// oaspetele primește codul din nou.
 function ciSyncCodeWindows(ctx) {
   ctx.active.rows.forEach(function (r) {
     var id = ciCodeId(r);
     if (!id || r["Cod șters"] || String(r["Cod pe yală"]).indexOf(ciWindowLabel(r)) >= 0) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(r["Check-in"]) || !/^\d{4}-\d{2}-\d{2}$/.test(r["Check-out"])) return;
     var code = String(r["Cod pe yală"]).slice(0, 6);
+    var backup = / · REZERVĂ$/.test(String(r["Cod pe yală"]));   // codul de rezervă își păstrează eticheta
     try {
-      ttlChangeCode(ttlLockId(), id, ciAt(r["Check-in"], CI_CHECKIN_HOUR), ciAt(r["Check-out"], CI_CHECKOUT_HOUR));
+      ttlChangeCode(ttlLockId(), id, ciAt(r["Check-in"], CI_CHECKIN_HOUR), ciOutAt(r));
     } catch (e) {
       ciAlertOnce(r, "schimbare", "Valabilitatea codului pentru " + r["Nr. rezervare"] + " NU s-a putut muta",
         "Eroare TTLock: " + (e.message || e) + ". Modifică manual codul " + code + "# în aplicația TTLock: " + ciWindowLabel(r) + ".");
       return;
     }
-    r["Cod pe yală"] = code + "# · id " + id + " · " + ciWindowLabel(r);
+    r["Cod pe yală"] = code + "# · id " + id + " · " + ciWindowLabel(r) + (backup ? " · REZERVĂ" : "");
     ciTouch(r);
     ciLog(ctx, "Valabilitate cod mutată", r["Nr. rezervare"], ciWindowLabel(r));
     ciSendCode(ctx, r, code);
@@ -1021,7 +1057,7 @@ function ciSendFormLinks(ctx) {
     if (r["Fișă primită"] || r["Stare"] === CI_STATE_CANCELLED) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(r["Check-in"])) return;
     if (ctx.now < ciAt(ciAddDays(r["Check-in"], -1), CI_FORM_SEND_HOUR)) return;
-    if (ctx.now >= ciAt(r["Check-out"] || r["Check-in"], CI_CHECKOUT_HOUR)) return;
+    if (ctx.now >= (r["Check-out"] ? ciOutAt(r) : ciAt(r["Check-in"], CI_CHECKOUT_HOUR))) return;
     if (r["Sursă"] === "Booking") {
       var alias = ciBookingAlias(r);
       if (alias && !ciHasFlag(r, "alias-fisa") && !r["Cod pe yală"]) {
@@ -1120,7 +1156,7 @@ function ciBackupCodes(ctx) {
         "Rezervarea " + nr + " sosește azi fără fișă, dar nu are data plecării în foaie, deci nu știu până când să fie valabil codul de rezervă.");
       return;
     }
-    var end = ciAt(r["Check-out"], CI_CHECKOUT_HOUR);
+    var end = ciOutAt(r);
     if (end <= ctx.now) return;
     var lockId, code, id;
     try {
@@ -1143,7 +1179,7 @@ function ciBackupCodes(ctx) {
       var alias = ciBookingAlias(r);
       if (alias) {
         var t = ciMailGuestText(alias, "Codul de acces · Door code – " + BRAND,
-                                ciBackupChatText("ro", code) + "\n\n" + ciBackupChatText("en", code));
+                                ciBackupChatText("ro", code, r) + "\n\n" + ciBackupChatText("en", code, r));
         ciLog(ctx, "Cod de rezervă trimis", nr, t ? "MOD TEST: la proprietar" : "pe adresa Booking " + alias);
       }
       ciAlertOnce(r, "rezerva-trimite",
@@ -1151,7 +1187,7 @@ function ciBackupCodes(ctx) {
         "Fișa nu a fost completată până la ora 16:00, așa că am pus pe yală un cod de rezervă: " + code + "#  (" + ciWindowLabel(r) + ").\n" +
         (alias ? "L-am trimis direct pe adresa Booking a oaspetelui (" + alias + "). Verifică în Extranet că apare în conversație; dacă nu, lipește-i tu mesajul de mai jos."
                : r["Sursă"] === "Booking" ? "Trimite-i din chatul Booking mesajul de mai jos." : "Trimite-i oaspetelui mesajul de mai jos.") + "\n\n" +
-        "— RO —\n" + ciBackupChatText("ro", code) + "\n\n— EN —\n" + ciBackupChatText("en", code));
+        "— RO —\n" + ciBackupChatText("ro", code, r) + "\n\n— EN —\n" + ciBackupChatText("en", code, r));
       r["Cod trimis"] = new Date();
       ciTouch(r);
       return;
@@ -1172,15 +1208,15 @@ function ciReminderChatText(lang) {
 
 // Codul de rezervă (fișa tot necompletată la ora 16:00): de lipit în chatul Booking sau trimis pe adresa Booking.
 // Oaspeții confundau yala cu cutiuța cu cifru de lângă ușă (4 cifre, cheia de rezervă) → se spune explicit.
-function ciBackupChatText(lang, code) {
+function ciBackupChatText(lang, code, r) {
   if (lang === "en") {
     return "Hello! The access code for apartment A13 is " + code + "#. Touch the keypad of the electronic lock on the apartment door with your finger " +
       "so the digits light up, then enter the 6 digits and #. Do not enter it on the small key box next to the door (that one is for emergencies only). " +
-      "The code works from 4:00 pm today until 11:00 am on departure day. Please still complete the registration form (mandatory): " + CI_FORM_PUBLIC;
+      "The code works from 4:00 pm today until " + (r ? ciOutLabelEn(r) : "11:00 am") + " on departure day. Please still complete the registration form (mandatory): " + CI_FORM_PUBLIC;
   }
   return "Bună ziua! Codul de acces în apartamentul A13 este " + code + "#. Atingeți cu degetul tastatura yalei electronice de pe ușa apartamentului, " +
     "ca să se aprindă cifrele, apoi tastați cele 6 cifre și #. Nu îl introduceți în cutiuța cu cifru de lângă ușă (aceea e doar pentru urgențe). " +
-    "Codul funcționează de la ora 16:00 azi până la ora 11:00 în ziua plecării. Vă rugăm totuși să completați fișa de cazare (obligatorie): " + CI_FORM_PUBLIC;
+    "Codul funcționează de la ora 16:00 azi până la ora " + (r ? ciOutLabel(r) : "11:00") + " în ziua plecării. Vă rugăm totuși să completați fișa de cazare (obligatorie): " + CI_FORM_PUBLIC;
 }
 
 // Cu 2 zile înainte de sosire, de la 09:00: dacă rezervarea Booking nu are încă adresa Booking, te anunț o dată
@@ -1261,11 +1297,11 @@ function ciBookingEmailCandidates() {
   }).sort(function (a, b) { return String(a["Check-in"]).localeCompare(String(b["Check-in"])); });
 }
 
-// În ziua plecării, de la 12:00: codul se șterge de pe yală (ca după fiecare oaspete, manual, până acum).
+// În ziua plecării, de la 12:00 (sau la o oră după un check-out mai târziu): codul se șterge de pe yală.
 function ciDeleteExpiredCodes(ctx) {
   ctx.active.rows.forEach(function (r) {
     if (!ciCodeId(r) || r["Cod șters"] || !/^\d{4}-\d{2}-\d{2}$/.test(r["Check-out"])) return;
-    if (ctx.now < ciAt(r["Check-out"], CI_DELETE_HOUR)) return;
+    if (ctx.now < ciDeleteAt(r)) return;
     ciDeleteCodeNow(ctx, r, "după plecare");
   });
 }
@@ -1294,10 +1330,44 @@ function ciCodeName(r) {
   return ("A13 " + (r["Nume"] || r["Nr. rezervare"]) + " " + r["Check-in"].slice(8, 10) + "." + r["Check-in"].slice(5, 7)).slice(0, 40);
 }
 
-// „28.10 16:00 – 04.11 11:00”
+// „28.10 16:00 – 04.11 11:00” (ora plecării = a rezervării, ciOut)
 function ciWindowLabel(r) {
   function d(iso) { return iso.slice(8, 10) + "." + iso.slice(5, 7); }
-  return d(r["Check-in"]) + " " + ciPad(CI_CHECKIN_HOUR) + ":00 – " + d(r["Check-out"]) + " " + ciPad(CI_CHECKOUT_HOUR) + ":00";
+  return d(r["Check-in"]) + " " + ciPad(CI_CHECKIN_HOUR) + ":00 – " + d(r["Check-out"]) + " " + ciOutLabel(r);
+}
+
+// Ora de plecare a rezervării → { h, m }. Implicit CI_CHECKOUT_HOUR (11:00). Altă oră se scrie în „Note”, ca parte
+// separată (despărțită cu „;”): „Check-out Airbnb: 12:00” (o pune ciAirbnbNew din e-mailul Airbnb) sau „Check-out: 13:00”
+// (check-out târziu aprobat, scris de mână). Contează ultima; ore acceptate 06:00–20:59. Codul de pe yală, ștergerea lui
+// și textele pentru oaspete folosesc ora aceasta; o schimbare după ce codul e pus mută valabilitatea (ciSyncCodeWindows).
+function ciOut(r) {
+  var out = { h: CI_CHECKOUT_HOUR, m: 0 };
+  String(r && r["Note"] || "").split(";").forEach(function (part) {
+    var m = part.match(/^\s*check-?out(?:\s+airbnb)?\s*:\s*(\d{1,2})[:.](\d{2})\s*$/i);
+    if (m && +m[1] >= 6 && +m[1] <= 20 && +m[2] < 60) out = { h: +m[1], m: +m[2] };
+  });
+  return out;
+}
+
+function ciOutLabel(r) { var o = ciOut(r); return ciPad(o.h) + ":" + ciPad(o.m); }            // „11:00”
+
+// „11:00 am” / „12:00 pm” / „1:30 pm” (textele în engleză)
+function ciOutLabelEn(r) {
+  var o = ciOut(r), h = o.h % 12 || 12;
+  return h + ":" + ciPad(o.m) + (o.h < 12 ? " am" : " pm");
+}
+
+// Momentul plecării (ms): ziua de check-out, la ora rezervării. Rezervare fără dată de plecare → NaN.
+function ciOutAt(r) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r["Check-out"] || ""))) return NaN;
+  var o = ciOut(r);
+  return ciAt(r["Check-out"], o.h) + o.m * 60000;
+}
+
+// Când se șterge codul: la CI_DELETE_HOUR în ziua plecării sau la o oră după check-out, dacă acesta e mai târziu.
+function ciDeleteAt(r) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r["Check-out"] || ""))) return NaN;
+  return Math.max(ciAt(r["Check-out"], CI_DELETE_HOUR), ciOutAt(r) + 3600000);
 }
 
 // Momentul (ms) pentru ziua iso la ora dată, ora României (vară +3, iarnă +2).
@@ -1402,10 +1472,10 @@ function ciTestBanner(to) {
          '<strong>MOD TEST</strong> — în mod normal, acest e-mail ar fi plecat la <strong>' + esc(to) + '</strong>.</div>';
 }
 
-// „vineri, 23 octombrie 2026, ora 16:00, până sâmbătă, 24 octombrie 2026, ora 11:00”
+// „vineri, 23 octombrie 2026, ora 16:00, până sâmbătă, 24 octombrie 2026, ora 11:00” (ora plecării = a rezervării)
 function ciStayLine(r) {
   return weekday(r["Check-in"]) + ", " + longDate(r["Check-in"]) + ", ora " + ciPad(CI_CHECKIN_HOUR) + ":00, până " +
-         weekday(r["Check-out"]) + ", " + longDate(r["Check-out"]) + ", ora " + ciPad(CI_CHECKOUT_HOUR) + ":00";
+         weekday(r["Check-out"]) + ", " + longDate(r["Check-out"]) + ", ora " + ciOutLabel(r);
 }
 
 // Butonul principal: pe toată lățimea, text centrat.
@@ -1486,7 +1556,7 @@ function ciCodeText(r, code) {
     "Codul de acces pentru ușa de la " + CI_PLACE_TEXT + ": " + code + "#\n" +
     "Cum intrați: atingeți cu degetul tastatura yalei electronice de pe ușa apartamentului (cifrele se aprind), tastați cele 6 cifre, apoi #.\n" +
     "Atenție: lângă ușă există și o cutiuță mică cu cifru de 4 cifre. Codul NU se introduce acolo: în ea e doar o cheie de rezervă pentru urgențe.\n" +
-    "Valabil din " + ciStayLine(r) + ". După ora 11:00, în ziua plecării, codul nu mai funcționează.\n\n" +
+    "Valabil din " + ciStayLine(r) + ". După ora " + ciOutLabel(r) + ", în ziua plecării, codul nu mai funcționează.\n\n" +
     "Adresa: " + CI_ADDRESS + ". Intrarea în complex este liberă; ușa apartamentului A13 este pe holul de la etajul 1.\n" +
     "Traseu: " + CI_MAPS_URL + "\n\n" +
     "Ghidul apartamentului (Wi-Fi, parcare, aparate, recomandări în zonă): " + CI_GUIDE_URL + "\n\n" +
@@ -1508,7 +1578,7 @@ function ciCodeHtml(r, code) {
         "Tastează cele 6 cifre, apoi <strong>#</strong>. Codul funcționează din " + esc(ciStayLine(r)) + ".") +
       warnBox("<strong>Atenție:</strong> lângă ușă există și o cutiuță mică cu cifru de 4 cifre. Codul tău <strong>nu</strong> se " +
               "introduce acolo: în ea e doar o cheie de rezervă pentru urgențe, iar cifrul ți-l dăm la telefon, dacă e nevoie.") +
-      warnBox("<strong>La plecare:</strong> check-out până la ora 11:00. După această oră codul nu mai deschide ușa.") +
+      warnBox("<strong>La plecare:</strong> check-out până la ora " + ciOutLabel(r) + ". După această oră codul nu mai deschide ușa.") +
       sectionTitle("Cum ajungi") +
       p(esc(CI_ADDRESS) + ". Intrarea în complex este liberă; ușa apartamentului A13 este pe holul de la <strong>etajul 1</strong>.") +
       ciButtonFull(CI_MAPS_URL, "Deschide traseul în Google Maps", C.blueMid, C.white) +
@@ -1561,7 +1631,7 @@ function ciBookingFormText(r, ctx) {
     "Treceți corect adresa de e-mail și numărul de telefon: la câteva minute după completare vă trimitem automat, pe acel e-mail, " +
       "codul personal de acces. Codul are 6 cifre și se introduce pe yala electronică de pe ușa apartamentului (nu în cutiuța cu cifru " +
       "de lângă ușă). Funcționează " + (tomorrow ? "de mâine" : today ? "de azi" : "din ziua sosirii") +
-      ", de la ora 16:00, până în ziua plecării, la ora 11:00.",
+      ", de la ora 16:00, până în ziua plecării, la ora " + ciOutLabel(r) + ".",
     "",
     "2. Ghidul apartamentului (sosire, parcare, Wi-Fi, reguli):",
     CI_GUIDE_URL,
@@ -1585,7 +1655,7 @@ function ciBookingFormText(r, ctx) {
       "code is sent automatically to that e-mail. The code has 6 digits and is entered on the electronic lock on the apartment door " +
       "(not on the small key box next to the door). It works " +
       (tomorrow ? "from 4:00 pm tomorrow" : today ? "from 4:00 pm today" : "from 4:00 pm on your arrival day") +
-      " until 11:00 am on your departure day.",
+      " until " + ciOutLabelEn(r) + " on your departure day.",
     "",
     "2. Apartment guide (arrival, parking, Wi-Fi, house rules):",
     CI_GUIDE_URL,
@@ -1615,7 +1685,7 @@ function ciBookingCodeText(r, code) {
     "Atenție: lângă ușă există și o cutiuță mică cu cifru de 4 cifre. Codul de mai sus NU se introduce acolo. În cutiuță este doar " +
       "o cheie de rezervă pentru urgențe, iar cifrul ei vi-l dăm la telefon, dacă e nevoie.",
     "",
-    "Codul funcționează de " + ciRoDayMonth(cin) + ", ora 16:00, până " + ciRoDayMonth(cout) + ", ora 11:00. Ușa se încuie singură când o închideți.",
+    "Codul funcționează de " + ciRoDayMonth(cin) + ", ora 16:00, până " + ciRoDayMonth(cout) + ", ora " + ciOutLabel(r) + ". Ușa se încuie singură când o închideți.",
     "Adresa: " + CI_ADDRESS + ".",
     "Ghidul apartamentului: " + CI_GUIDE_URL,
     (both ? "Același cod l-am trimis și pe adresa de e-mail din fișă. " : "") + "Pentru orice problemă: " + CI_PHONE_INTL + " (telefon / WhatsApp).",
@@ -1636,7 +1706,7 @@ function ciBookingCodeText(r, code) {
     "Please note: next to the door there is also a small key box with a 4-digit combination. Do NOT enter the code above there. " +
       "The box only holds a spare key for emergencies, and we will give you its combination by phone if needed.",
     "",
-    "The code works from " + ciEnDayMonth(cin) + ", 4:00 pm until " + ciEnDayMonth(cout) + ", 11:00 am. The door locks automatically when you close it.",
+    "The code works from " + ciEnDayMonth(cin) + ", 4:00 pm until " + ciEnDayMonth(cout) + ", " + ciOutLabelEn(r) + ". The door locks automatically when you close it.",
     "Address: " + CI_ADDRESS + ".",
     "Apartment guide: " + CI_GUIDE_URL,
     (both ? "We have also sent the same code to the e-mail address in your form. " : "") + "If anything goes wrong: " + CI_PHONE_INTL + " (phone / WhatsApp)."

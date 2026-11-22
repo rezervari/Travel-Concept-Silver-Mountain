@@ -406,14 +406,17 @@ function salState() {
 
 // Sejururile reale: Booking, Airbnb și site din „Rezervări” (fără anulate și teste), Airbnb „Reserved” (doar cele care nu
 // sunt deja în foaie) și Travelminit din iCal (citite de calendar.gs). Blocările nu pornesc încălzirea.
-// Fiecare: { key, label, start, end, from, to } (from/to în ms).
+// Fiecare: { key, label, start, end, from, to } (from/to în ms). Rândurile din foaie se termină la ora lor de check-out
+// (ciOutAt: 11:00 sau ora din „Note”, de ex. „Check-out Airbnb: 12:00”), dacă e mai târziu de SAL_HEAT_OFF_HOUR.
 function salStays(ctx) {
-  var list = [];
+  var list = [], outAt = {};
   ctx.active.rows.forEach(function (r) {
     var start = String(r["Check-in"] || ""), end = String(r["Check-out"] || "");
     if (r["Stare"] === CI_STATE_CANCELLED || r["Sursă"] === "Test" || !/^\d{4}-\d{2}-\d{2}$/.test(start)) return;
-    list.push({ key: "rez:" + r["Nr. rezervare"], label: r["Sursă"] + " " + r["Nr. rezervare"], start: start,
+    var key = "rez:" + r["Nr. rezervare"];
+    list.push({ key: key, label: r["Sursă"] + " " + r["Nr. rezervare"], start: start,
                 end: /^\d{4}-\d{2}-\d{2}$/.test(end) && end > start ? end : null });
+    if (typeof ciOutAt === "function") outAt[key] = ciOutAt(r);
   });
   if (typeof calPlatformEvents === "function") {
     var p = calPlatformEvents(false);
@@ -428,7 +431,8 @@ function salStays(ctx) {
   }
   return list.map(function (x) {
     x.from = ciAt(x.start, SAL_HEAT_ON_HOUR);
-    x.to = x.end ? ciAt(x.end, SAL_HEAT_OFF_HOUR) : x.from + SAL_NO_CHECKOUT_DAYS * 86400000;
+    x.to = x.end ? Math.max(ciAt(x.end, SAL_HEAT_OFF_HOUR), outAt[x.key] > 0 ? outAt[x.key] : 0)
+                 : x.from + SAL_NO_CHECKOUT_DAYS * 86400000;
     return x;
   });
 }
