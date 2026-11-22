@@ -24,7 +24,7 @@ var CI_SHEET_CANCELLED = "Anulate";
 var CI_SHEET_LOG = "Jurnal";
 var CI_REQUESTS_SHEET = "Solicitări";       // foaia scrisă de rezervari.gs (SHEET_NAME)
 var CI_HEADERS = ["Nr. rezervare", "Sursă", "Check-in", "Check-out", "Nopți", "Nume", "Telefon", "E-mail", "E-mail Booking",
-                  "Oaspeți", "Limba", "Stare", "Fișă primită", "Link fișă trimis", "Cod pe yală", "Cod trimis",
+                  "E-mail Airbnb", "Oaspeți", "Limba", "Stare", "Fișă primită", "Link fișă trimis", "Cod pe yală", "Cod trimis",
                   "Cod șters", "Note", "Link", "Actualizat", "Alerte"];
 // Adresa Booking a oaspetelui (…@guest.booking.com): o pune Mircea (în foaie, din panou sau lipită în chatul Telegram).
 // Booking o redirecționează spre e-mailul real al oaspetelui și o arată în conversația din Extranet. Pe ea pleacă doar
@@ -54,6 +54,16 @@ var CI_AIRBNB_CODE_RE = /\b(HM[A-Z0-9]{8})\b/;
 var CI_AIRBNB_HOST = "https://www.airbnb.com.ro";
 var CI_LUNI_SCURT = { ian: 1, jan: 1, feb: 2, mar: 3, apr: 4, mai: 5, may: 5, iun: 6, jun: 6, iul: 7, jul: 7, aug: 8,
                       sep: 9, oct: 10, noi: 11, nov: 11, dec: 12 };
+// Adresa de răspuns Airbnb a oaspetelui (…@reply.airbnb.com, coloana „E-mail Airbnb”): o ia scriptul din e-mailurile cu
+// mesajele oaspetelui (express@airbnb.com, „Ref: Rezervare la … pentru …”, antetul Reply-To; potrivite cu rezervarea după
+// linkul conversației hosting/thread/<id>). Un e-mail TEXT trimis pe ea de pe Gmail-ul contului Airbnb apare în
+// conversația Airbnb. Adresa există abia după primul mesaj al oaspetelui; până atunci rămân mesajele programate din
+// Airbnb și textele de lipit. Pe ea pleacă doar text fără numere de telefon (Airbnb le ascunde în mesaje).
+var CI_AIRBNB_EMAIL = "E-mail Airbnb";
+var CI_AIRBNB_REPLY_RE = /^[a-z0-9][a-z0-9-]{15,63}@reply\.airbnb\.com$/;
+var CI_AIRBNB_MSG_QUERY = "from:express@airbnb.com newer_than:45d";
+var CI_AIRBNB_FIRST_PROPERTY = "CI_AIRBNB_REPLY_CHECKED";   // după primul mesaj trimis automat (te rog să verifici o dată)
+var CI_AIRBNB_SEND_PROPERTY = "CI_AIRBNB_REPLY_SEND";       // "0" = nu trimit nimic pe adresa Airbnb (rămân textele de lipit)
 
 // Faza 2 — sosirea: fișa de cazare, codul de pe yală (prin ttlock.gs), e-mailurile.
 var CI_FORM_EMBED = "https://fisacazare.ro/app/embed?id=xnyDvg&sid=0&p=1&t=1&js=1"; // fișa, se poate precompleta
@@ -100,6 +110,7 @@ function checkinSync() {
     try { ciProcessAirbnbEmails(ctx); } catch (e) { ciStepError(ctx, "e-mailuri Airbnb", String(e && e.message || e).slice(0, 300)); }
     ciSyncSiteRequests(ctx);
     try { ciCheckAirbnbCalendar(ctx); } catch (e) { ciStepError(ctx, "calendar Airbnb", String(e && e.message || e).slice(0, 300)); }
+    try { ciProcessAirbnbMessages(ctx); } catch (e) { ciStepError(ctx, "mesaje Airbnb", String(e && e.message || e).slice(0, 300)); }
     if (typeof calSync === "function") {   // calendar.gs: blocările temporare „Așteaptă plata” + suprapuneri
       try { calSync(ctx); } catch (e) { ciStepError(ctx, "calendar", String(e && e.message || e).slice(0, 300)); }
     }
@@ -573,6 +584,110 @@ function ciCheckAirbnbCalendar(ctx) {
       ciLog(ctx, "Lipsește din calendarul Airbnb", nr, r["Check-in"] + " → " + r["Check-out"]);
     }
   });
+}
+
+/* ============================== AIRBNB: ADRESA DE RĂSPUNS A OASPETELUI ============================== */
+
+// Mesajele oaspeților (express@airbnb.com, X-Template homes_messaging/new_message) au Reply-To
+// „"Prenume (Airbnb)" <…36 caractere…@reply.airbnb.com>” și linkul conversației (hosting/thread/<id>), același ca în
+// e-mailul de confirmare. Adresa se scrie în „E-mail Airbnb” pe rezervarea cu același link (rezervare Airbnb neanulată,
+// neîncheiată); fără link potrivit: după datele din subiect, dacă o singură rezervare are acele date. Mesajele cu o
+// adresă deja cunoscută se sar repede (fără citirea corpului). Ultimul mesaj câștigă (dacă Airbnb schimbă adresa).
+function ciProcessAirbnbMessages(ctx) {
+  var rows = ctx.active.rows.filter(function (r) {
+    return r["Sursă"] === "Airbnb" && r["Stare"] !== CI_STATE_CANCELLED &&
+           (!/^\d{4}-\d{2}-\d{2}$/.test(r["Check-out"]) || r["Check-out"] >= ctx.today);
+  });
+  if (!rows.length) return;
+  var known = {};
+  rows.forEach(function (r) { var a = ciAirbnbReply(r); if (a) known[a] = true; });
+  var messages = [];
+  GmailApp.search(CI_AIRBNB_MSG_QUERY, 0, 30).forEach(function (t) {
+    t.getMessages().forEach(function (m) { messages.push(m); });
+  });
+  messages.sort(function (a, b) { return a.getDate() - b.getDate(); });
+  messages.forEach(function (m) {
+    var addr = ciReplyAddress(m.getReplyTo());
+    if (!addr || known[addr]) return;
+    var thread = (String(m.getPlainBody() || "").match(/hosting\/thread\/(\d+)/) || [])[1] || "";
+    var row = null;
+    if (thread) row = rows.filter(function (r) { return ciAirbnbThreadId(r) === thread; })[0] || null;
+    if (!row) {
+      var range = ciParseAirbnbRange(ciNfc(String(m.getSubject() || "")), m.getDate());
+      var cands = range.checkin ? rows.filter(function (r) {
+        return r["Check-in"] === range.checkin && (!range.checkout || r["Check-out"] === range.checkout);
+      }) : [];
+      // o rezervare cu altă conversație nu primește adresa (poate fi o solicitare a altcuiva pentru aceleași date)
+      if (cands.length === 1 && !(thread && ciAirbnbThreadId(cands[0]))) row = cands[0];
+    }
+    if (!row) return;
+    var prev = ciAirbnbReply(row);
+    row[CI_AIRBNB_EMAIL] = addr;
+    if (thread && !ciAirbnbThreadId(row)) row["Link"] = ciAirbnbLink(row["Nr. rezervare"], thread);
+    ciTouch(row);
+    known[addr] = true;
+    ciLog(ctx, prev ? "Adresă Airbnb schimbată" : "Adresă Airbnb găsită", row["Nr. rezervare"],
+          "din mesajul oaspetelui (" + ciClock(m.getDate().getTime()) + "): fișa, codul și mesajele de la 13:00 / 16:00 pleacă de acum direct în conversația Airbnb");
+  });
+}
+
+// „"Ion (Airbnb)" <abc…@reply.airbnb.com>” → „abc…@reply.airbnb.com” („” dacă nu e o adresă de răspuns Airbnb).
+function ciReplyAddress(s) {
+  s = String(s || "");
+  var a = ((s.match(/<([^>]+)>/) || [])[1] || s).trim().toLowerCase();
+  return CI_AIRBNB_REPLY_RE.test(a) ? a : "";
+}
+
+// Adresa de răspuns Airbnb din rând, doar dacă e validă („” altfel).
+function ciAirbnbReply(r) {
+  if (r["Sursă"] !== "Airbnb") return "";
+  var v = String(r[CI_AIRBNB_EMAIL] || "").trim().toLowerCase();
+  return CI_AIRBNB_REPLY_RE.test(v) ? v : "";
+}
+
+// Adresa pe care trimit acum: „” și când trimiterea automată e oprită (Script Property CI_AIRBNB_REPLY_SEND = "0").
+function ciAirbnbReplyTo(r) {
+  var a = ciAirbnbReply(r);
+  return a && PropertiesService.getScriptProperties().getProperty(CI_AIRBNB_SEND_PROPERTY) !== "0" ? a : "";
+}
+
+function ciAirbnbThreadId(r) { return (String(r["Link"] || "").match(/\/hosting\/thread\/(\d+)$/) || [])[1] || ""; }
+
+// Trimite un mesaj TEXT în conversația Airbnb (pe adresa de răspuns) și îl marchează în „Alerte” (flag). La primul
+// mesaj trimis vreodată așa, te rog o dată să verifici în conversație că a apărut (nu s-a putut testa dinainte).
+// noLog: apelantul scrie el în Jurnal (codul). → true în mod test (a plecat doar la proprietar).
+function ciAirbnbSend(ctx, r, flag, subject, text, what, noLog) {
+  var reply = ciAirbnbReplyTo(r);
+  var test = ciMailGuestText(reply, subject, text);
+  if (flag) ciMarkOnce(r, flag);
+  if (!noLog) ciLog(ctx, what, r["Nr. rezervare"], test ? "MOD TEST: la proprietar" : "în conversația Airbnb");
+  var props = PropertiesService.getScriptProperties();
+  if (!test && !props.getProperty(CI_AIRBNB_FIRST_PROPERTY)) {
+    props.setProperty(CI_AIRBNB_FIRST_PROPERTY, String(ctx.now));
+    ciAlertOnce(r, "airbnb-verifica", "Verifică: primul mesaj trimis automat în conversația Airbnb",
+      "Am trimis „" + what + "” pe adresa de răspuns Airbnb a oaspetelui " + (r["Nume"] || r["Nr. rezervare"]) +
+      ", de pe Gmail-ul contului. E primul mesaj trimis așa: deschide conversația și verifică că a apărut (ca mesaj de la tine). " +
+      "Dacă nu apare în câteva minute, scrie-i tu oaspetelui și spune-mi, ca să opresc trimiterea automată " +
+      "(Script Property " + CI_AIRBNB_SEND_PROPERTY + " = 0).");
+  }
+  return test;
+}
+
+// Fără adresa de răspuns Airbnb (oaspetele n-a scris încă): codul a plecat pe e-mailul din fișă, iar tu primești o dată
+// textul gata de lipit în conversația Airbnb (și la „De făcut” în panou).
+function ciAirbnbCodePaste(r, code) {
+  var t = ciSplitRoEn(ciBookingCodeText(r, code, true));
+  ciAlertOnce(r, "airbnb-cod-lipit", "Cod de trimis și în Airbnb: " + (r["Nume"] || r["Nr. rezervare"]),
+    "Codul " + code + "# (" + ciWindowLabel(r) + ") e pe yală" +
+    (r["E-mail"] ? " și a plecat pe e-mailul din fișă (" + r["E-mail"] + ")" : ", dar nu am e-mailul oaspetelui") + ". " +
+    "Oaspetele n-a scris încă în conversația Airbnb, deci nu i-l pot trimite eu acolo: lipește-i tu mesajul de mai jos, " +
+    "ca să-l aibă și în aplicația Airbnb.\n\n— RO —\n" + t[0] + "\n\n— EN —\n" + t[1]);
+}
+
+// Textele „RO\n----------\nEN” (ciBookingFormText / ciBookingCodeText) → [RO, EN] pentru blocurile de copiat.
+function ciSplitRoEn(text) {
+  var parts = String(text).split("\n" + CI_TEXT_SEPARATOR + "\n");
+  return [String(parts[0] || "").replace(/^\s+|\s+$/g, ""), String(parts[1] || "").replace(/^\s+|\s+$/g, "")];
 }
 
 /* ============================== BOOKING: CALENDAR (iCal) ============================== */
@@ -1074,7 +1189,14 @@ function ciSendFormLinks(ctx) {
       return;
     }
     if (r["Sursă"] === "Airbnb") {   // fișa pleacă prin mesajul programat din Airbnb („Informatii oaspeti”, ziua sosirii, 08:00)
-      if (!r["Link fișă trimis"]) {
+      // Cu adresa de răspuns a oaspetelui: încă un mesaj, direct în conversație, cu o zi înainte (sau imediat, dacă
+      // oaspetele scrie mai târziu), până la cod — ca la Booking.
+      if (ciAirbnbReplyTo(r) && !ciHasFlag(r, "airbnb-fisa") && !r["Cod pe yală"]) {
+        ciAirbnbSend(ctx, r, "airbnb-fisa", "Fișa de cazare · Registration form – " + BRAND + " · " +
+                     rangeShort(r["Check-in"], r["Check-out"] || r["Check-in"]), ciBookingFormText(r, ctx, true), "Link fișă trimis");
+        r["Link fișă trimis"] = new Date();
+        ciTouch(r);
+      } else if (!r["Link fișă trimis"]) {
         r["Link fișă trimis"] = "prin mesajul programat din Airbnb";
         ciTouch(r);
       }
@@ -1131,10 +1253,18 @@ function ciArrivalReminders(ctx) {
     }
 
     if (r["Sursă"] === "Airbnb") {
-      ciAlertOnce(r, "reminder-fisa", "Reminder fișă de trimis în Airbnb: " + (r["Nume"] || r["Nr. rezervare"]),
+      var reply = ciAirbnbReplyTo(r);
+      if (reply && !ciHasFlag(r, "airbnb-reminder")) {
+        ciAirbnbSend(ctx, r, "airbnb-reminder", "Fișa de cazare · Registration form – " + BRAND,
+                     ciReminderChatText("ro") + "\n\n" + CI_TEXT_SEPARATOR + "\n\n" + ciReminderChatText("en"), "Reminder fișă trimis");
+      }
+      ciAlertOnce(r, "reminder-fisa",
+        (reply ? "Reminder fișă trimis în conversația Airbnb: " : "Reminder fișă de trimis în Airbnb: ") + (r["Nume"] || r["Nr. rezervare"]),
         "Rezervarea Airbnb " + r["Nr. rezervare"] + " sosește azi, dar fișa de cazare nu e completată. " +
-        "Trimite-i oaspetelui, în conversația Airbnb, mesajul de mai jos (în limba lui). " +
-        "Dacă până la ora 16:00 tot nu o completează, pun automat pe yală un cod de rezervă și ți-l trimit, tot de lipit în conversație.\n\n" +
+        (reply ? "Am trimis mesajul de mai jos direct în conversația Airbnb (pe adresa de răspuns a oaspetelui). Verifică acolo că a apărut; dacă nu, lipește-l tu. "
+               : "Trimite-i oaspetelui, în conversația Airbnb, mesajul de mai jos (în limba lui). ") +
+        "Dacă până la ora 16:00 tot nu o completează, pun automat pe yală un cod de rezervă" +
+        (reply ? " și i-l trimit tot în conversația Airbnb.\n\n" : " și ți-l trimit, tot de lipit în conversație.\n\n") +
         "— RO —\n" + ciReminderChatText("ro") + "\n\n— EN —\n" + ciReminderChatText("en"));
       return;
     }
@@ -1193,11 +1323,17 @@ function ciBackupCodes(ctx) {
                                 ciBackupChatText("ro", code, r) + "\n\n" + ciBackupChatText("en", code, r));
         ciLog(ctx, "Cod de rezervă trimis", nr, t ? "MOD TEST: la proprietar" : "pe adresa Booking " + alias);
       }
-      var airbnb = r["Sursă"] === "Airbnb";
+      var airbnb = r["Sursă"] === "Airbnb", reply = ciAirbnbReplyTo(r);
+      if (reply) {
+        ciAirbnbSend(ctx, r, "airbnb-rezerva", "Codul de acces · Door code – " + BRAND,
+                     ciBackupChatText("ro", code, r) + "\n\n" + CI_TEXT_SEPARATOR + "\n\n" + ciBackupChatText("en", code, r), "Cod de rezervă trimis");
+      }
       ciAlertOnce(r, "rezerva-trimite",
-        (alias ? "Cod de rezervă trimis pe adresa Booking: " : airbnb ? "Cod de rezervă de trimis în Airbnb: " : "Cod de rezervă de trimis oaspetelui: ") + (r["Nume"] || nr),
+        (alias ? "Cod de rezervă trimis pe adresa Booking: " : reply ? "Cod de rezervă trimis în conversația Airbnb: "
+               : airbnb ? "Cod de rezervă de trimis în Airbnb: " : "Cod de rezervă de trimis oaspetelui: ") + (r["Nume"] || nr),
         "Fișa nu a fost completată până la ora 16:00, așa că am pus pe yală un cod de rezervă: " + code + "#  (" + ciWindowLabel(r) + ").\n" +
         (alias ? "L-am trimis direct pe adresa Booking a oaspetelui (" + alias + "). Verifică în Extranet că apare în conversație; dacă nu, lipește-i tu mesajul de mai jos."
+               : reply ? "L-am trimis direct în conversația Airbnb (pe adresa de răspuns a oaspetelui). Verifică acolo că a apărut; dacă nu, lipește-i tu mesajul de mai jos."
                : r["Sursă"] === "Booking" ? "Trimite-i din chatul Booking mesajul de mai jos."
                : airbnb ? "Trimite-i oaspetelui, în conversația Airbnb, mesajul de mai jos (în limba lui)." : "Trimite-i oaspetelui mesajul de mai jos.") + "\n\n" +
         "— RO —\n" + ciBackupChatText("ro", code, r) + "\n\n— EN —\n" + ciBackupChatText("en", code, r));
@@ -1450,10 +1586,13 @@ function ciMarkOnce(r, key) {
 }
 
 // Codul pleacă pe e-mailul din fișă (cu design) și, la Booking, și ca text pe adresa Booking (apare în conversația
-// din Extranet), ca oaspetele să-l primească sigur.
+// din Extranet), ca oaspetele să-l primească sigur. Airbnb: copia text pleacă în conversația Airbnb, pe adresa de
+// răspuns a oaspetelui; dacă oaspetele n-a scris încă (fără adresă), primești textul gata de lipit în conversație.
 function ciSendCode(ctx, r, code) {
   var alias = r["Sursă"] === "Booking" ? ciBookingAlias(r) : "";
-  if (!r["E-mail"] && !alias) {
+  var airbnb = r["Sursă"] === "Airbnb", reply = ciAirbnbReplyTo(r);
+  if (!r["E-mail"] && !alias && !reply) {
+    if (airbnb) { ciAirbnbCodePaste(r, code); return; }
     ciAlertOnce(r, "cod-fara-email", "Cod pus, dar fără e-mail: " + r["Nr. rezervare"],
       "Codul " + code + "# e pe yală (" + ciWindowLabel(r) + "), dar nu am adresa de e-mail a oaspetelui. Trimite-i-l tu.");
     return;
@@ -1469,7 +1608,13 @@ function ciSendCode(ctx, r, code) {
                            ciBookingCodeText(r, code)) || test;
     to.push("adresa Booking " + alias);
   }
-  if (!test) ciAlertOwner("Cod trimis: " + (r["Nume"] || r["Nr. rezervare"]),
+  if (reply) {
+    test = ciAirbnbSend(ctx, r, "airbnb-cod", "Codul de acces · Door code – " + BRAND + " · " + rangeShort(r["Check-in"], r["Check-out"]),
+                        ciBookingCodeText(r, code, true), "Cod trimis", true) || test;
+    to.push("conversația Airbnb");
+  }
+  if (airbnb && !reply) ciAirbnbCodePaste(r, code);
+  else if (!test) ciAlertOwner("Cod trimis: " + (r["Nume"] || r["Nr. rezervare"]),
     "Codul " + code + "# (" + ciWindowLabel(r) + ") a fost pus pe yală și trimis la " + to.join(" și pe ") + ".");
   r["Cod trimis"] = new Date();
   ciTouch(r);
@@ -1636,8 +1781,9 @@ function ciEnDayMonth(iso, year) {
   return CI_EN_DAYS[d.getUTCDay()] + ", " + d.getUTCDate() + " " + CI_EN_MONTHS[d.getUTCMonth()] + (year ? " " + d.getUTCFullYear() : "");
 }
 
-// Cu o zi înainte de sosire: fișa și ghidul.
-function ciBookingFormText(r, ctx) {
+// Cu o zi înainte de sosire: fișa și ghidul. airbnb = varianta pentru conversația Airbnb: fără numărul de telefon
+// (Airbnb îl ascunde în mesaje), cu „scrieți-ne aici, în conversația Airbnb”.
+function ciBookingFormText(r, ctx, airbnb) {
   var cin = r["Check-in"], tomorrow = cin === ciAddDays(ctx.today, 1), today = cin === ctx.today;
   var name = r["Nume"] ? firstName(String(r["Nume"])) : "";
   return [
@@ -1657,7 +1803,8 @@ function ciBookingFormText(r, ctx) {
     "2. Ghidul apartamentului (sosire, parcare, Wi-Fi, reguli):",
     CI_GUIDE_URL,
     "",
-    "Pentru orice întrebare: " + CI_PHONE_INTL + " (telefon / WhatsApp), între 08:00 și 22:00.",
+    airbnb ? "Pentru orice întrebare, scrieți-ne aici, în conversația Airbnb (răspundem între 08:00 și 22:00)."
+           : "Pentru orice întrebare: " + CI_PHONE_INTL + " (telefon / WhatsApp), între 08:00 și 22:00.",
     "",
     "Drum bun!",
     "Echipa " + BRAND,
@@ -1681,15 +1828,16 @@ function ciBookingFormText(r, ctx) {
     "2. Apartment guide (arrival, parking, Wi-Fi, house rules):",
     CI_GUIDE_URL,
     "",
-    "Any questions: " + CI_PHONE_INTL + " (phone / WhatsApp), 8 am – 10 pm.",
+    airbnb ? "Any questions? Just write to us here, in the Airbnb conversation (8 am – 10 pm)."
+           : "Any questions: " + CI_PHONE_INTL + " (phone / WhatsApp), 8 am – 10 pm.",
     "",
     "Have a safe trip!",
     "The " + BRAND + " team"
   ].join("\n");
 }
 
-// După fișă: copia codului (pe e-mailul din fișă pleacă și varianta cu design).
-function ciBookingCodeText(r, code) {
+// După fișă: copia codului (pe e-mailul din fișă pleacă și varianta cu design). airbnb = fără numărul de telefon.
+function ciBookingCodeText(r, code, airbnb) {
   var cin = r["Check-in"], cout = r["Check-out"], both = !!r["E-mail"];
   return [
     "Bună ziua,",
@@ -1709,7 +1857,8 @@ function ciBookingCodeText(r, code) {
     "Codul funcționează de " + ciRoDayMonth(cin) + ", ora 16:00, până " + ciRoDayMonth(cout) + ", ora " + ciOutLabel(r) + ". Ușa se încuie singură când o închideți.",
     "Adresa: " + CI_ADDRESS + ".",
     "Ghidul apartamentului: " + CI_GUIDE_URL,
-    (both ? "Același cod l-am trimis și pe adresa de e-mail din fișă. " : "") + "Pentru orice problemă: " + CI_PHONE_INTL + " (telefon / WhatsApp).",
+    (both ? "Același cod l-am trimis și pe adresa de e-mail din fișă. " : "") +
+      (airbnb ? "Pentru orice problemă, scrieți-ne aici, în conversația Airbnb." : "Pentru orice problemă: " + CI_PHONE_INTL + " (telefon / WhatsApp)."),
     "",
     CI_TEXT_SEPARATOR,
     "",
@@ -1730,7 +1879,8 @@ function ciBookingCodeText(r, code) {
     "The code works from " + ciEnDayMonth(cin) + ", 4:00 pm until " + ciEnDayMonth(cout) + ", " + ciOutLabelEn(r) + ". The door locks automatically when you close it.",
     "Address: " + CI_ADDRESS + ".",
     "Apartment guide: " + CI_GUIDE_URL,
-    (both ? "We have also sent the same code to the e-mail address in your form. " : "") + "If anything goes wrong: " + CI_PHONE_INTL + " (phone / WhatsApp)."
+    (both ? "We have also sent the same code to the e-mail address in your form. " : "") +
+      (airbnb ? "If anything goes wrong, just write to us here, in the Airbnb conversation." : "If anything goes wrong: " + CI_PHONE_INTL + " (phone / WhatsApp).")
   ].join("\n");
 }
 

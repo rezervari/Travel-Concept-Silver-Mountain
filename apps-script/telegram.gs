@@ -30,6 +30,7 @@ var TG_EVENT_RULES = [
   [/^(Rezervare confirmată|Rezervare reconfirmată)$/, "info", "✅"],
   [/^(Fișă primită|Încă o fișă|Fișă necitită)$/, "info", "📝"],
   [/^(Link fișă trimis|Reminder fișă trimis)$/, "info", "✉️"],
+  [/^Adresă Airbnb (găsită|schimbată)$/, "info", "💬"],
   [/^(Cod șters de pe yală|Valabilitate cod mutată)$/, "info", "🔑"],
   [/^(Plecare din calendar|Perioadă blocată|Perioadă redeschisă|Blocare temporară \(aștept plata\))$/, "info", "📅"],
   [/^Status solicitare: /, "info", "📋"],

@@ -77,6 +77,19 @@ Din 10 în 10 minute, scriptul ține la zi foaia **„Rezervări”** din acela�
   trimis” = „prin mesajul programat din Airbnb”). Rezervările Airbnb nu primesc e-mailul de recenzie Google.
   Rândul Airbnb din foaie și evenimentul „Reserved” din iCal sunt aceeași rezervare: panoul, alarma de suprapunere și
   încălzirea o numără o singură dată (`calAirbnbKnown`).
+- **Adresa de răspuns Airbnb** (coloana **„E-mail Airbnb”**, după „E-mail Booking”; o completează scriptul): când
+  oaspetele scrie în conversația Airbnb, primești e-mailul de la `express@airbnb.com` („Ref: Rezervare la … pentru …”),
+  cu `Reply-To: "<Prenume> (Airbnb)" <…@reply.airbnb.com>` și linkul conversației (`hosting/thread/<id>`, același ca în
+  confirmare). Scriptul pune adresa pe rezervarea cu același link (fără link potrivit: după datele din subiect, dacă o
+  singură rezervare le are). Un e-mail TEXT trimis pe ea de pe Gmail-ul contului apare în conversația Airbnb, deci de
+  acum pleacă acolo, ca la adresa Booking: fișa (cu o zi înainte, 10:00, sau imediat, dacă oaspetele scrie mai târziu,
+  până la cod), copia codului după fișă, reminderul de la 13:00 și codul de rezervă de la 16:00. Textele nu au numere de
+  telefon (Airbnb le ascunde): „scrieți-ne aici, în conversația Airbnb”. La primul mesaj trimis vreodată așa primești o
+  dată „Verifică: primul mesaj trimis automat în conversația Airbnb”. **Fără adresă** (oaspetele n-a scris încă): codul
+  pleacă pe e-mailul din fișă, iar tu primești „Cod de trimis și în Airbnb” cu textul RO + EN de lipit în conversație
+  (și la „De făcut” în panou, până apeși „Gata”). Oprire: Script Property `CI_AIRBNB_REPLY_SEND` = `0` (adresa se notează
+  în continuare, dar nu se mai trimite nimic pe ea; rămân textele de lipit). Marcaje în „Alerte”: `airbnb-fisa`,
+  `airbnb-reminder`, `airbnb-rezerva`, `airbnb-cod`, `airbnb-cod-lipit`, `airbnb-verifica`.
 - **Anulările** se mută în foaia **„Anulate”**. Tot ce face scriptul se notează în foaia **„Jurnal”**.
 
 Faza 1 **nu** trimite mesaje oaspeților și nu atinge yala (coloanele „Fișă…” / „Cod…” rămân goale).
