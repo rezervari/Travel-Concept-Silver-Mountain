@@ -5,7 +5,9 @@
  * ca descriere) → rândul apare în foaia Cheltuieli, iar botul răspunde cu ce a înțeles + totalul lunii, cu butoanele
  * Altă categorie / Altă dată / Anulează. Facturile lunare („Fixă lunară” în Setări): pe 1 ale lunii se creează rândurile
  * galbene (fără sumă), iar din data de 5, de la 08:00, botul trimite o dată lista celor lipsă, cu butoane: atingi una și
- * scrii suma. Comenzi: /luna, /lipsa, /anuleaza, /ajutor.
+ * scrii suma. Pe 20, de la 09:00, pleacă o dată pe e-mail (Gmail-ul contului) lista facturilor fără sumă din luna trecută
+ * și din lunile mai vechi, scrisă ca s-o poți trimite mai departe (finMailSend; manual: finFacturiEmail).
+ * Comenzi: /luna, /lipsa, /anuleaza, /ajutor.
  * Tot aici: o adresă …@guest.booking.com lipită în chat (eventual cu numărul rezervării) se pune în „Rezervări”, la
  * rezervarea Booking viitoare fără adresă (ciSetBookingEmail din checkin.gs); dacă sunt mai multe, botul întreabă.
  *
@@ -25,6 +27,12 @@ var FIN_TG_BILLS_PROP = "FIN_BILLS_MONTH";     // luna pentru care s-au creat r�
 var FIN_TG_REMIND_PROP = "FIN_REMIND_MONTH";   // luna în care s-a trimis lista facturilor lipsă
 var FIN_TG_REMIND_DAY = 5;
 var FIN_TG_REMIND_HOUR = 8;
+// Pe 20 ale lunii, de la 09:00 (sau la prima rulare de după, dacă scriptul n-a mers atunci), o dată pe lună: e-mail
+// către Gmail-ul contului cu facturile lunare fără sumă din luna trecută și din lunile mai vechi (luna curentă nu),
+// plus celelalte cheltuieli fără sumă, scris ca să poată fi trimis mai departe. Nimic lipsă → nu pleacă nimic.
+var FIN_MAIL_PROP = "FIN_MAIL_MONTH";            // luna în care a plecat e-mailul de pe 20
+var FIN_MAIL_DAY = 20;
+var FIN_MAIL_HOUR = 9;
 var FIN_TG_STATE_TTL = 1800;                   // 30 min: cât așteaptă botul suma / data / categoria cerută
 var FIN_TG_UNDO_TTL = 21600;                   // 6 h: cât se poate anula din buton
 var FIN_TG_MAX_AMOUNT = 100000;
@@ -445,7 +453,8 @@ function finTgUndoLast() {
 /* ============================== FACTURILE LUNARE ============================== */
 
 // Din checkinSync (la 10 minute). Pe 1 ale lunii: rândurile galbene pentru facturile lunare. Din ziua 5, după 08:00:
-// lista celor lipsă, o dată pe lună. Fără fișierul de cheltuieli (FIN_SS_ID) nu face nimic.
+// lista celor lipsă pe Telegram, o dată pe lună. Din ziua 20, după 09:00: e-mailul cu facturile lipsă din luna trecută
+// și mai vechi (finMailMissing / finMailSend), o dată pe lună. Fără fișierul de cheltuieli (FIN_SS_ID) nu face nimic.
 function finMonthly() {
   var p = PropertiesService.getScriptProperties();
   if (!p.getProperty(FIN_SS_PROP)) return;
@@ -453,7 +462,8 @@ function finMonthly() {
   var day = Number(Utilities.formatDate(now, FIN_TZ, "d")), hour = Number(Utilities.formatDate(now, FIN_TZ, "H"));
   var needBills = p.getProperty(FIN_TG_BILLS_PROP) !== ym;
   var needRemind = p.getProperty(FIN_TG_REMIND_PROP) !== ym && day >= FIN_TG_REMIND_DAY && hour >= FIN_TG_REMIND_HOUR;
-  if (!needBills && !needRemind) return;
+  var needMail = p.getProperty(FIN_MAIL_PROP) !== ym && day >= FIN_MAIL_DAY && hour >= FIN_MAIL_HOUR;
+  if (!needBills && !needRemind && !needMail) return;
   var lock = LockService.getUserLock();
   if (!lock.tryLock(10000)) return;
   try {
@@ -468,10 +478,150 @@ function finMonthly() {
       if (missing.length && tgReady()) finTgSendMissing(missing, true);
       p.setProperty(FIN_TG_REMIND_PROP, ym);
     }
+    if (needMail) {
+      var list = finMailMissing(S, ym);
+      if (list.bills.length || list.other.length) finMailSend(list, ym, true);
+      else console.log("E-mailul facturilor lipsă (" + ym + "): nimic de completat, nu pleacă nimic.");
+      p.setProperty(FIN_MAIL_PROP, ym);
+    }
   } finally {
     lock.releaseLock();
   }
 }
+
+/* ============================== E-MAILUL DE PE 20: FACTURI DE COMPLETAT ============================== */
+
+// Rulată manual din editor: trimite ACUM e-mailul cu lista de azi (ca să vezi cum arată), fără să schimbe nimic și fără
+// să conteze ca e-mailul lunii. Lista goală → doar mesaj în jurnalul execuției.
+function finFacturiEmail() {
+  var ym = finTgYm(finTgNow()), list = finMailMissing(finTgSheets(), ym);
+  if (!list.bills.length && !list.other.length) { console.log("Nimic de completat până la sfârșitul lunii trecute."); return; }
+  finMailSend(list, ym, false);
+  console.log("Trimis pe " + Session.getEffectiveUser().getEmail() + ": " + list.bills.length + " facturi lunare, " +
+              list.other.length + " alte cheltuieli fără sumă.");
+}
+
+// Cheltuielile fără sumă din lunile dinaintea lunii ym (luna curentă nu intră): { bills: facturile lunare („Fixă lunară”,
+// rândurile galbene), other: celelalte }, fiecare în ordinea datei (cele mai vechi primele).
+function finMailMissing(S, ym) {
+  var bills = [], other = [];
+  finTgRows(S).forEach(function (r) {
+    if (r.amount !== "" || finTgYm(r.date) >= ym) return;
+    (finTgIsFixed(S, r.cat) ? bills : other).push(r);
+  });
+  var byDate = function (a, b) { return a.date - b.date || (a.cat < b.cat ? -1 : a.cat > b.cat ? 1 : 0); };
+  return { bills: bills.sort(byDate), other: other.sort(byDate) };
+}
+
+// Pleacă pe Gmail-ul contului (îl trimiți tu mai departe). auto = e-mailul lunar (atunci și un mesaj pe Telegram).
+function finMailSend(list, ym, auto) {
+  var owner = Session.getEffectiveUser().getEmail();
+  var all = list.bills.concat(list.other);
+  var first = finTgYm(all[0].date), last = first;
+  all.forEach(function (r) { var m = finTgYm(r.date); if (m < first) first = m; if (m > last) last = m; });
+  var span = first === last ? finMailMonth(first) : finMailMonth(first, first.slice(0, 4) === last.slice(0, 4)) + " – " + finMailMonth(last);
+  var subject = "Facturi de completat · " + BRAND + " · " + span;
+  MailApp.sendEmail(owner, subject, finMailText(list, ym), { name: BRAND, htmlBody: finMailHtml(list, ym, span) });
+  if (auto && typeof tgReady === "function" && tgReady()) {
+    try {
+      finTgSend("🧾 <b>Facturi de completat</b> — ți-am trimis pe e-mail lista (" + all.length + ": " + tgEsc(span) +
+                "), ca s-o trimiți mai departe. O completezi și de aici: /lipsa.");
+    } catch (e) { console.warn("Telegram (facturi pe e-mail): " + e); }
+  }
+}
+
+// „2026-10” → „octombrie 2026” (sau doar „octombrie”, fără an)
+function finMailMonth(ym, noYear) {
+  var name = FIN_TG_MONTHS[Number(ym.slice(5, 7)) - 1];
+  return noYear ? name : name + " " + ym.slice(0, 4);
+}
+
+// Luna dinaintea lunii ym („2026-11” → „2026-10”).
+function finMailPrevYm(ym) {
+  var y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7)) - 1;
+  if (m < 1) { m = 12; y--; }
+  return y + "-" + (m < 10 ? "0" : "") + m;
+}
+
+// Facturile lunare grupate pe luni, cea mai recentă prima: [{ ym, label, rows }].
+function finMailGroups(rows, ym) {
+  var prev = finMailPrevYm(ym), groups = {}, order = [];
+  rows.forEach(function (r) {
+    var m = finTgYm(r.date);
+    if (!groups[m]) { groups[m] = []; order.push(m); }
+    groups[m].push(r);
+  });
+  order.sort().reverse();
+  return order.map(function (m) {
+    return { ym: m, label: finTgCap(finMailMonth(m)) + (m === prev ? " · luna trecută" : ""), rows: groups[m] };
+  });
+}
+
+function finMailText(list, ym) {
+  var out = ["Bună ziua,", "",
+    "În evidența cheltuielilor apartamentului A13 Travel Concept (complexul Silver Mountain, Poiana Brașov) lipsesc sumele " +
+    "pentru facturile de mai jos. Vă rog să-mi trimiteți, pentru fiecare, suma (și, dacă se poate, factura sau chitanța), " +
+    "răspunzând la acest e-mail.", ""];
+  finMailGroups(list.bills, ym).forEach(function (g) {
+    out.push(g.label.toUpperCase());
+    g.rows.forEach(function (r) { out.push("- " + r.cat + (r.vendor ? " (" + r.vendor + ")" : "")); });
+    out.push("");
+  });
+  if (list.other.length) {
+    out.push("ALTE CHELTUIELI FĂRĂ SUMĂ");
+    list.other.forEach(function (r) {
+      out.push("- " + finTgYmdRo(r.date) + " · " + r.cat + (r.vendor ? " (" + r.vendor + ")" : "") + (r.note ? " · " + r.note : ""));
+    });
+    out.push("");
+  }
+  out.push("Mulțumesc!", BRAND, "", "Lista e făcută automat din evidența cheltuielilor, pe 20 ale fiecărei luni (luna curentă nu intră).");
+  return out.join("\n");
+}
+
+function finMailHtml(list, ym, span) {
+  var groups = finMailGroups(list.bills, ym), n = list.bills.length + list.other.length;
+  function rowHtml(main, sub, right) {
+    return '<tr><td style="padding:11px 14px;border-top:1px solid ' + C.line + ';font-family:' + FONT + ';">' +
+             '<div style="font-size:15px;line-height:21px;font-weight:700;color:' + C.ink + ';">' + esc(main) + '</div>' +
+             (sub ? '<div style="font-size:13px;line-height:18px;color:' + C.gray + ';margin-top:2px;">' + esc(sub) + '</div>' : '') +
+           '</td>' +
+           '<td align="right" valign="top" style="padding:11px 14px;border-top:1px solid ' + C.line + ';font-family:' + FONT + ';' +
+             'font-size:13px;line-height:21px;font-weight:700;color:#8a6000;white-space:nowrap;">' + esc(right) + '</td></tr>';
+  }
+  function card(title, rowsHtml) {
+    return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;border:1px solid ' + C.line + ';border-radius:10px;border-collapse:separate;">' +
+             '<tr><td colspan="2" bgcolor="' + C.blueTint + '" style="background:' + C.blueTint + ';border-radius:10px 10px 0 0;padding:10px 14px;font-family:' + FONT + ';' +
+               'font-size:13px;line-height:18px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:' + C.blueDark + ';">' + esc(title) + '</td></tr>' +
+             rowsHtml + '</table>';
+  }
+  var cards = groups.map(function (g) {
+    return card(g.label, g.rows.map(function (r) { return rowHtml(r.cat, r.vendor, "suma lipsă"); }).join(""));
+  }).join("");
+  if (list.other.length) {
+    cards += card("Alte cheltuieli fără sumă", list.other.map(function (r) {
+      return rowHtml(r.cat + (r.vendor ? " · " + r.vendor : ""), finTgYmdRo(r.date) + (r.note ? " · " + r.note : ""), "suma lipsă");
+    }).join(""));
+  }
+  var inner =
+    headerBar("Facturi") +
+    bodyOpen() +
+      eyebrow("Evidența cheltuielilor") +
+      h1("Facturi de completat") +
+      p("Bună ziua,") +
+      p("În evidența cheltuielilor apartamentului <strong>A13 Travel Concept</strong> (complexul Silver Mountain, Poiana Brașov) " +
+        "lipsesc sumele pentru " + (n === 1 ? "factura" : "cele " + n + " facturi") + " de mai jos (" + esc(span) + ").") +
+      spacer(4) + cards +
+      noteBox("<strong style=\"color:" + C.blueDark + ";\">Ce am nevoie:</strong> pentru fiecare, suma de plată și, dacă se poate, " +
+              "factura sau chitanța (o poză e suficientă). Răspundeți direct la acest e-mail.") +
+      p("Mulțumesc!<br><strong style=\"color:" + C.blueDark + ";\">" + esc(BRAND) + "</strong>", "margin:22px 0 0;") +
+      p("Lista e făcută automat din evidența cheltuielilor, pe 20 ale fiecărei luni; luna curentă nu intră.",
+        "margin:18px 0 0;font-size:12px;line-height:18px;color:" + C.gray + ";") +
+    bodyClose() +
+    footer("Complex Silver Mountain · Poiana Brașov<br>Travel Concept International SRL · CUI RO15288158");
+  return layout("Lipsesc sumele pentru " + n + (n === 1 ? " factură" : " facturi") + " (" + span + ").", inner);
+}
+
+function finTgYmdRo(d) { return Utilities.formatDate(d, FIN_TZ, "dd.MM.yyyy"); }
 
 function finTgCreateBills(S, ym) {
   var rows = finTgRows(S), made = [], at = finTgLastRow(S) + 1;
