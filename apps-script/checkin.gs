@@ -606,6 +606,16 @@ function ciProcessAirbnbMessages(ctx) {
     t.getMessages().forEach(function (m) { messages.push(m); });
   });
   messages.sort(function (a, b) { return a.getDate() - b.getDate(); });
+  // Airbnb dă fiecărui mesaj ALTĂ adresă de răspuns: contează doar cel mai nou mesaj al fiecărei conversații
+  // (altfel adresa „se schimbă” la fiecare rulare între mesajele vechi — găsit 27.11.2026).
+  var newest = {};
+  messages.forEach(function (m) {
+    if (!ciReplyAddress(m.getReplyTo())) return;
+    var th = (String(m.getPlainBody() || "").match(/hosting\/thread\/(\d+)/) || [])[1] || ("subj:" + m.getSubject());
+    newest[th] = m;
+  });
+  messages = Object.keys(newest).map(function (k) { return newest[k]; })
+    .sort(function (a, b) { return a.getDate() - b.getDate(); });
   messages.forEach(function (m) {
     var addr = ciReplyAddress(m.getReplyTo());
     if (!addr || known[addr]) return;
@@ -1128,6 +1138,16 @@ function ciIssuePendingCodes(ctx) {
     try {
       id = ttlAddCode(ttlLockId(), code, ciCodeName(r), ciAt(r["Check-in"], CI_CHECKIN_HOUR), end);
     } catch (e) {
+      // -3007 = codul există deja pe yală. Dacă e chiar codul nostru (pus la o rulare a cărei salvare în foaie
+      // a eșuat), îl preluăm, fără să-l retrimitem oaspetelui.
+      var found = /-3007\b/.test(String(e.message || e)) ? ciFindOwnCode(r, code) : null;
+      if (found) {
+        r["Cod pe yală"] = code + "# · id " + found + " · " + ciWindowLabel(r);
+        if (!r["Cod trimis"]) r["Cod trimis"] = new Date();
+        ciTouch(r);
+        ciLog(ctx, "Cod găsit deja pe yală", nr, ciWindowLabel(r));
+        return;
+      }
       ciLog(ctx, "Cod nepus pe yală", nr, String(e.message || e).slice(0, 200));
       ciAlertOnce(r, "ttlock", "Codul pentru " + nr + " NU a putut fi pus pe yală",
         "Eroare TTLock: " + (e.message || e) + "\n\nReîncerc la fiecare 10 minute. Dacă gateway-ul din apartament e oprit, " +
@@ -1188,7 +1208,7 @@ function ciSendFormLinks(ctx) {
       }
       return;
     }
-    if (r["Sursă"] === "Airbnb") {   // fișa pleacă prin mesajul programat din Airbnb („Informatii oaspeti”, ziua sosirii, 08:00)
+    if (r["Sursă"] === "Airbnb") {   // fișa pleacă prin mesajul programat din Airbnb („Informatii oaspeti”, cu o zi înainte, 10:00)
       // Cu adresa de răspuns a oaspetelui: încă un mesaj, direct în conversație, cu o zi înainte (sau imediat, dacă
       // oaspetele scrie mai târziu), până la cod — ca la Booking.
       if (ciAirbnbReplyTo(r) && !ciHasFlag(r, "airbnb-fisa") && !r["Cod pe yală"]) {
@@ -1474,6 +1494,18 @@ function ciDeleteCodeNow(ctx, r, reason) {
 }
 
 function ciCodeId(r) { return (String(r["Cod pe yală"] || "").match(/id (\d+)/) || [])[1] || ""; }
+
+// keyboardPwdId-ul codului `code` de pe yală, dacă are exact numele pe care l-ar pune scriptul pentru rezervarea r
+// (adică l-am pus noi); altfel null. Dacă valabilitatea diferă, o mută pe cea a rezervării.
+function ciFindOwnCode(r, code) {
+  var lockId = ttlLockId();
+  var hit = (ttlCall("/v3/lock/listKeyboardPwd", { lockId: lockId, pageNo: 1, pageSize: 100 }).list || [])
+    .filter(function (c) { return String(c.keyboardPwd) === code && String(c.keyboardPwdName || "") === ciCodeName(r); })[0];
+  if (!hit) return null;
+  var start = ciAt(r["Check-in"], CI_CHECKIN_HOUR), end = ciOutAt(r);
+  if (Number(hit.startDate) !== start || Number(hit.endDate) !== end) ttlChangeCode(lockId, hit.keyboardPwdId, start, end);
+  return String(hit.keyboardPwdId);
+}
 
 function ciCodeName(r) {
   return ("A13 " + (r["Nume"] || r["Nr. rezervare"]) + " " + r["Check-in"].slice(8, 10) + "." + r["Check-in"].slice(5, 7)).slice(0, 40);
@@ -2411,6 +2443,9 @@ function ciEnsureSheet(ss, name, headers) {
     var at = i > 0 ? hdr.indexOf(headers[i - 1]) : -1;
     if (at >= 0 && at < hdr.length - 1) {
       sh.insertColumnAfter(at + 1);
+      // Coloana nouă moștenește formatul și VALIDAREA coloanei din stânga (așa a primit „E-mail Airbnb” regula
+      // „@guest.booking.com” și salvarea s-a blocat pe 27.11.2026) → se scot.
+      sh.getRange(2, at + 2, Math.max(sh.getMaxRows() - 1, 1), 1).clearDataValidations().clearNote();
       hdr.splice(at + 1, 0, h);
     } else {
       hdr.push(h);
@@ -2444,6 +2479,7 @@ function checkinColoanaBooking() {
 function ciLoadTable(ss, name, headers) {
   var sh = ciEnsureSheet(ss, name, headers);
   var header = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(String);
+  if (name === CI_SHEET) ciFixValidations(sh, header);
   var rows = [];
   if (sh.getLastRow() > 1) {
     sh.getRange(2, 1, sh.getLastRow() - 1, header.length).getValues().forEach(function (v) {
@@ -2454,6 +2490,18 @@ function ciLoadTable(ss, name, headers) {
     });
   }
   return { sheet: sh, header: header, rows: rows, snapshot: JSON.stringify(rows) };
+}
+
+// În „Rezervări” doar „E-mail Booking” și „Limba” au validare. Una ajunsă pe altă coloană (moștenită la inserarea
+// unei coloane sau extinsă de mână) ar bloca salvarea întregii foi → se scoate.
+function ciFixValidations(sh, header) {
+  if (sh.getMaxRows() < 2) return;
+  var dv = sh.getRange(2, 1, 1, header.length).getDataValidations()[0];
+  header.forEach(function (h, i) {
+    if (!dv[i] || h === CI_BOOKING_EMAIL || h === CI_LANG) return;
+    sh.getRange(2, i + 1, sh.getMaxRows() - 1, 1).clearDataValidations();
+    console.warn("Validare scoasă de pe coloana „" + h + "” din „" + sh.getName() + "”.");
+  });
 }
 
 function ciNormCell(h, v) {
@@ -2495,15 +2543,17 @@ function ciWriteTable(t) {
   // ca o adresă lipită în cele câteva secunde cât rulează sincronizarea să nu fie suprascrisă.
   var manual = ciManualColumn(sh, t.header, CI_BOOKING_EMAIL);
   var manualLang = ciManualColumn(sh, t.header, CI_LANG);   // „Limba” scrisă de mână între timp (doar dacă nu e goală)
-  if (sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, width).clearContent();
-  if (!t.rows.length) return;
   var values = t.rows.map(function (r) {
     var nr = String(r["Nr. rezervare"]);
     if (manual && manual.hasOwnProperty(nr)) r[CI_BOOKING_EMAIL] = manual[nr];
     if (manualLang && manualLang[nr]) r[CI_LANG] = manualLang[nr];
     return t.header.map(function (h) { return ciCell(h, r[h]); });
   });
-  sh.getRange(2, 1, values.length, width).setValues(values);
+  // Întâi se scriu rândurile noi, abia apoi se golesc cele rămase dedesubt: dacă scrierea eșuează (ex. o validare
+  // care respinge o valoare), rândurile vechi rămân în foaie, în loc să fie șterse înainte (pierdere din 27.11.2026).
+  if (values.length) sh.getRange(2, 1, values.length, width).setValues(values);
+  var extra = sh.getLastRow() - 1 - values.length;
+  if (extra > 0) sh.getRange(2 + values.length, 1, extra, width).clearContent();
 }
 
 // { nr. rezervare: valoarea din coloana col } citite acum din foaie (null dacă foaia nu are coloana).
